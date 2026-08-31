@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+uploads/
+temp_uploads/
+*.pdf
+*.docx
+*.doc

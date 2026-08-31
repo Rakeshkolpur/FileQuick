@@ -1,0 +1,17 @@
+# Conversion service (server/convert_server.py)
+Flask>=3.0,<4
+flask-cors>=4.0
+Werkzeug>=3.0
+
+# Word/Office -> PDF also needs a LibreOffice install (the `soffice` binary).
+# PDF -> Word:
+pdf2docx>=0.5.8
+# Unlock / Protect PDF (decrypt, remove restrictions, add password) — bundles qpdf:
+pikepdf>=8
+# Compress PDF (recompress embedded images, keep text selectable):
+pymupdf>=1.24
+Pillow>=10
+# PDF -> PowerPoint (one slide per rendered page):
+python-pptx>=0.6.23
+# PDF -> Excel (write the detected tables):
+openpyxl>=3.1

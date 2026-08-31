@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+
+/* Custom styles will be added in App.css */
+@custom-variant dark (&:where(.dark, .dark *));
+
+

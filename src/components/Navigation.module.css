@@ -1,0 +1,89 @@
+/* Navigation styles */
+.navbarSticky {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  transition: all 0.3s ease;
+}
+
+.navbarScrolled {
+  background-color: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.navbarScrolled.dark {
+  background-color: rgba(17, 24, 39, 0.95);
+}
+
+.navItem {
+  transition: transform 0.2s ease;
+}
+
+.navItemHover:hover {
+  transform: scale(1.05);
+}
+
+/* Mega-menu panel: quick fade + slide down */
+.menuPanel {
+  animation: menuPanelIn 0.18s ease-out forwards;
+  transform-origin: top center;
+}
+
+@keyframes menuPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Each menu row drops in one after another */
+.menuItem {
+  opacity: 0;
+  animation: menuItemIn 0.26s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes menuItemIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fadeIn {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+.scaleIn {
+  animation: scaleIn 0.3s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
