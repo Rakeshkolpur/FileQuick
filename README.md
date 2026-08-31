@@ -1,111 +1,72 @@
-# PDF Editor Application
+# FileQuick
 
-A comprehensive PDF editing web application that converts PDFs to editable format while preserving formatting.
+All your file tools in one place — resize, compress, convert, merge, sign and
+edit images and PDFs. **Most tools run entirely in the browser**, so files never
+leave the visitor's device.
 
-## Features
+## What's in the box
 
-- Upload and convert PDF documents to editable format
-- Drag-and-drop text editing with formatting options (font size, color, alignment)
-- Page management (add, delete, duplicate pages)
-- Image insertion and manipulation
-- Document download in PDF or DOCX format
-- Modern Google Docs-like interface with smooth animations
+**Image** — resize, crop, compress, convert (JPG/PNG/WebP/PDF), remove background.
 
-## Tech Stack
+**PDF (browser-only)** — merge, split, rotate, crop pages, add watermark, add
+page numbers, organize, remove pages, extract pages / images / text (with OCR),
+editor, fill & sign, image ↔ PDF, text ↔ PDF.
 
-### Frontend
-- React.js
-- React Konva for canvas-based editing
-- Framer Motion for animations
-- React Router for navigation
-- Axios for API requests
+**PDF (conversion server)** — Word / PowerPoint / Excel → PDF and back, unlock,
+protect, compress.
 
-### Backend
-- Flask (Python) for PDF processing
-- PyMuPDF for PDF rendering and manipulation
-- pdfplumber for structure extraction
-- python-docx for Word document creation
-- Express.js for server proxy
+## Tech
 
-## Setup
+- **Frontend:** React 18 + Vite 5 + Tailwind v4 + React Router 6. Client-side
+  PDF work uses `pdf-lib` and `pdfjs-dist`; OCR uses `tesseract.js`; background
+  removal uses `@imgly/background-removal` (WASM).
+- **Conversion server:** `server/` — a small Flask app that shells out to
+  **LibreOffice** (Office ↔ PDF) and uses PyMuPDF / pdf2docx / python-pptx /
+  openpyxl / pikepdf. Stateless; every file is deleted right after the response.
 
-### Prerequisites
-- Node.js (v14+)
-- Python (v3.8+)
-- Git
+## Local development
 
-### Installation
-
-1. Clone the repository
-```bash
-git clone <repository-url>
-cd pdf-editor-app
-```
-
-2. Install frontend dependencies
 ```bash
 npm install
+npm run dev          # frontend on http://localhost:5173
+npm run server       # conversion server on http://localhost:5000 (optional)
+npm start            # both at once
 ```
 
-3. Install backend dependencies
+The conversion server needs Python 3.10+ and LibreOffice installed:
+
 ```bash
-cd server
-pip install -r requirements.txt
-cd ..
+pip install -r server/requirements.txt
+# Windows:  winget install TheDocumentFoundation.LibreOffice
+# Debian:   apt-get install libreoffice-writer libreoffice-impress libreoffice-calc
 ```
 
-### Running the Application
+Without it, the ~25 browser-only tools work fine; the server-backed ones show an
+"engine offline" badge.
 
-1. Start the development server (frontend)
-```bash
-npm run dev
-```
+## Deployment
 
-2. Start the backend server
-```bash
-npm run server
-```
+**Frontend** → Vercel, Netlify or Cloudflare Pages. Connect this repo; every push
+to `main` rebuilds and deploys. Config is included (`vercel.json`,
+`public/_redirects`). Set:
 
-3. Access the application at `http://localhost:5173`
+- `SITE_URL` — your domain, e.g. `https://filequick.app` (used by the sitemap)
+- `VITE_API_URL` — the conversion server's URL (below)
 
-## Project Structure
+**Conversion server** → Render, Railway, Fly.io or a VPS. `server/Dockerfile`
+bundles LibreOffice + fonts. Set `ALLOWED_ORIGINS` to your site's domain. See
+[`server/README.md`](server/README.md).
 
-```
-.
-├── src/
-│   ├── components/
-│   │   └── tools/                      # one component per tool (image/ pdf/ conversion/)
-│   ├── lib/                            # shared engines (pdfjs, pdfAnnotate, api, zip, …)
-│   ├── data/
-│   │   └── tools.jsx                   # tool registry (id, title, lazy loader)
-│   ├── routes.jsx                      # app routes
-│   └── main.jsx                        # application entry point
-├── server/
-│   ├── convert_server.py               # the one Flask service — every server-side endpoint
-│   ├── requirements.txt                # Python dependencies
-│   └── Dockerfile                      # production image (LibreOffice + fonts baked in)
-└── package.json                        # `npm run dev`, `npm run server`, `npm run build`
-```
+## Scripts
 
-All server-side work (Word↔PDF, unlock, protect, compress, fill & sign) runs through the
-single `server/convert_server.py` Flask app on port 5000. Start it with `npm run server`.
+| command | what it does |
+| --- | --- |
+| `npm run dev` | Vite dev server |
+| `npm run build` | regenerate `sitemap.xml` / `robots.txt`, then build to `dist/` |
+| `npm run server` | run the conversion server |
+| `npm run lint` | ESLint |
+| `npm run seo` | regenerate `sitemap.xml` / `robots.txt` only |
 
-## Usage
+## Contact
 
-1. Navigate to the PDF Editor tool from the homepage
-2. Upload a PDF file by dragging and dropping or using the file browser
-3. Edit the document using the toolbar options:
-   - Add text with formatting options
-   - Insert images
-   - Manage pages
-   - Apply text formatting (font, size, color, alignment)
-4. Save your document as PDF or Word
-5. Download the edited document
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
+mju646139@gmail.com · Tarnaka, Hyderabad, India
