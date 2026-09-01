@@ -28,6 +28,9 @@ const I = {
   present: <Svg d="M3 4h18M4 4v9a2 2 0 002 2h12a2 2 0 002-2V4M9 20l3-4 3 4" />,
   grid: <Svg d="M4 4h16v16H4zM4 10h16M4 15h16M10 4v16M15 4v16" />,
   doc: <Svg d="M8 3h6l4 4v13a1 1 0 01-1 1H8a1 1 0 01-1-1V4a1 1 0 011-1zM14 3v4h4M9 13h6M9 17h6" />,
+  user: <Svg d="M15.5 8.5a3.5 3.5 0 11-7 0 3.5 3.5 0 017 0zM4.5 20a7.5 7.5 0 0115 0" />,
+  idcard: <Svg d="M3 6h18v12H3zM8 11a2 2 0 100-4 2 2 0 000 4zm-2 5a2.5 2.5 0 015 0M14 9h4M14 13h4" />,
+  upscale: <Svg d="M4 9V4h5M20 15v5h-5M4 4l6 6M20 20l-6-6M15 4h5v5M9 20H4v-5" />,
 };
 
 // category: 'image' | 'pdf'
@@ -39,6 +42,9 @@ const TOOLS = [
   { id: 'crop-image', title: 'Crop Image', category: 'image', group: 'Resize & Crop', icon: I.crop,
     description: 'Crop, rotate and straighten images, with aspect and social-media presets.',
     load: () => import('../components/tools/image/ImageCrop.jsx') },
+  { id: 'profile-picture', title: 'Profile Picture Maker', category: 'image', group: 'Resize & Crop', icon: I.user, popular: true,
+    description: 'Crop a photo to the exact profile, post, story or cover size for WhatsApp, Instagram, Facebook, LinkedIn, YouTube and more.',
+    load: () => import('../components/tools/image/ProfilePictureMaker.jsx') },
   { id: 'compress-image', title: 'Compress Image', category: 'image', group: 'Optimize', icon: I.compress, popular: true,
     description: 'Make an image file smaller by quality or a target size — same dimensions.',
     load: () => import('../components/tools/image/ImageCompress.jsx') },
