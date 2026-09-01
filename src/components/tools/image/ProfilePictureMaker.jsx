@@ -8,6 +8,7 @@ import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
 import { formatBytes, stripExt } from '../../../lib/format';
 import { encodeImage, outExt, rotateToCanvas } from '../../../lib/imageResize';
+import { cutoutBackground, loadCutout, compositeOnColor, preloadBackgroundModel } from '../../../lib/backgroundRemoval';
 
 const PLATFORMS = [
   { key: 'whatsapp', name: 'WhatsApp', sizes: [
@@ -76,8 +77,18 @@ const FORMATS = [
   { value: 'webp', label: 'WebP' },
 ];
 
-const chip = 'px-2.5 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors';
-const chipActive = 'px-2.5 py-1 text-xs rounded-md bg-purple-600 text-white';
+const BG_COLORS = [
+  { label: 'White', value: '#ffffff' },
+  { label: 'Grey', value: '#f1f3f5' },
+  { label: 'Sky', value: '#dbeafe' },
+  { label: 'Blue', value: '#2563eb' },
+  { label: 'Red', value: '#dc2626' },
+  { label: 'Black', value: '#111827' },
+  { label: 'None', value: 'transparent' },
+];
+
+const chip = 'px-2 py-1 text-[11px] rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors';
+const chipActive = 'px-2 py-1 text-[11px] rounded-md bg-purple-600 text-white';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -106,6 +117,13 @@ const ProfilePictureMaker = () => {
   const [crop, setCrop] = useState(null);
   const [completed, setCompleted] = useState(null);
 
+  // background removal
+  const [bgOn, setBgOn] = useState(false);
+  const [bgColor, setBgColor] = useState('#ffffff');
+  const [cutoutImg, setCutoutImg] = useState(null);
+  const [bgBusy, setBgBusy] = useState(false);
+  const [bgProgress, setBgProgress] = useState(0);
+
   const [format, setFormat] = useState('jpeg');
   const [quality, setQuality] = useState(92);
   const [roundExport, setRoundExport] = useState(false);
@@ -117,6 +135,8 @@ const ProfilePictureMaker = () => {
   const platform = PLATFORMS.find((p) => p.key === platformKey) || PLATFORMS[0];
   const size = platform.sizes[sizeIdx] || platform.sizes[0];
   const aspect = size.w / size.h;
+
+  useEffect(() => { preloadBackgroundModel(); }, []);
 
   const loadImage = (f) => new Promise((resolve, reject) => {
     const url = URL.createObjectURL(f);
@@ -134,6 +154,8 @@ const ProfilePictureMaker = () => {
     setFile(f);
     setRotation(0);
     setZoom(100);
+    setBgOn(false);
+    setCutoutImg(null);
     try {
       const im = await loadImage(f);
       if (t === loadToken.current) setImg(im);
@@ -162,15 +184,43 @@ const ProfilePictureMaker = () => {
   const reset = () => {
     loadToken.current += 1;
     setFile(null); setImg(null); setResult(null); setError(null);
+    setBgOn(false); setCutoutImg(null);
   };
 
-  // rotated working canvas
-  const workCanvas = useMemo(() => (img ? rotateToCanvas(img, rotation) : null), [img, rotation]);
+  const toggleBg = async (on) => {
+    setBgOn(on);
+    setResult(null);
+    if (!on || cutoutImg || !file) return;
+    setBgBusy(true);
+    setBgProgress(0);
+    setError(null);
+    try {
+      const png = await cutoutBackground(file, (p) => setBgProgress(p));
+      const cut = await loadCutout(png);
+      setCutoutImg(cut);
+    } catch (e) {
+      setError('Background removal failed — try a clearer photo.');
+      setBgOn(false);
+    } finally {
+      setBgBusy(false);
+    }
+  };
+
+  // background-composited (or original) source, then rotated
+  const baseSource = useMemo(() => {
+    if (bgOn && cutoutImg) return compositeOnColor(cutoutImg, bgColor);
+    return img;
+  }, [img, bgOn, cutoutImg, bgColor]);
+
+  const workCanvas = useMemo(
+    () => (baseSource ? rotateToCanvas(baseSource, rotation) : null),
+    [baseSource, rotation],
+  );
   const workUrl = useMemo(() => (workCanvas ? workCanvas.toDataURL('image/png') : null), [workCanvas]);
   const natW = workCanvas?.width || 0;
   const natH = workCanvas?.height || 0;
 
-  // largest aspect-correct box (in %) then shrink by zoom, keep the current centre
+  // largest aspect-correct box (%) shrunk by zoom, centred on (cx, cy)
   const boxFor = useCallback((z, cx = 50, cy = 50) => {
     if (!natW || !natH) return null;
     const arImg = natW / natH;
@@ -186,12 +236,16 @@ const ProfilePictureMaker = () => {
   }, [natW, natH, aspect]);
 
   // reseed the crop whenever the image, target size or rotation changes
-  const seedKey = `${natW}x${natH}:${platformKey}:${sizeIdx}`;
+  const seedKey = `${natW}x${natH}:${platformKey}:${sizeIdx}:${rotation}`;
   useEffect(() => {
-    if (!boxFor) return;
+    if (!natW || !natH) return;
     setResult(null);
-    setZoom(100);
-    const c = boxFor(100);
+    // For a round profile size, start pulled-in and framed on the upper half
+    // (where a face usually sits) so the whole circle is visible.
+    const startZoom = size.round ? 135 : 100;
+    const startY = size.round ? 42 : 50;
+    setZoom(startZoom);
+    const c = boxFor(startZoom, 50, startY);
     if (c) { setCrop(c); setCompleted(c); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seedKey]);
@@ -243,7 +297,7 @@ const ProfilePictureMaker = () => {
         format: effFormat,
         quality: quality / 100,
         highQuality: true,
-        background: '#ffffff',
+        background: bgOn && bgColor !== 'transparent' ? bgColor : '#ffffff',
       });
       setResult({ blob, size: blob.size, format: effFormat });
     } catch (e) {
@@ -277,32 +331,36 @@ const ProfilePictureMaker = () => {
   ) : null;
 
   const sidebar = (
-    <>
-      <section className="space-y-2">
+    // one wrapper so ToolWorkspace's `space-y-5` doesn't stack on our own gaps
+    <div className="space-y-3 -mt-1">
+      <section className="space-y-1.5">
         <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Where&apos;s it for?</h3>
-        <div className="flex flex-wrap gap-1.5">
+        <div
+          className="flex gap-1.5 overflow-x-auto -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
           {PLATFORMS.map((p) => (
             <button
               key={p.key}
               type="button"
               onClick={() => { setPlatformKey(p.key); setSizeIdx(0); }}
-              className={p.key === platformKey ? chipActive : chip}
+              className={`${p.key === platformKey ? chipActive : chip} whitespace-nowrap shrink-0`}
             >
               {p.name}
             </button>
           ))}
         </div>
+        <p className="text-[10px] text-gray-400 dark:text-gray-500">swipe for more →</p>
       </section>
 
-      <section className="space-y-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+      <section className="space-y-1.5 pt-3 border-t border-gray-200 dark:border-gray-700">
         <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{platform.name} size</h3>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1">
           {platform.sizes.map((s, i) => (
             <button
               key={s.label}
               type="button"
               onClick={() => setSizeIdx(i)}
-              className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${
+              className={`flex items-center justify-between rounded-lg px-2.5 py-1.5 text-[13px] transition-colors ${
                 i === sizeIdx
                   ? 'bg-purple-600 text-white'
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
@@ -312,7 +370,7 @@ const ProfilePictureMaker = () => {
                 {s.round && <span aria-hidden>◯</span>}
                 {s.label}
               </span>
-              <span className={`text-xs tabular-nums ${i === sizeIdx ? 'text-white/80' : 'text-gray-400 dark:text-gray-500'}`}>
+              <span className={`text-[11px] tabular-nums ${i === sizeIdx ? 'text-white/80' : 'text-gray-400 dark:text-gray-500'}`}>
                 {s.w}×{s.h}
               </span>
             </button>
@@ -320,7 +378,7 @@ const ProfilePictureMaker = () => {
         </div>
       </section>
 
-      <section className="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+      <section className="space-y-2.5 pt-3 border-t border-gray-200 dark:border-gray-700">
         <RangeSlider label="Zoom" value={zoom} min={100} max={300} step={5} suffix="%" onChange={onZoom} />
         <div className="flex items-center gap-1.5">
           <span className="text-xs font-medium text-gray-600 dark:text-gray-300 mr-1">Rotate</span>
@@ -337,8 +395,77 @@ const ProfilePictureMaker = () => {
         </div>
       </section>
 
-      <section className="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Output</h3>
+      <section className="space-y-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+        <label className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
+          <input
+            type="checkbox"
+            checked={bgOn}
+            disabled={bgBusy}
+            onChange={(e) => toggleBg(e.target.checked)}
+            className="h-4 w-4 accent-purple-600"
+          />
+          Replace background
+        </label>
+        {bgBusy && (
+          <div>
+            <div className="h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+              <div className="h-full bg-purple-600 transition-all" style={{ width: `${Math.round(bgProgress * 100)}%` }} />
+            </div>
+            <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">
+              Cutting out the background… first run also downloads the model (~40&nbsp;MB).
+            </p>
+          </div>
+        )}
+        {bgOn && cutoutImg && !bgBusy && (
+          <div className="flex flex-wrap gap-1.5">
+            {BG_COLORS.map((c) => (
+              <button
+                key={c.value}
+                type="button"
+                title={c.label}
+                onClick={() => { setBgColor(c.value); setResult(null); }}
+                className={`h-7 w-7 rounded-lg border-2 transition-transform ${
+                  bgColor === c.value ? 'border-purple-600 scale-110' : 'border-gray-200 dark:border-gray-600'
+                } ${c.value === 'transparent' ? 'bg-checkered' : ''}`}
+                style={c.value === 'transparent' ? undefined : { background: c.value }}
+              />
+            ))}
+            <label
+              className={`h-7 w-7 rounded-lg border-2 grid place-items-center cursor-pointer ${
+                BG_COLORS.every((c) => c.value !== bgColor) ? 'border-purple-600 scale-110' : 'border-gray-200 dark:border-gray-600'
+              }`}
+              style={{ background: BG_COLORS.every((c) => c.value !== bgColor) ? bgColor : 'transparent' }}
+              title="Custom colour"
+            >
+              <input
+                type="color"
+                value={/^#/.test(bgColor) ? bgColor : '#8888aa'}
+                onChange={(e) => { setBgColor(e.target.value); setResult(null); }}
+                className="sr-only"
+              />
+              <svg className="h-3.5 w-3.5 text-gray-500 dark:text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" d="M12 5v14M5 12h14" />
+              </svg>
+            </label>
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Output</h3>
+          {size.round && (
+            <label className="flex items-center gap-1.5 text-[12px] text-gray-600 dark:text-gray-300" title={`Transparent PNG circle — ${platform.name} usually rounds it for you`}>
+              <input
+                type="checkbox"
+                checked={roundExport}
+                onChange={(e) => { setRoundExport(e.target.checked); setResult(null); }}
+                className="h-3.5 w-3.5 accent-purple-600"
+              />
+              circle cut-out
+            </label>
+          )}
+        </div>
         <Segmented
           options={(size.round && roundExport) ? FORMATS.filter((f) => f.value === 'png') : FORMATS}
           value={effFormat}
@@ -347,34 +474,18 @@ const ProfilePictureMaker = () => {
         {showQuality && (
           <RangeSlider label="Quality" value={quality} min={40} max={100} onChange={(v) => { setQuality(v); setResult(null); }} suffix="%" />
         )}
-        {size.round && (
-          <label className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
-            <input
-              type="checkbox"
-              checked={roundExport}
-              onChange={(e) => { setRoundExport(e.target.checked); setResult(null); }}
-              className="mt-0.5 h-4 w-4 accent-purple-600"
-            />
-            <span>
-              Export as a circle
-              <span className="block text-[11px] text-gray-400 dark:text-gray-500">
-                Transparent PNG. Leave off for a normal square — {platform.name} rounds it for you.
-              </span>
-            </span>
-          </label>
-        )}
       </section>
 
       {error && <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{error}</p>}
-    </>
+    </div>
   );
 
   const footer = (
     <button
       type="button"
       onClick={run}
-      disabled={!completed || busy}
-      className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+      disabled={!completed || busy || bgBusy}
+      className="w-full py-2.5 rounded-xl font-semibold text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
     >
       {busy ? 'Working…' : `Make ${platform.name} ${size.label.toLowerCase()}`}
     </button>
@@ -393,46 +504,48 @@ const ProfilePictureMaker = () => {
       footer={footer}
       result={resultView}
     >
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-        <div className="min-w-0 flex items-center gap-2 text-sm">
-          <span className="font-medium text-gray-900 dark:text-white truncate max-w-[12rem]">{file?.name}</span>
-          <span className="text-gray-400">·</span>
-          <span className="rounded-md bg-purple-100 dark:bg-purple-900/40 px-1.5 py-0.5 text-purple-700 dark:text-purple-300 font-medium tabular-nums">
-            {size.w} × {size.h}
+      <div className="mx-auto" style={{ maxWidth: 560 }}>
+        <div className="flex items-center justify-between gap-2 mb-2 text-[13px]">
+          <span className="min-w-0 truncate font-medium text-gray-900 dark:text-white">{file?.name}</span>
+          <span className="flex items-center gap-2 shrink-0">
+            <span className="rounded-md bg-purple-100 dark:bg-purple-900/40 px-1.5 py-0.5 text-purple-700 dark:text-purple-300 font-medium tabular-nums">
+              {size.w}×{size.h}
+            </span>
+            <button
+              type="button"
+              onClick={reset}
+              className="px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+            >
+              Change
+            </button>
           </span>
         </div>
-        <button
-          type="button"
-          onClick={reset}
-          className="text-sm px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
-        >
-          Choose another
-        </button>
-      </div>
 
-      <div className="rounded-xl bg-checkered flex items-center justify-center p-3 min-h-[320px] relative overflow-hidden">
-        {busy && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 dark:bg-gray-900/60 rounded-xl">
-            <div className="w-10 h-10 border-4 border-t-purple-600 border-gray-300 dark:border-gray-600 rounded-full animate-spin" />
-          </div>
-        )}
-        {workUrl && (
-          <ReactCrop
-            crop={crop}
-            onChange={(_, p) => { setCrop(p); setResult(null); }}
-            onComplete={(_, p) => setCompleted(p)}
-            aspect={aspect}
-            circularCrop={size.round}
-            keepSelection
-            ruleOfThirds
-          >
-            <img src={workUrl} alt="To resize" className="max-h-[440px] max-w-full w-auto object-contain select-none" />
-          </ReactCrop>
-        )}
+        <div className="rounded-xl bg-checkered flex items-center justify-center p-2 relative overflow-hidden" style={{ height: 384 }}>
+          {(busy || bgBusy) && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 dark:bg-gray-900/60 rounded-xl">
+              <div className="w-9 h-9 border-4 border-t-purple-600 border-gray-300 dark:border-gray-600 rounded-full animate-spin" />
+            </div>
+          )}
+          {workUrl && (
+            <ReactCrop
+              crop={crop}
+              onChange={(_, p) => { setCrop(p); setResult(null); }}
+              onComplete={(_, p) => setCompleted(p)}
+              aspect={aspect}
+              circularCrop={size.round}
+              keepSelection
+              ruleOfThirds
+              style={{ maxHeight: 364, maxWidth: '100%' }}
+            >
+              <img src={workUrl} alt="To resize" className="max-w-full w-auto object-contain select-none" style={{ maxHeight: 364 }} />
+            </ReactCrop>
+          )}
+        </div>
+        <p className="mt-1.5 text-[11px] text-gray-400 dark:text-gray-500 text-center">
+          Drag the box to frame your face, or use Zoom. Output is exactly {size.w}×{size.h}px.
+        </p>
       </div>
-      <p className="mt-2 text-[11px] text-gray-400 dark:text-gray-500">
-        Drag the box to frame your face, or use the Zoom slider. The result is scaled to exactly {size.w}×{size.h}px.
-      </p>
     </ToolWorkspace>
   );
 };

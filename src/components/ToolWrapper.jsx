@@ -136,9 +136,14 @@ const ToolWrapper = () => {
   // the Back button instead) and go wider, but keep the related-tools footer.
   const minimal = tool.chrome === 'min';
   const slim = minimal || tool.category === 'pdf';
+  // The huge PDF editors need every pixel; a minimal image tool just wants the
+  // chrome gone, not a 1760px canvas.
+  const width = minimal
+    ? (tool.category === 'image' ? 'max-w-6xl' : 'max-w-[110rem]')
+    : slim ? 'max-w-[100rem]' : 'max-w-7xl';
 
   return (
-    <div className={`${minimal ? 'max-w-[110rem]' : slim ? 'max-w-[100rem]' : 'max-w-7xl'} mx-auto`}>
+    <div className={`${width} mx-auto`}>
       <TopBar tool={tool} onBack={handleBack} minimal={slim} />
 
       {!slim && (

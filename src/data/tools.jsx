@@ -42,7 +42,7 @@ const TOOLS = [
   { id: 'crop-image', title: 'Crop Image', category: 'image', group: 'Resize & Crop', icon: I.crop,
     description: 'Crop, rotate and straighten images, with aspect and social-media presets.',
     load: () => import('../components/tools/image/ImageCrop.jsx') },
-  { id: 'profile-picture', title: 'Profile Picture Maker', category: 'image', group: 'Resize & Crop', icon: I.user, popular: true,
+  { id: 'profile-picture', title: 'Profile Picture Maker', category: 'image', group: 'Resize & Crop', icon: I.user, popular: true, chrome: 'min',
     description: 'Crop a photo to the exact profile, post, story or cover size for WhatsApp, Instagram, Facebook, LinkedIn, YouTube and more.',
     load: () => import('../components/tools/image/ProfilePictureMaker.jsx') },
   { id: 'compress-image', title: 'Compress Image', category: 'image', group: 'Optimize', icon: I.compress, popular: true,
