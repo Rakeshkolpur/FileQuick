@@ -181,7 +181,7 @@ const ProfilePictureMaker = () => {
   const [bg, setBg] = useState({ type: 'solid', value: '#ffffff' });
   const [shape, setShape] = useState('circle');
   const [border, setBorder] = useState({ width: 0, color: '#334155', style: 'solid' });
-  const [squareBg, setSquareBg] = useState(false); // true = fill the corners with the background
+  const [squareBg, setSquareBg] = useState(true); // true (default) = fill the corners with the background
 
   const [scale, setScale] = useState(100);
   const [rotate, setRotate] = useState(0);
@@ -426,13 +426,13 @@ const ProfilePictureMaker = () => {
           onBack={() => setResult(null)}
           backLabel="Back to editing"
           extra={result ? (
-            <div className="mx-auto mt-1 grid place-items-center rounded-xl bg-checkered p-3" style={{ maxWidth: 220 }}>
-              <img src={URL.createObjectURL(result.blob)} alt="Result" className="max-h-40 w-auto" />
+            <div className={`mx-auto mt-1 grid place-items-center rounded-xl p-3 ${!squareBg && shape !== 'square' ? 'bg-checkered' : ''}`} style={{ maxWidth: 220 }}>
+              <img src={URL.createObjectURL(result.blob)} alt="Result" className="max-h-40 w-auto rounded-lg" />
             </div>
           ) : null}
           note={!squareBg && shape !== 'square' && ext === 'png'
-            ? 'The corners are see-through (that checkered area). It shows as a clean circle on WhatsApp, Instagram, etc. — a plain photo viewer may paint the corners white.'
-            : 'The image stays on your device — nothing is uploaded.'}
+            ? 'The see-through corners (checkered) show as a clean circle on WhatsApp, Instagram, etc. A plain photo viewer may paint them white — that is normal for a round PNG.'
+            : 'The background fills the whole image, so it opens as a solid square everywhere. Stays on your device.'}
         />
       </div>
     );
@@ -611,11 +611,12 @@ const ProfilePictureMaker = () => {
               </div>
               {shape !== 'square' && (
                 <label className="flex items-start gap-2 text-[12px] text-gray-600 dark:text-gray-300">
-                  <input type="checkbox" checked={squareBg} onChange={(e) => { setSquareBg(e.target.checked); setResult(null); }} className="mt-0.5 h-4 w-4 accent-purple-600" />
+                  <input type="checkbox" checked={!squareBg} onChange={(e) => { setSquareBg(!e.target.checked); setResult(null); }} className="mt-0.5 h-4 w-4 accent-purple-600" />
                   <span>
-                    Keep a background square
+                    See-through corners (round PNG sticker)
                     <span className="block text-[11px] text-gray-400 dark:text-gray-500">
-                      Off (default) = just the {shape}, see-through corners. On = fill the corners with the background so the file opens as a solid square.
+                      Off (default) = the background fills the whole square, so the file always looks complete.
+                      On = only the {shape}, transparent corners — but a plain photo viewer will paint them white.
                     </span>
                   </span>
                 </label>
