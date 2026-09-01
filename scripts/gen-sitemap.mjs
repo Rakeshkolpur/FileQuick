@@ -15,10 +15,25 @@ const SITE = (process.env.VITE_SITE_URL || process.env.SITE_URL || 'https://file
 const src = readFileSync(resolve(root, 'src/data/tools.jsx'), 'utf8');
 const re = /\bid:\s*'([a-z0-9-]+)',\s*title:[^,]+,\s*category:\s*'(image|pdf)'/g;
 
+// Tools shown as "coming soon" shouldn't be in the sitemap — nothing to index yet.
+const comingSoon = new Set();
+if (/SERVER_TOOLS_COMING_SOON\s*=\s*true/.test(src)) {
+  const setBody = src.match(/NEEDS_SERVER\s*=\s*new Set\(\[([\s\S]*?)\]\)/);
+  if (setBody) for (const q of setBody[1].matchAll(/'([a-z0-9-]+)'/g)) comingSoon.add(q[1]);
+}
+for (const chunk of src.split(/\{\s*id:\s*'/).slice(1)) {
+  const idm = chunk.match(/^([a-z0-9-]+)'/);
+  if (idm && /status:\s*'soon'/.test(chunk.slice(0, 320))) comingSoon.add(idm[1]);
+}
+
 const routes = new Set(['/', '/image', '/pdf', '/contact', '/privacy-policy', '/terms-of-service']);
 const toolIds = new Set();
 let m;
-while ((m = re.exec(src))) { toolIds.add(m[1]); routes.add(`/${m[1]}`); }
+while ((m = re.exec(src))) {
+  if (comingSoon.has(m[1])) continue;
+  toolIds.add(m[1]);
+  routes.add(`/${m[1]}`);
+}
 
 const today = new Date().toISOString().slice(0, 10);
 const urls = [...routes]
@@ -39,4 +54,4 @@ writeFileSync(
   `User-agent: *\nAllow: /\n\nSitemap: ${SITE}/sitemap.xml\n`,
 );
 
-console.log(`[seo] wrote sitemap.xml (${routes.size} URLs) + robots.txt for ${SITE}`);
+console.log(`[seo] wrote sitemap.xml (${routes.size} URLs${comingSoon.size ? `, ${comingSoon.size} coming-soon tools skipped` : ''}) + robots.txt for ${SITE}`);

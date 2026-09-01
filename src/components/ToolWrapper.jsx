@@ -53,9 +53,22 @@ const Loading = () => (
 );
 
 const ComingSoon = ({ tool }) => (
-  <div className="text-center py-16 rounded-2xl bg-indigo-50 dark:bg-indigo-900/10">
-    <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">{tool.title} is coming soon</h2>
-    <p className="text-gray-600 dark:text-gray-300">We&apos;re still building this one.</p>
+  <div className="max-w-md mx-auto text-center py-16 px-6 rounded-2xl bg-indigo-50 dark:bg-indigo-900/10">
+    <div className="mx-auto mb-4 h-12 w-12 rounded-2xl bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-300 flex items-center justify-center">
+      <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    </div>
+    <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">{tool.title} — coming soon</h2>
+    <p className="text-gray-600 dark:text-gray-300 text-sm">
+      This one runs on our conversion engine, which we&apos;re bringing online shortly. Check back in a few days.
+    </p>
+    <Link
+      to="/pdf"
+      className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+    >
+      Browse the tools that work now
+    </Link>
   </div>
 );
 

@@ -141,6 +141,20 @@ const TOOLS = [
     load: () => import('../components/tools/pdf/PDFProtect.jsx') },
 ];
 
+// These tools need the conversion server (server/ + LibreOffice). Until it's
+// deployed and VITE_API_URL is set, show them as "coming soon" instead of a
+// tool that can't work. Flip SERVER_TOOLS_COMING_SOON to false once it's live.
+const SERVER_TOOLS_COMING_SOON = true;
+const NEEDS_SERVER = new Set([
+  'pdf-compressor',
+  'word-to-pdf', 'powerpoint-to-pdf', 'excel-to-pdf',
+  'pdf-to-word', 'pdf-to-powerpoint', 'pdf-to-excel',
+  'unlock-pdf', 'protect-pdf',
+]);
+if (SERVER_TOOLS_COMING_SOON) {
+  TOOLS.forEach((t) => { if (NEEDS_SERVER.has(t.id)) t.status = 'soon'; });
+}
+
 export const NAV_CATEGORIES = [
   { slug: 'image', label: 'Image Tools' },
   { slug: 'pdf', label: 'PDF Tools' },
