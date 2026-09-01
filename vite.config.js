@@ -3,9 +3,19 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { resolve } from 'path'
 
+// The canonical public origin. Set VITE_SITE_URL in the host (Vercel) to your
+// real domain; this default is the fallback for local builds.
+const SITE_URL = (process.env.VITE_SITE_URL || 'https://filequik.in').replace(/\/+$/, '')
+
+// Replaces __SITE_URL__ in index.html (canonical, og:url, JSON-LD) at build time.
+const siteUrlHtml = {
+  name: 'inject-site-url',
+  transformIndexHtml: (html) => html.replaceAll('__SITE_URL__', SITE_URL),
+}
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), siteUrlHtml],
   server: {
     port: process.env.PORT ? Number(process.env.PORT) : 5173,
     strictPort: false,

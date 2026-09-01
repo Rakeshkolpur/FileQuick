@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://filequick.app/sitemap.xml
+Sitemap: https://filequik.in/sitemap.xml

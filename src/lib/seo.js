@@ -3,6 +3,10 @@ import { useEffect } from 'react';
 const SITE = 'FileQuick';
 const DEFAULT_DESC = 'Free browser-based tools to resize, compress, convert, merge, sign and edit images and PDFs. Nothing is uploaded — everything runs on your device.';
 
+// Canonical public origin (no trailing slash). Set VITE_SITE_URL on the host so
+// canonical/OG URLs always point at ONE domain, whichever host the visitor hit.
+const SITE_ORIGIN = (import.meta.env.VITE_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '')).replace(/\/+$/, '');
+
 function upsertMeta(attr, key, content) {
   if (!content) return;
   let el = document.head.querySelector(`meta[${attr}="${key}"]`);
@@ -36,8 +40,8 @@ export function setPageMeta({ title, description, path } = {}) {
   document.title = fullTitle;
   upsertMeta('name', 'description', desc);
 
-  const url = typeof window !== 'undefined'
-    ? window.location.origin + (path || window.location.pathname)
+  const url = SITE_ORIGIN
+    ? SITE_ORIGIN + (path || (typeof window !== 'undefined' ? window.location.pathname : '/'))
     : '';
   if (url) upsertLink('canonical', url);
 

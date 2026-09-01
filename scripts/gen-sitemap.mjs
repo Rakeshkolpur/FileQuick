@@ -2,15 +2,15 @@
  * Regenerates public/sitemap.xml + public/robots.txt from the tool registry.
  * Runs automatically before every `npm run build`.
  *
- * Set SITE_URL in the environment (or Vercel/Netlify project settings) to your
- * real domain, e.g.  SITE_URL=https://filequick.app
+ * Set VITE_SITE_URL in the environment (Vercel/Netlify project settings) to your
+ * real domain, e.g.  VITE_SITE_URL=https://filequik.in
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const SITE = (process.env.SITE_URL || 'https://filequick.app').replace(/\/$/, '');
+const SITE = (process.env.VITE_SITE_URL || process.env.SITE_URL || 'https://filequik.in').replace(/\/+$/, '');
 
 const src = readFileSync(resolve(root, 'src/data/tools.jsx'), 'utf8');
 const re = /\bid:\s*'([a-z0-9-]+)',\s*title:[^,]+,\s*category:\s*'(image|pdf)'/g;
