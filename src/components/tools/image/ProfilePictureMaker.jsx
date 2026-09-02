@@ -181,7 +181,7 @@ const ProfilePictureMaker = () => {
   const [bg, setBg] = useState({ type: 'solid', value: '#ffffff' });
   const [shape, setShape] = useState('circle');
   const [border, setBorder] = useState({ width: 0, color: '#334155', style: 'solid' });
-  const [squareBg, setSquareBg] = useState(true); // true (default) = fill the corners with the background
+  const [squareBg, setSquareBg] = useState(false); // false (default) = just the shape, see-through corners
 
   const [scale, setScale] = useState(100);
   const [rotate, setRotate] = useState(0);
@@ -442,19 +442,21 @@ const ProfilePictureMaker = () => {
 
   return (
     <div className="grid lg:grid-cols-[minmax(0,1fr)_360px] gap-6 items-start">
-      {/* preview */}
-      <div className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-gray-50 dark:bg-gray-900/40 p-5 flex flex-col items-center">
-        <div className="flex w-full items-center justify-between mb-3 text-[13px]">
+      {/* preview — just the shape, floating */}
+      <div className="flex flex-col items-center pt-1">
+        <div className="flex w-full max-w-[420px] items-center justify-between mb-4 text-[13px]">
           <span className="truncate font-medium text-gray-900 dark:text-white">{file.name}</span>
-          <button type="button" onClick={reset} className="shrink-0 px-2.5 py-1 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600">
+          <button type="button" onClick={reset} className="shrink-0 px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
             Change photo
           </button>
         </div>
 
         <div className="relative" style={{ width: PREVIEW, height: PREVIEW }}>
-          {/* fills the square behind the shape */}
+          {/* only when the user opts to keep a square */}
           {squareBg && bgLayerStyle && <div className="absolute inset-0" style={{ ...bgLayerStyle, borderRadius: shape === 'square' ? '14px' : 0 }} />}
-          <div className="absolute inset-0 overflow-hidden bg-checkered" style={{ borderRadius: radiusCss }}>
+          <div className="absolute inset-0 overflow-hidden" style={{ borderRadius: radiusCss }}>
+            {/* checker only where the image is genuinely see-through */}
+            {bg.type === 'none' && <div className="absolute inset-0 bg-checkered" />}
             {bgLayerStyle && <div className="absolute inset-0" style={bgLayerStyle} />}
             {src && (
               <img
