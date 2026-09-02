@@ -126,6 +126,17 @@ const LINE_STYLES = [
   { key: 'glow', label: 'Glow' },
 ];
 
+// Decorative PNG frame overlays. Drop a new file in public/frames/ (+ a small
+// public/frames/thumb/ copy for the picker) and add a line here.
+const PHOTO_FRAMES = [
+  { id: 'none', name: 'None', src: null, thumb: null },
+  { id: 'gold-crown', name: 'Gold Crown', src: '/frames/gold-crown.webp', thumb: '/frames/thumb/gold-crown.webp' },
+  { id: 'love-hearts', name: 'Love Hearts', src: '/frames/love-hearts.webp', thumb: '/frames/thumb/love-hearts.webp' },
+  { id: 'pink-kiss', name: 'Pink Kiss', src: '/frames/pink-kiss.webp', thumb: '/frames/thumb/pink-kiss.webp' },
+  { id: 'gaming-neon', name: 'Gaming Neon', src: '/frames/gaming-neon.webp', thumb: '/frames/thumb/gaming-neon.webp' },
+  { id: 'flower-butterfly', name: 'Flower & Butterfly', src: '/frames/flower-butterfly.webp', thumb: '/frames/thumb/flower-butterfly.webp' },
+];
+
 const SHAPES = [
   { key: 'circle', label: 'Circle' },
   { key: 'rounded', label: 'Rounded' },
@@ -137,6 +148,7 @@ const TABS = [
   { key: 'fx', label: 'Effects' },
   { key: 'border', label: 'Border' },
   { key: 'shape', label: 'Shape' },
+  { key: 'frames', label: 'Frames' },
 ];
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -232,6 +244,7 @@ const ProfilePictureMaker = () => {
   const [border, setBorder] = useState({ kind: 'line', style: 'solid', color: '#334155', width: 0, frame: null });
   const [squareBg, setSquareBg] = useState(false);
   const [flip, setFlip] = useState(false);
+  const [photoFrame, setPhotoFrame] = useState('none');
 
   const [scale, setScale] = useState(100);
   const [rotate, setRotate] = useState(0);
@@ -332,6 +345,7 @@ const ProfilePictureMaker = () => {
   const pattern = bg.type === 'pattern' ? PATTERNS.find((p) => p.key === bg.value) : null;
   const eff = EFFECTS.find((e) => e.key === effect) || EFFECTS[0];
   const frame = border.kind === 'frame' ? FRAMES.find((f) => f.key === border.frame) : null;
+  const pFrame = PHOTO_FRAMES.find((f) => f.id === photoFrame && f.src) || null;
 
   const filterStr = `${eff.filter} brightness(${adjust.b / 100}) contrast(${adjust.c / 100}) saturate(${adjust.s / 100})`.trim();
 
@@ -426,6 +440,13 @@ const ProfilePictureMaker = () => {
         ctx.drawImage(fImg, (S - fs) / 2, (S - fs) / 2, fs, fs);
       } else if (border.kind === 'line' && border.width) {
         drawLineBorder(ctx, S, shape, border, k);
+      }
+
+      // decorative PNG frame — the very top layer, fixed to the canvas (never
+      // moves with the photo), scaled to the full output size.
+      if (pFrame) {
+        const frImg = await cachedImg(`pfrm:${pFrame.id}`, pFrame.src);
+        ctx.drawImage(frImg, 0, 0, S, S);
       }
 
       const type = fmt === 'png' ? 'image/png' : 'image/jpeg';
@@ -523,6 +544,14 @@ const ProfilePictureMaker = () => {
             )}
           </div>
           {borderOverlay()}
+          {pFrame && (
+            <img
+              src={pFrame.src}
+              alt=""
+              draggable={false}
+              className="absolute inset-0 w-full h-full pointer-events-none select-none"
+            />
+          )}
         </div>
 
         <div className="w-full max-w-[380px] mt-5 space-y-3">
@@ -556,11 +585,11 @@ const ProfilePictureMaker = () => {
           </label>
         </div>
 
-        <div className="px-3.5">
-          <div className="flex rounded-xl bg-gray-100 dark:bg-gray-700/60 p-1">
+        <div className="px-3">
+          <div className="flex rounded-xl bg-gray-100 dark:bg-gray-700/60 p-0.5">
             {TABS.map((t) => (
               <button key={t.key} type="button" onClick={() => setTab(t.key)}
-                className={`flex-1 py-1.5 text-[12.5px] font-medium rounded-lg transition-colors ${tab === t.key ? 'bg-white dark:bg-gray-800 text-purple-600 dark:text-purple-300 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>
+                className={`flex-1 px-0.5 py-1.5 text-[11px] font-medium rounded-lg transition-colors ${tab === t.key ? 'bg-white dark:bg-gray-800 text-purple-600 dark:text-purple-300 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>
                 {t.label}
               </button>
             ))}
@@ -657,7 +686,7 @@ const ProfilePictureMaker = () => {
                 </div>
               </div>
               <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Frames</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Decorative rings</p>
                 <div className="grid grid-cols-4 gap-2">
                   <button type="button" onClick={() => { setBorder((b) => ({ ...b, kind: 'line', frame: null })); setResult(null); }}
                     className={`h-14 rounded-lg border-2 grid place-items-center text-[10px] ${border.kind !== 'frame' ? 'border-purple-600 text-purple-600 dark:text-purple-300' : 'border-gray-200 dark:border-gray-700 text-gray-400'}`}>
@@ -693,6 +722,44 @@ const ProfilePictureMaker = () => {
                   </span>
                 </label>
               )}
+            </>
+          )}
+
+          {tab === 'frames' && (
+            <>
+              <p className="text-[11px] text-gray-400 dark:text-gray-500">A decorative overlay on top of your photo — it stays put while you zoom and drag underneath.</p>
+              <div className="grid grid-cols-3 gap-2.5">
+                {PHOTO_FRAMES.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => { setPhotoFrame(f.id); setResult(null); }}
+                    className={`group relative aspect-square rounded-xl border-2 overflow-hidden transition-colors ${
+                      photoFrame === f.id
+                        ? 'border-purple-600 ring-2 ring-purple-600/30'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-700'
+                    } ${f.src ? 'bg-checkered' : 'bg-gray-100 dark:bg-gray-700/50'}`}
+                  >
+                    {f.src ? (
+                      <img src={f.thumb || f.src} alt={f.name} className="absolute inset-0 h-full w-full object-contain p-0.5" draggable={false} />
+                    ) : (
+                      <span className="absolute inset-0 grid place-items-center">
+                        <svg className="h-6 w-6 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" /></svg>
+                      </span>
+                    )}
+                    <span className={`absolute inset-x-0 bottom-0 px-1 py-0.5 text-[9.5px] font-medium text-center truncate ${
+                      photoFrame === f.id ? 'bg-purple-600 text-white' : 'bg-black/55 text-white'
+                    }`}>
+                      {f.name}
+                    </span>
+                    {photoFrame === f.id && f.src && (
+                      <span className="absolute top-1 right-1 h-4 w-4 grid place-items-center rounded-full bg-purple-600 text-white">
+                        <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
             </>
           )}
 

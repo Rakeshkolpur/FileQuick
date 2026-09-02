@@ -41,3 +41,6 @@ server/*.docx
 *.sln
 *.sw?
 .qodo
+
+# Original hi-res frame source art (optimised copies live in public/frames/)
+src/assets/frames/*.png
