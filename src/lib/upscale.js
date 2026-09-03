@@ -20,8 +20,8 @@ async function getUpscaler(factor) {
   const { Upscaler } = await loadCore();
   const base =
     factor === 4
-      ? (await import('@upscalerjs/esrgan-slim/4x')).default
-      : (await import('@upscalerjs/esrgan-slim/2x')).default;
+      ? (await import('@upscalerjs/esrgan-medium/4x')).default
+      : (await import('@upscalerjs/esrgan-medium/2x')).default;
   // Serve the weights from our own /public instead of a CDN — works offline
   // after the first load and keeps everything first-party.
   const path = `${import.meta.env.BASE_URL || '/'}models/upscale/x${factor}/model.json`.replace('//', '/');
@@ -47,7 +47,7 @@ const loadImage = (src) =>
 
 // ESRGAN is slow on big inputs; cap the source so a 2×/4× pass stays in the
 // tens-of-seconds range and the result fits in a canvas.
-const MAX_SRC_EDGE = 1200;
+const MAX_SRC_EDGE = 1024;
 
 async function prepareSource(dataUrl) {
   const img = await loadImage(dataUrl);

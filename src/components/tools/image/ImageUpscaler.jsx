@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import FileDropzone from '../../tool/FileDropzone';
 import { downloadBlob } from '../../tool/DownloadButton';
 import { ToolBackContext } from '../../ToolWrapper';
@@ -23,8 +23,12 @@ const ImageUpscaler = () => {
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null); // { url, width, height, capped }
 
-  const [pos, setPos] = useState(50);
+  const [pos, setPos] = useState(50);      // wipe position, %
+  const [zoom, setZoom] = useState(1);     // 1 = fit, 2, 4 = inspect detail
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [boxW, setBoxW] = useState(0);
   const barRef = useRef(null);
+  const gesture = useRef(null);
   const abortRef = useRef(null);
   const urlRef = useRef(null);
   const registerBack = useContext(ToolBackContext);
@@ -37,13 +41,16 @@ const ImageUpscaler = () => {
     if (urlRef.current) URL.revokeObjectURL(urlRef.current);
     urlRef.current = null;
     setFile(null); setSrcUrl(null); setSrcDims(null);
-    setResult(null); setError(null); setBusy(false); setProgress(0); setPos(50);
+    setResult(null); setError(null); setBusy(false); setProgress(0);
+    setPos(50); setZoom(1); setPan({ x: 0, y: 0 });
   };
+
+  const backToSetup = () => { setResult(null); setPos(50); setZoom(1); setPan({ x: 0, y: 0 }); };
 
   const started = !!file;
   useEffect(() => {
     if (!registerBack) return undefined;
-    registerBack(started ? () => { if (result) { setResult(null); setPos(50); } else reset(); } : null);
+    registerBack(started ? () => { if (result) backToSetup(); else reset(); } : null);
     return () => registerBack(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [registerBack, started, result]);
@@ -68,7 +75,7 @@ const ImageUpscaler = () => {
     try {
       const out = await upscaleImage(srcUrl, factor, setProgress, ctrl.signal);
       setResult({ ...out, bytes: dataUrlBytes(out.url) });
-      setPos(50);
+      setPos(50); setZoom(1); setPan({ x: 0, y: 0 });
     } catch (e) {
       if (e?.name !== 'AbortError') setError(e?.message || 'Upscaling failed. Try a smaller image or the 2× option.');
     } finally {
@@ -83,15 +90,48 @@ const ImageUpscaler = () => {
     downloadBlob(blob, `${stripExt(file.name)}-upscaled-${factor}x.png`);
   };
 
-  // before / after divider drag
-  const moveTo = (clientX) => {
-    const el = barRef.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
+  // keep the box width measured so the clipped "before" image lines up
+  useLayoutEffect(() => {
+    if (!result || !barRef.current) return undefined;
+    const measure = () => setBoxW(barRef.current?.clientWidth || 0);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(barRef.current);
+    return () => ro.disconnect();
+  }, [result]);
+
+  const clampPan = (p, z) => {
+    const r = barRef.current?.getBoundingClientRect();
+    if (!r || z <= 1) return { x: 0, y: 0 };
+    const mx = (r.width * (z - 1)) / 2;
+    const my = (r.height * (z - 1)) / 2;
+    return { x: Math.max(-mx, Math.min(mx, p.x)), y: Math.max(-my, Math.min(my, p.y)) };
+  };
+  const setWipeFromX = (clientX) => {
+    const r = barRef.current?.getBoundingClientRect();
+    if (!r) return;
     setPos(Math.max(0, Math.min(100, ((clientX - r.left) / r.width) * 100)));
   };
-  const onDown = (e) => { e.currentTarget.setPointerCapture?.(e.pointerId); moveTo(e.clientX); };
-  const onMove = (e) => { if (e.buttons) moveTo(e.clientX); };
+  const onBoxDown = (e) => {
+    const r = barRef.current?.getBoundingClientRect();
+    if (!r) return;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    const lineX = r.left + (r.width * pos) / 100;
+    if (zoom === 1 || Math.abs(e.clientX - lineX) <= 26) {
+      gesture.current = { type: 'wipe' };
+      setWipeFromX(e.clientX);
+    } else {
+      gesture.current = { type: 'pan', x: e.clientX, y: e.clientY, base: pan };
+    }
+  };
+  const onBoxMove = (e) => {
+    const g = gesture.current;
+    if (!g || !e.buttons) return;
+    if (g.type === 'wipe') setWipeFromX(e.clientX);
+    else setPan(clampPan({ x: g.base.x + (e.clientX - g.x), y: g.base.y + (e.clientY - g.y) }, zoom));
+  };
+  const onBoxUp = () => { gesture.current = null; };
+  const changeZoom = (z) => { setZoom(z); setPan((p) => clampPan(p, z)); };
 
   // ---- upload screen ----
   if (!file) {
@@ -137,41 +177,63 @@ const ImageUpscaler = () => {
 
           <div
             ref={barRef}
-            onPointerDown={onDown}
-            onPointerMove={onMove}
-            className="relative w-full overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-900 select-none touch-none cursor-ew-resize"
-            style={{ aspectRatio: outW && outH ? `${outW} / ${outH}` : '1 / 1' }}
+            onPointerDown={onBoxDown}
+            onPointerMove={onBoxMove}
+            onPointerUp={onBoxUp}
+            onPointerCancel={onBoxUp}
+            className={`relative w-full overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-900 select-none touch-none ${zoom > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-ew-resize'}`}
+            style={{ height: 'min(58vh, 440px)' }}
           >
-            {/* upscaled = base layer */}
-            <img src={result.url} alt="Upscaled" draggable={false} className="absolute inset-0 h-full w-full object-contain" />
-            {/* original = clipped to the left of the handle, shown at the same box size (browser-stretched) */}
-            <div className="absolute inset-0 overflow-hidden" style={{ width: `${pos}%` }}>
-              <img
-                src={srcUrl}
-                alt="Original"
-                draggable={false}
-                className="absolute inset-0 h-full object-contain max-w-none"
-                style={{ width: barRef.current?.clientWidth || '100%' }}
-              />
+            {/* after (base) */}
+            <div className="absolute inset-0" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
+              <img src={result.url} alt="Upscaled" draggable={false} className="absolute inset-0 h-full w-full object-contain" />
             </div>
-            <span className="absolute left-2 top-2 rounded-md bg-black/55 px-2 py-0.5 text-[11px] font-medium text-white">Original</span>
-            <span className="absolute right-2 top-2 rounded-md bg-purple-600/90 px-2 py-0.5 text-[11px] font-medium text-white">Upscaled</span>
-            {/* handle */}
-            <div className="absolute inset-y-0" style={{ left: `${pos}%`, transform: 'translateX(-50%)' }}>
-              <div className="h-full w-0.5 bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.25)]" />
+            {/* before, clipped to the left of the line (screen-space) */}
+            <div className="absolute inset-y-0 left-0 overflow-hidden" style={{ width: `${pos}%` }}>
+              <div className="absolute inset-y-0 left-0" style={{ width: boxW || '100%', transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
+                <img src={srcUrl} alt="Original" draggable={false} className="absolute inset-0 h-full w-full object-contain" />
+              </div>
+            </div>
+            <span className="pointer-events-none absolute left-2 top-2 rounded-md bg-black/55 px-2 py-0.5 text-[11px] font-medium text-white">Before</span>
+            <span className="pointer-events-none absolute right-2 top-2 rounded-md bg-purple-600/90 px-2 py-0.5 text-[11px] font-medium text-white">After · {factor}×</span>
+            {/* wipe line + grip */}
+            <div className="pointer-events-none absolute inset-y-0 z-10" style={{ left: `${pos}%`, transform: 'translateX(-50%)' }}>
+              <div className="h-full w-0.5 bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.3)]" />
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 grid h-9 w-9 place-items-center rounded-full bg-white shadow-lg">
                 <svg className="h-4 w-4 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7l-4 5 4 5M16 7l4 5-4 5" /></svg>
               </div>
             </div>
           </div>
 
+          {/* controls */}
+          <div className="flex items-center gap-3">
+            <input
+              type="range" min={0} max={100} value={pos}
+              onChange={(e) => setPos(+e.target.value)}
+              aria-label="Reveal amount"
+              className="min-w-0 flex-1 accent-purple-600"
+            />
+            <div className="flex shrink-0 rounded-lg bg-gray-100 dark:bg-gray-800 p-0.5 text-[12px] font-medium">
+              {[1, 2, 4].map((z) => (
+                <button
+                  key={z} type="button" onClick={() => changeZoom(z)}
+                  className={`rounded-md px-2.5 py-1 ${zoom === z ? 'bg-white text-purple-600 shadow-sm dark:bg-gray-700 dark:text-purple-300' : 'text-gray-500 dark:text-gray-400'}`}
+                >
+                  {z === 1 ? 'Fit' : `${z}×`}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="flex flex-wrap items-center justify-center gap-2 text-[13px]">
-            <span className="text-gray-400 dark:text-gray-500">Drag the slider to compare ·</span>
+            <span className="text-gray-400 dark:text-gray-500">
+              {zoom === 1 ? 'Drag the line to compare' : 'Drag the line to compare · drag the photo to pan'} ·
+            </span>
             {factor === 2 && (
-              <button type="button" onClick={() => { setFactor(4); setResult(null); }} className="font-medium text-purple-600 dark:text-purple-400 hover:underline">Try 4×</button>
+              <button type="button" onClick={() => { setFactor(4); backToSetup(); }} className="font-medium text-purple-600 dark:text-purple-400 hover:underline">Try 4×</button>
             )}
             {factor === 4 && (
-              <button type="button" onClick={() => { setFactor(2); setResult(null); }} className="font-medium text-purple-600 dark:text-purple-400 hover:underline">Back to 2×</button>
+              <button type="button" onClick={() => { setFactor(2); backToSetup(); }} className="font-medium text-purple-600 dark:text-purple-400 hover:underline">Back to 2×</button>
             )}
             <span className="text-gray-300 dark:text-gray-600">·</span>
             <button type="button" onClick={reset} className="font-medium text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">New image</button>
