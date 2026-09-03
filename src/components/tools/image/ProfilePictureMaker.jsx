@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import FileDropzone from '../../tool/FileDropzone';
 import ResultScreen from '../../tool/ResultScreen';
 import { downloadBlob } from '../../tool/DownloadButton';
@@ -7,6 +7,8 @@ import { formatBytes, stripExt } from '../../../lib/format';
 import { cutoutBackground, preloadBackgroundModel } from '../../../lib/backgroundRemoval';
 import { upscaleImage } from '../../../lib/upscale';
 import { consumeHandoff } from '../../../lib/imageHandoff';
+
+const CropDialog = React.lazy(() => import('../../tool/CropDialog'));
 
 const PREVIEW = 360;
 
@@ -271,6 +273,7 @@ const ProfilePictureMaker = () => {
   const [busy, setBusy] = useState(false);
   const [enhancing, setEnhancing] = useState(false);
   const [enhanced, setEnhanced] = useState(false);
+  const [showCrop, setShowCrop] = useState(false);
   const [error, setError] = useState(null);
 
   const drag = useRef(null);
@@ -346,6 +349,26 @@ const ProfilePictureMaker = () => {
       setError(e?.message || 'Could not enhance this photo.');
     } finally {
       setEnhancing(false);
+    }
+  };
+
+  // Trim the photo in place (reuses the Crop Image dialog) before it goes in
+  // the circle — cuts out background/body so positioning is easier.
+  const applyCrop = async (blob) => {
+    setShowCrop(false);
+    if (!blob) return;
+    setError(null);
+    try {
+      const url = URL.createObjectURL(blob);
+      urlsRef.current.push(url);
+      const im = await loadFromUrl(url);
+      setImg(im); setImgUrl(url);
+      setFile(new File([blob], `${stripExt(file.name)}-crop.png`, { type: 'image/png' }));
+      setCutout(null); setCutoutUrl(null); setRemoveBg(false);
+      setScale(100); setRotate(0); setOffset({ x: 0, y: 0 });
+      setResult(null);
+    } catch (e) {
+      setError(e?.message || 'Could not crop this photo.');
     }
   };
 
@@ -562,11 +585,27 @@ const ProfilePictureMaker = () => {
               )}
               {enhanced ? 'Enhanced' : enhancing ? 'Enhancing…' : 'Enhance'}
             </button>
+            <button
+              type="button"
+              onClick={() => setShowCrop(true)}
+              disabled={!imgUrl || enhancing}
+              title="Trim the photo before it goes in the circle"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-40 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+            >
+              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 2v14a2 2 0 002 2h14M18 22V8a2 2 0 00-2-2H2" /></svg>
+              Crop
+            </button>
             <button type="button" onClick={reset} className="px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
               Change photo
             </button>
           </div>
         </div>
+
+        {showCrop && (
+          <Suspense fallback={null}>
+            <CropDialog src={imgUrl} onApply={applyCrop} onClose={() => setShowCrop(false)} />
+          </Suspense>
+        )}
 
         <div className="relative" style={{ width: PREVIEW, height: PREVIEW }}>
           {squareBg && bgLayerStyle && <div className="absolute inset-0" style={{ ...bgLayerStyle, borderRadius: shape === 'square' ? '14px' : 0 }} />}
