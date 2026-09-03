@@ -31,6 +31,7 @@ const I = {
   user: <Svg d="M15.5 8.5a3.5 3.5 0 11-7 0 3.5 3.5 0 017 0zM4.5 20a7.5 7.5 0 0115 0" />,
   idcard: <Svg d="M3 6h18v12H3zM8 11a2 2 0 100-4 2 2 0 000 4zm-2 5a2.5 2.5 0 015 0M14 9h4M14 13h4" />,
   upscale: <Svg d="M4 9V4h5M20 15v5h-5M4 4l6 6M20 20l-6-6M15 4h5v5M9 20H4v-5" />,
+  scan: <Svg d="M4 7V5a1 1 0 011-1h2M4 17v2a1 1 0 001 1h2M20 7V5a1 1 0 00-1-1h-2M20 17v2a1 1 0 01-1 1h-2M4 12h16" />,
 };
 
 // category: 'image' | 'pdf'
@@ -54,6 +55,9 @@ const TOOLS = [
   { id: 'upscale-image', title: 'Image Upscaler', category: 'image', group: 'Enhance', icon: I.upscale, popular: true,
     description: 'Enlarge a photo 2× or 4× with an in-browser AI model — sharper detail, no upload.',
     load: () => import('../components/tools/image/ImageUpscaler.jsx') },
+  { id: 'document-scanner', title: 'Document Scanner', category: 'image', group: 'Enhance', icon: I.scan, popular: true, chrome: 'min',
+    description: 'Turn phone photos of documents into clean, straightened scans — bulk upload, auto edge-detect, export to PDF.',
+    load: () => import('../components/tools/image/DocumentScanner.jsx') },
   { id: 'convert-image', title: 'Convert Image', category: 'image', group: 'Convert', icon: I.convert,
     description: 'Turn images into a PDF, or convert between JPG, PNG and WebP.',
     load: () => import('../components/tools/image/ImageConvert.jsx') },
