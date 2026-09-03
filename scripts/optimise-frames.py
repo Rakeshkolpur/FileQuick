@@ -1,6 +1,6 @@
 """
 Key the baked-in transparency checkerboard out of the 5 supplied frame PNGs.
-Works at the 1200px output size. Strategy:
+Works at the 1600px output size. Strategy:
   1. detect the frame's two grey checker tones from its border ring
   2. binary-flood every checker-like pocket, starting from the border + centre,
      spreading through all connected checker-like pixels (no colour threshold —
@@ -9,6 +9,9 @@ Works at the 1200px output size. Strategy:
      by art — those are grey art details (crown pearls, rose highlights), not
      real holes
   4. feather the cut, write WebP + 160px thumb
+  5. report each frame's inner-opening radius (fraction of half-width) — the
+     component scales the overlay by PHOTO_FRAMES[].fit so this opening lands
+     just outside the photo circle instead of covering the face.
 """
 import os
 import numpy as np
@@ -19,7 +22,7 @@ OUT = "public/frames"
 THUMB = os.path.join(OUT, "thumb")
 os.makedirs(THUMB, exist_ok=True)
 NAMES = ["gold-crown", "love-hearts", "pink-kiss", "gaming-neon", "flower-butterfly"]
-N = 1200
+N = 1600
 
 # per-frame tuning: (chroma tolerance, luma band pad, min area to clear a band)
 TUNE = {
@@ -115,7 +118,23 @@ for name in NAMES:
     out.putalpha(a)
 
     pct = (np.asarray(a) < 8).mean() * 100
+
+    # inner-opening radius: how far the clear centre reaches, as a fraction of
+    # the half-width (1.0 == the photo-circle edge). fit ≈ 0.72 / inner.
+    af = np.asarray(a)
+    yy, xx = np.mgrid[0:N, 0:N]
+    rr = np.sqrt((xx - N / 2) ** 2 + (yy - N / 2) ** 2) / (N / 2)
+    inner = 0.0
+    for i in range(20):
+        m = (rr >= i / 20) & (rr < (i + 1) / 20)
+        if m.any() and (af[m] > 40).mean() < 0.06:
+            inner = (i + 1) / 20
+        else:
+            break
+    fit = round(0.72 / inner, 2) if inner else 1.4
+
     out.save(os.path.join(OUT, name + ".webp"), "WEBP", quality=90, method=6)
     out.resize((160, 160), Image.LANCZOS).save(os.path.join(THUMB, name + ".webp"), "WEBP", quality=88, method=6)
     kb = os.path.getsize(os.path.join(OUT, name + ".webp")) / 1024
-    print(f"{name:18s} checker {lo:>3}/{hi:<3}  transparent {pct:4.1f}%   {kb:6.1f} KB")
+    print(f"{name:18s} checker {lo:>3}/{hi:<3}  transparent {pct:4.1f}%   "
+          f"inner r={inner:.2f}  suggested fit={fit}   {kb:6.1f} KB")

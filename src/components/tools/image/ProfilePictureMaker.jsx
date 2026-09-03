@@ -128,13 +128,16 @@ const LINE_STYLES = [
 
 // Decorative PNG frame overlays. Drop a new file in public/frames/ (+ a small
 // public/frames/thumb/ copy for the picker) and add a line here.
+// `fit` = how much bigger than the photo box to draw the overlay so its clear
+// centre sits just outside the face instead of covering it. `scripts/
+// optimise-frames.py` prints a suggested value ("inner r" → fit ≈ 0.72 / r).
 const PHOTO_FRAMES = [
-  { id: 'none', name: 'None', src: null, thumb: null },
-  { id: 'gold-crown', name: 'Gold Crown', src: '/frames/gold-crown.webp', thumb: '/frames/thumb/gold-crown.webp' },
-  { id: 'love-hearts', name: 'Love Hearts', src: '/frames/love-hearts.webp', thumb: '/frames/thumb/love-hearts.webp' },
-  { id: 'pink-kiss', name: 'Pink Kiss', src: '/frames/pink-kiss.webp', thumb: '/frames/thumb/pink-kiss.webp' },
-  { id: 'gaming-neon', name: 'Gaming Neon', src: '/frames/gaming-neon.webp', thumb: '/frames/thumb/gaming-neon.webp' },
-  { id: 'flower-butterfly', name: 'Flower & Butterfly', src: '/frames/flower-butterfly.webp', thumb: '/frames/thumb/flower-butterfly.webp' },
+  { id: 'none', name: 'None', src: null, thumb: null, fit: 1 },
+  { id: 'gold-crown', name: 'Gold Crown', src: '/frames/gold-crown.webp', thumb: '/frames/thumb/gold-crown.webp', fit: 1.45 },
+  { id: 'love-hearts', name: 'Love Hearts', src: '/frames/love-hearts.webp', thumb: '/frames/thumb/love-hearts.webp', fit: 1.3 },
+  { id: 'pink-kiss', name: 'Pink Kiss', src: '/frames/pink-kiss.webp', thumb: '/frames/thumb/pink-kiss.webp', fit: 1.3 },
+  { id: 'gaming-neon', name: 'Gaming Neon', src: '/frames/gaming-neon.webp', thumb: '/frames/thumb/gaming-neon.webp', fit: 1.3 },
+  { id: 'flower-butterfly', name: 'Flower & Butterfly', src: '/frames/flower-butterfly.webp', thumb: '/frames/thumb/flower-butterfly.webp', fit: 1.45 },
 ];
 
 const SHAPES = [
@@ -245,6 +248,7 @@ const ProfilePictureMaker = () => {
   const [squareBg, setSquareBg] = useState(false);
   const [flip, setFlip] = useState(false);
   const [photoFrame, setPhotoFrame] = useState('none');
+  const [frameZoom, setFrameZoom] = useState(1); // user nudge around the frame's default fit
 
   const [scale, setScale] = useState(100);
   const [rotate, setRotate] = useState(0);
@@ -346,6 +350,9 @@ const ProfilePictureMaker = () => {
   const eff = EFFECTS.find((e) => e.key === effect) || EFFECTS[0];
   const frame = border.kind === 'frame' ? FRAMES.find((f) => f.key === border.frame) : null;
   const pFrame = PHOTO_FRAMES.find((f) => f.id === photoFrame && f.src) || null;
+  // draw the decorative overlay this many times the photo box, so its clear
+  // centre lands just outside the face (its outer edge is clipped by the crop)
+  const frameScale = pFrame ? pFrame.fit * frameZoom : 1;
 
   const filterStr = `${eff.filter} brightness(${adjust.b / 100}) contrast(${adjust.c / 100}) saturate(${adjust.s / 100})`.trim();
 
@@ -443,10 +450,17 @@ const ProfilePictureMaker = () => {
       }
 
       // decorative PNG frame — the very top layer, fixed to the canvas (never
-      // moves with the photo), scaled to the full output size.
+      // moves with the photo). Drawn larger than the crop (frameScale) so its
+      // open centre rings the face, and clipped to the same shape as the photo
+      // so its outer edge stays inside the circle and the corners stay clear.
       if (pFrame) {
         const frImg = await cachedImg(`pfrm:${pFrame.id}`, pFrame.src);
-        ctx.drawImage(frImg, 0, 0, S, S);
+        const fs = S * frameScale;
+        ctx.save();
+        shapePath(ctx, S, shape);
+        ctx.clip();
+        ctx.drawImage(frImg, (S - fs) / 2, (S - fs) / 2, fs, fs);
+        ctx.restore();
       }
 
       const type = fmt === 'png' ? 'image/png' : 'image/jpeg';
@@ -545,12 +559,15 @@ const ProfilePictureMaker = () => {
           </div>
           {borderOverlay()}
           {pFrame && (
-            <img
-              src={pFrame.src}
-              alt=""
-              draggable={false}
-              className="absolute inset-0 w-full h-full pointer-events-none select-none"
-            />
+            <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ borderRadius: radiusCss }}>
+              <img
+                src={pFrame.src}
+                alt=""
+                draggable={false}
+                className="absolute left-1/2 top-1/2 max-w-none select-none"
+                style={{ width: PREVIEW * frameScale, height: PREVIEW * frameScale, transform: 'translate(-50%,-50%)' }}
+              />
+            </div>
           )}
         </div>
 
@@ -733,7 +750,7 @@ const ProfilePictureMaker = () => {
                   <button
                     key={f.id}
                     type="button"
-                    onClick={() => { setPhotoFrame(f.id); setResult(null); }}
+                    onClick={() => { setPhotoFrame(f.id); setFrameZoom(1); setResult(null); }}
                     className={`group relative aspect-square rounded-xl border-2 overflow-hidden transition-colors ${
                       photoFrame === f.id
                         ? 'border-purple-600 ring-2 ring-purple-600/30'
@@ -760,6 +777,20 @@ const ProfilePictureMaker = () => {
                   </button>
                 ))}
               </div>
+              {pFrame && (
+                <label className="block pt-1">
+                  <span className="flex items-center justify-between text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                    <span>Frame size</span>
+                    <span className="tabular-nums">{Math.round(frameScale * 100)}%</span>
+                  </span>
+                  <input
+                    type="range" min={0.72} max={1.35} step={0.01} value={frameZoom}
+                    onChange={(e) => { setFrameZoom(Number(e.target.value)); setResult(null); }}
+                    className="mt-1 w-full accent-purple-600"
+                  />
+                  <span className="block text-[10.5px] text-gray-400 dark:text-gray-500">Drag right to push the frame outward if it covers too much of the face.</span>
+                </label>
+              )}
             </>
           )}
 
