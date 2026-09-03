@@ -4,6 +4,8 @@ import { downloadBlob } from '../../tool/DownloadButton';
 import { ToolBackContext } from '../../ToolWrapper';
 import { formatBytes, stripExt } from '../../../lib/format';
 import { upscaleImage, preloadUpscaleModel } from '../../../lib/upscale';
+import { consumeHandoff } from '../../../lib/imageHandoff';
+import OpenInTool from '../../tool/OpenInTool';
 
 const FACTORS = [
   { f: 2, label: '2×', hint: 'Twice the pixels — great for most photos' },
@@ -33,6 +35,7 @@ const ImageUpscaler = () => {
   const registerBack = useContext(ToolBackContext);
 
   useEffect(() => { preloadUpscaleModel(2); }, []);
+  useEffect(() => consumeHandoff((f) => handleFile(f), 'photo'), []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => {
     if (urlRef.current) URL.revokeObjectURL(urlRef.current);
     if (resultUrlRef.current) URL.revokeObjectURL(resultUrlRef.current);
@@ -247,6 +250,14 @@ const ImageUpscaler = () => {
             )}
             <span className="text-gray-300 dark:text-gray-600">·</span>
             <button type="button" onClick={reset} className="font-medium text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">New image</button>
+          </div>
+
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+            <OpenInTool
+              getImage={() => fetch(result.blobUrl).then((r) => r.blob())}
+              exclude={['upscale-image']}
+              heading="Now do more with this — send it to"
+            />
           </div>
         </div>
       ) : (

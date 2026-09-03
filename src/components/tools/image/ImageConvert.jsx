@@ -22,6 +22,7 @@ import CropModal from '../../tool/CropModal';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
 import { formatBytes, stripExt } from '../../../lib/format';
+import { consumeHandoff } from '../../../lib/imageHandoff';
 import { zipFiles } from '../../../lib/zip';
 import { encodeImage, outExt, isLossy, loadImageFromFile } from '../../../lib/imageResize';
 import { transformToCanvas } from '../../../lib/imageTransform';
@@ -217,19 +218,7 @@ const ImageConvert = () => {
     dirty();
   };
 
-  useEffect(() => {
-    let cancelled = false;
-    let pending = null;
-    try { pending = sessionStorage.getItem('pendingImageUpload'); if (pending) sessionStorage.removeItem('pendingImageUpload'); } catch (_) { /* ignore */ }
-    if (!pending) return undefined;
-    fetch(pending).then((r) => r.blob()).then((blob) => {
-      if (cancelled) return;
-      const ext = (blob.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
-      addFiles([new File([blob], `image.${ext}`, { type: blob.type })]);
-    }).catch(() => {});
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useEffect(() => consumeHandoff((f) => addFiles([f]), 'image'), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const ready = items.length > 0 && items.every((it) => it.img) && !busy;
 

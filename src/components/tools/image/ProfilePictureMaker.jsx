@@ -5,6 +5,8 @@ import { downloadBlob } from '../../tool/DownloadButton';
 import { ToolBackContext } from '../../ToolWrapper';
 import { formatBytes, stripExt } from '../../../lib/format';
 import { cutoutBackground, preloadBackgroundModel } from '../../../lib/backgroundRemoval';
+import { upscaleImage } from '../../../lib/upscale';
+import { consumeHandoff } from '../../../lib/imageHandoff';
 
 const PREVIEW = 360;
 
@@ -267,6 +269,8 @@ const ProfilePictureMaker = () => {
 
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [enhancing, setEnhancing] = useState(false);
+  const [enhanced, setEnhanced] = useState(false);
   const [error, setError] = useState(null);
 
   const drag = useRef(null);
@@ -311,6 +315,7 @@ const ProfilePictureMaker = () => {
     setRemoveBg(false); setCutout(null); setCutoutUrl(null);
     setScale(100); setRotate(0); setOffset({ x: 0, y: 0 }); setFlip(false);
     setEffect('none'); setAdjust({ b: 100, c: 100, s: 100 });
+    setEnhanced(false); setEnhancing(false);
     const url = URL.createObjectURL(f);
     urlsRef.current.push(url);
     try {
@@ -321,19 +326,28 @@ const ProfilePictureMaker = () => {
     }
   };
 
-  useEffect(() => {
-    let cancelled = false;
-    let pending = null;
-    try { pending = sessionStorage.getItem('pendingImageUpload'); if (pending) sessionStorage.removeItem('pendingImageUpload'); } catch (_) { /* ignore */ }
-    if (!pending) return undefined;
-    fetch(pending).then((r) => r.blob()).then((blob) => {
-      if (cancelled) return;
-      const ext = (blob.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
-      handleFile(new File([blob], `photo.${ext}`, { type: blob.type }));
-    }).catch(() => {});
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useEffect(() => consumeHandoff((f) => handleFile(f), 'photo'), []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Upscale the loaded photo in place (reuses the Image Upscaler engine) so a
+  // low-res selfie makes a sharper profile picture — no need to leave the tool.
+  const enhance = async () => {
+    if (!imgUrl || enhancing || removeBg) return;
+    setEnhancing(true); setError(null);
+    try {
+      const { blobUrl } = await upscaleImage(imgUrl, 2);
+      const blob = await fetch(blobUrl).then((r) => r.blob());
+      const im = await loadFromUrl(blobUrl);
+      urlsRef.current.push(blobUrl);
+      setImg(im); setImgUrl(blobUrl);
+      setFile(new File([blob], `${stripExt(file.name)}-2x.png`, { type: 'image/png' }));
+      setCutout(null); setCutoutUrl(null);
+      setResult(null); setEnhanced(true);
+    } catch (e) {
+      setError(e?.message || 'Could not enhance this photo.');
+    } finally {
+      setEnhancing(false);
+    }
+  };
 
   const toggleRemoveBg = async (on) => {
     setRemoveBg(on); setResult(null);
@@ -531,11 +545,27 @@ const ProfilePictureMaker = () => {
     <div className="grid lg:grid-cols-[minmax(0,1fr)_360px] gap-6 items-start">
       {/* preview — just the shape, floating */}
       <div className="flex flex-col items-center pt-1">
-        <div className="flex w-full max-w-[420px] items-center justify-between mb-4 text-[13px]">
+        <div className="flex w-full max-w-[420px] items-center justify-between gap-2 mb-4 text-[13px]">
           <span className="truncate font-medium text-gray-900 dark:text-white">{file.name}</span>
-          <button type="button" onClick={reset} className="shrink-0 px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
-            Change photo
-          </button>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              onClick={enhance}
+              disabled={enhancing || removeBg || enhanced}
+              title={removeBg ? 'Turn off Remove BG first' : 'Sharpen a low-res photo with AI (2×)'}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 disabled:opacity-40 dark:bg-purple-500/15 dark:text-purple-300 dark:hover:bg-purple-500/25"
+            >
+              {enhancing ? (
+                <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 3l1.5 3.5L10 8 6.5 9.5 5 13l-1.5-3.5L0 8l3.5-1.5zM17 3l1 2 2 1-2 1-1 2-1-2-2-1 2-1zM15 12l1.5 3.5L20 17l-3.5 1.5L15 22l-1.5-3.5L10 17l3.5-1.5z" /></svg>
+              )}
+              {enhanced ? 'Enhanced' : enhancing ? 'Enhancing…' : 'Enhance'}
+            </button>
+            <button type="button" onClick={reset} className="px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
+              Change photo
+            </button>
+          </div>
         </div>
 
         <div className="relative" style={{ width: PREVIEW, height: PREVIEW }}>

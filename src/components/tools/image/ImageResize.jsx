@@ -8,6 +8,7 @@ import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
 import useObjectUrl from '../../../hooks/useObjectUrl';
 import { formatBytes, pct, stripExt } from '../../../lib/format';
+import { consumeHandoff } from '../../../lib/imageHandoff';
 import { zipFiles } from '../../../lib/zip';
 import {
   loadImageFromFile,
@@ -353,25 +354,7 @@ const ImageResize = () => {
     }
   };
 
-  useEffect(() => {
-    let cancelled = false;
-    let pending = null;
-    try {
-      pending = sessionStorage.getItem('pendingImageUpload');
-      if (pending) sessionStorage.removeItem('pendingImageUpload');
-    } catch (_) { /* ignore */ }
-    if (!pending) return undefined;
-    fetch(pending)
-      .then((r) => r.blob())
-      .then((blob) => {
-        if (cancelled) return;
-        const ext = (blob.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
-        addFiles([new File([blob], `image.${ext}`, { type: blob.type })]);
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useEffect(() => consumeHandoff((f) => addFiles([f]), 'image'), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- single work source: (bg-removed + colour) -> rotated ----
   const needsAlpha = bgRemove && bgColor === 'transparent';
