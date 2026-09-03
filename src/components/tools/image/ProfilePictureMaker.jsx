@@ -574,7 +574,8 @@ const ProfilePictureMaker = () => {
         <div className="w-full max-w-[380px] mt-5 space-y-3">
           <label className="flex items-center gap-3">
             <svg className="h-5 w-5 text-gray-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" /></svg>
-            <input type="range" min={100} max={400} value={scale} onChange={(e) => { setScale(+e.target.value); setResult(null); }} className={rng} />
+            <input type="range" min={25} max={400} value={scale} onChange={(e) => { setScale(+e.target.value); setResult(null); }} className={rng} />
+            {scale !== 100 && <button type="button" onClick={() => { setScale(100); setResult(null); }} className="text-[11px] text-gray-400 hover:text-gray-600 shrink-0 tabular-nums">{scale}%</button>}
           </label>
           <label className="flex items-center gap-3">
             <svg className="h-5 w-5 text-gray-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v6h6M20 20v-6h-6M20 10a8 8 0 00-14-4M4 14a8 8 0 0014 4" /></svg>
@@ -583,7 +584,7 @@ const ProfilePictureMaker = () => {
           </label>
           <div className="flex items-center justify-center gap-2 text-[11px]">
             <button type="button" onClick={() => { setFlip((v) => !v); setResult(null); }} className={`px-2 py-1 rounded-lg ${flip ? 'bg-purple-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500'}`}>Flip</button>
-            <span className="text-gray-400 dark:text-gray-500">Drag the photo to reposition it</span>
+            <span className="text-gray-400 dark:text-gray-500">Drag to reposition · zoom out to fit the whole photo</span>
           </div>
         </div>
       </div>
