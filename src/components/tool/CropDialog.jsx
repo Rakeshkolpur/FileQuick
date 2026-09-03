@@ -33,7 +33,9 @@ const CropDialog = ({ src, onApply, onClose }) => {
   const resetCropFor = (a) => {
     const img = imgRef.current;
     if (!img) return;
-    setCrop(a ? aspectCrop(a, img.width, img.height) : fullCrop());
+    const c = a ? aspectCrop(a, img.width, img.height) : fullCrop();
+    setCrop(c);
+    setCompleted(c); // so "Apply" works with the default selection, no drag needed
   };
 
   const onImgLoad = () => resetCropFor(aspect);
@@ -48,18 +50,22 @@ const CropDialog = ({ src, onApply, onClose }) => {
     if (!img || !completed?.width) return;
     setBusy(true);
     try {
-      const scaleX = img.naturalWidth / img.width;
-      const scaleY = img.naturalHeight / img.height;
-      const cw = Math.max(1, Math.round(completed.width * scaleX));
-      const ch = Math.max(1, Math.round(completed.height * scaleY));
+      const { naturalWidth: NW, naturalHeight: NH } = img;
+      // `completed` is a percent crop (0–100), relative to the image itself —
+      // so it maps straight onto the natural pixels, no display-size scaling.
+      const toPx = completed.unit === 'px'
+        ? { sx: completed.x * (NW / img.width), sy: completed.y * (NH / img.height), sw: completed.width * (NW / img.width), sh: completed.height * (NH / img.height) }
+        : { sx: (completed.x / 100) * NW, sy: (completed.y / 100) * NH, sw: (completed.width / 100) * NW, sh: (completed.height / 100) * NH };
+
+      const sx = Math.max(0, Math.round(toPx.sx));
+      const sy = Math.max(0, Math.round(toPx.sy));
+      const sw = Math.max(1, Math.min(NW - sx, Math.round(toPx.sw)));
+      const sh = Math.max(1, Math.min(NH - sy, Math.round(toPx.sh)));
+
       const canvas = document.createElement('canvas');
-      canvas.width = cw;
-      canvas.height = ch;
-      canvas.getContext('2d').drawImage(
-        img,
-        completed.x * scaleX, completed.y * scaleY, cw, ch,
-        0, 0, cw, ch,
-      );
+      canvas.width = sw;
+      canvas.height = sh;
+      canvas.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
       const blob = await new Promise((res) => canvas.toBlob((b) => res(b), 'image/png'));
       onApply(blob);
     } finally {
