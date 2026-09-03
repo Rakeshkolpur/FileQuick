@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useRef, useState } from 'react';
 // eslint-disable-next-line no-unused-vars -- `motion` is used only as <motion.*> JSX
 import { AnimatePresence, motion } from 'framer-motion';
 import FileDropzone from '../../tool/FileDropzone';
+import Lightbox from '../../tool/Lightbox';
 import { downloadBlob } from '../../tool/DownloadButton';
 import { ToolBackContext } from '../../ToolWrapper';
 import { stripExt } from '../../../lib/format';
@@ -9,7 +10,6 @@ import { zipFiles } from '../../../lib/zip';
 import { imagesToPdf } from '../../../lib/imagesToPdf';
 import { preloadCv } from '../../../lib/opencvLoader';
 import { detectDocument, detectDocumentAI, defaultCorners, scanPage } from '../../../lib/scan';
-import { preloadBackgroundModel } from '../../../lib/backgroundRemoval';
 
 const MODES = [
   { key: 'auto', label: 'Auto', hint: 'Flatten lighting, keep colour' },
@@ -107,7 +107,7 @@ function QuadEditor({ src, corners, nat, onChange }) {
 
 /* ---------------- filmstrip thumb ---------------- */
 
-function PageThumb({ page, active, index, onClick, onRemove, onDownload }) {
+function PageThumb({ page, active, index, onClick, onRemove, onDownload, onExpand }) {
   const scanning = ['detecting', 'ai', 'scanning'].includes(page.status);
   const thumb = page.result?.url || page.srcUrl;
   return (
@@ -123,6 +123,14 @@ function PageThumb({ page, active, index, onClick, onRemove, onDownload }) {
       onClick={onClick}
     >
       <img src={thumb} alt="" className="h-24 w-20 bg-gray-100 object-cover dark:bg-gray-800" />
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onExpand(); }}
+        className="absolute inset-0 hidden place-items-center bg-black/25 text-white group-hover:grid"
+        aria-label="View larger"
+      >
+        <svg className="h-5 w-5 drop-shadow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" /></svg>
+      </button>
       {scanning && (
         <span className="pointer-events-none absolute inset-x-0 top-0 h-8 animate-[scanline_1.1s_ease-in-out_infinite] bg-gradient-to-b from-purple-400/70 to-transparent" />
       )}
@@ -166,9 +174,29 @@ const DocumentScanner = () => {
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(null); // { name, done, total } while a PDF rasterises
   const [aiEdges, setAiEdges] = useState(false);
+  const [lightbox, setLightbox] = useState(null); // { src, caption } | null
   const [error, setError] = useState(null);
   const aiRef = useRef(false);
-  useEffect(() => { aiRef.current = aiEdges; if (aiEdges) preloadBackgroundModel(); }, [aiEdges]);
+  useEffect(() => { aiRef.current = aiEdges; }, [aiEdges]);
+
+  // re-run edge detection on every page that isn't finished (keeps scanned
+  // results and in-flight pages). Called when AI edges is switched on, and by
+  // the "Re-detect all" button.
+  const redetectAll = () => {
+    setPages((ps) => ps.map((p) => (
+      p.result || ['detecting', 'ai', 'scanning'].includes(p.status)
+        ? p
+        : { ...p, corners: null, status: 'pending' }
+    )));
+  };
+
+  const toggleAi = () => {
+    setAiEdges((on) => {
+      const next = !on;
+      if (next) redetectAll();
+      return next;
+    });
+  };
   const urlBag = useRef([]);
   const detecting = useRef(false);
   const pagesRef = useRef([]);
@@ -262,9 +290,11 @@ const DocumentScanner = () => {
         try {
           corners = ai ? await detectDocumentAI(next.srcUrl) : await detectDocument(next.srcUrl);
         } catch { /* fall through */ }
-        // AI missed → try the fast detector before giving up
-        if (!corners && ai) {
-          try { corners = await detectDocument(next.srcUrl); } catch { /* ignore */ }
+        // cross-fallback: whichever one wasn't tried yet, before giving up
+        if (!corners) {
+          try {
+            corners = ai ? await detectDocument(next.srcUrl) : await detectDocumentAI(next.srcUrl);
+          } catch { /* ignore */ }
         }
         const auto = !!corners;
         if (!corners) corners = await defaultCorners(next.srcUrl);
@@ -422,8 +452,8 @@ const DocumentScanner = () => {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => setAiEdges((v) => !v)}
-            title="Use the AI segmentation model to find page edges — slower, but far more accurate on cluttered or low-contrast photos"
+            onClick={toggleAi}
+            title="Smart edge finding — segments the page from its background, for cluttered or low-contrast photos where the plain detector struggles"
             className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-semibold transition-colors ${
               aiEdges
                 ? 'border-purple-600 bg-purple-50 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300'
@@ -431,8 +461,17 @@ const DocumentScanner = () => {
             }`}
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 3l1.4 3.6L10 8 6.4 9.4 5 13 3.6 9.4 0 8l3.6-1.4zM17 4l1 2.5L20.5 8 18 9l-1 2.5L16 9l-2.5-1L16 6.5zM15 14l1.2 3L19 18l-2.8 1L15 22l-1.2-3L11 18l2.8-1z" /></svg>
-            AI edges
+            AI edges{aiEdges ? ' · on' : ''}
           </button>
+          {aiEdges && pages.some((p) => !p.result) && (
+            <button
+              type="button"
+              onClick={redetectAll}
+              className="rounded-xl border border-gray-200 px-3 py-2 text-[13px] font-medium text-gray-600 hover:border-purple-300 dark:border-gray-700 dark:text-gray-300"
+            >
+              Re-detect all
+            </button>
+          )}
           <button
             type="button"
             onClick={scanAll}
@@ -459,6 +498,7 @@ const DocumentScanner = () => {
               index={i}
               active={p.id === selId}
               onClick={() => setSelId(p.id)}
+              onExpand={() => setLightbox({ src: p.result?.url || p.srcUrl, caption: p.name })}
               onDownload={() => downloadOne(p)}
               onRemove={() => {
                 setPages((ps) => ps.filter((x) => x.id !== p.id));
@@ -544,7 +584,9 @@ const DocumentScanner = () => {
                 animate={{ opacity: 1, scale: 1 }}
                 src={sel.result.url}
                 alt=""
-                className="max-h-[58vh] w-auto max-w-full rounded-lg shadow-md"
+                title="Click to view larger"
+                onClick={() => setLightbox({ src: sel.result.url, caption: `${sel.name} · ${sel.result.width}×${sel.result.height}` })}
+                className="max-h-[58vh] w-auto max-w-full cursor-zoom-in rounded-lg shadow-md"
               />
             ) : sel.corners && sel.nat ? (
               <QuadEditor
@@ -635,6 +677,10 @@ const DocumentScanner = () => {
       </AnimatePresence>
 
       {error && <p className="text-center text-sm text-red-600 dark:text-red-400">{error}</p>}
+
+      {lightbox && (
+        <Lightbox src={lightbox.src} caption={lightbox.caption} onClose={() => setLightbox(null)} />
+      )}
     </div>
   );
 };
