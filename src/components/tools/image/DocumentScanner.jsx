@@ -8,7 +8,8 @@ import { stripExt } from '../../../lib/format';
 import { zipFiles } from '../../../lib/zip';
 import { imagesToPdf } from '../../../lib/imagesToPdf';
 import { preloadCv } from '../../../lib/opencvLoader';
-import { detectDocument, defaultCorners, scanPage } from '../../../lib/scan';
+import { detectDocument, detectDocumentAI, defaultCorners, scanPage } from '../../../lib/scan';
+import { preloadBackgroundModel } from '../../../lib/backgroundRemoval';
 
 const MODES = [
   { key: 'auto', label: 'Auto', hint: 'Flatten lighting, keep colour' },
@@ -106,8 +107,8 @@ function QuadEditor({ src, corners, nat, onChange }) {
 
 /* ---------------- filmstrip thumb ---------------- */
 
-function PageThumb({ page, active, index, onClick, onRemove }) {
-  const scanning = page.status === 'detecting' || page.status === 'scanning';
+function PageThumb({ page, active, index, onClick, onRemove, onDownload }) {
+  const scanning = ['detecting', 'ai', 'scanning'].includes(page.status);
   const thumb = page.result?.url || page.srcUrl;
   return (
     <motion.div
@@ -142,6 +143,16 @@ function PageThumb({ page, active, index, onClick, onRemove }) {
       >
         <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" /></svg>
       </button>
+      {page.result && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onDownload(); }}
+          className="absolute bottom-1 left-1 hidden rounded bg-black/60 p-0.5 text-white group-hover:block"
+          aria-label="Download page"
+        >
+          <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16" /></svg>
+        </button>
+      )}
     </motion.div>
   );
 }
@@ -153,7 +164,11 @@ const DocumentScanner = () => {
   const [selId, setSelId] = useState(null);
   const [runningAll, setRunningAll] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(null); // { name, done, total } while a PDF rasterises
+  const [aiEdges, setAiEdges] = useState(false);
   const [error, setError] = useState(null);
+  const aiRef = useRef(false);
+  useEffect(() => { aiRef.current = aiEdges; if (aiEdges) preloadBackgroundModel(); }, [aiEdges]);
   const urlBag = useRef([]);
   const detecting = useRef(false);
   const pagesRef = useRef([]);
@@ -182,17 +197,52 @@ const DocumentScanner = () => {
     setPages([]); setSelId(null); setError(null); setRunningAll(false);
   };
 
-  const addFiles = (files) => {
+  const makePage = (blob, name) => {
+    const url = URL.createObjectURL(blob);
+    urlBag.current.push(url);
+    return { id: ++_seq, name, origUrl: url, srcUrl: url, rotate: 0, nat: null, corners: null, mode: 'auto', status: 'pending', result: null };
+  };
+
+  const addFiles = async (files) => {
     const imgs = files.filter((f) => f.type.startsWith('image/'));
-    if (!imgs.length) { setError('Please choose photo files (JPG, PNG, WebP).'); return; }
+    const pdfs = files.filter((f) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name));
+    if (!imgs.length && !pdfs.length) { setError('Add photos or a PDF.'); return; }
     setError(null);
-    const next = imgs.map((f) => {
-      const url = URL.createObjectURL(f);
-      urlBag.current.push(url);
-      return { id: ++_seq, name: f.name, origUrl: url, srcUrl: url, rotate: 0, nat: null, corners: null, mode: 'auto', status: 'pending', result: null };
-    });
-    setPages((ps) => [...ps, ...next]);
-    setSelId((cur) => cur ?? next[0].id);
+
+    if (imgs.length) {
+      const next = imgs.map((f) => makePage(f, f.name));
+      setPages((ps) => [...ps, ...next]);
+      setSelId((cur) => cur ?? next[0].id);
+    }
+
+    for (const file of pdfs) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const { openPdf, renderPageToCanvas } = await import('../../../lib/pdfjs');
+        // eslint-disable-next-line no-await-in-loop
+        const doc = await openPdf(await file.arrayBuffer());
+        const base = stripExt(file.name) || 'pdf';
+        setImporting({ name: file.name, done: 0, total: doc.numPages });
+        for (let n = 1; n <= doc.numPages; n += 1) {
+          // eslint-disable-next-line no-await-in-loop
+          const pg = await doc.getPage(n);
+          const vp = pg.getViewport({ scale: 1 });
+          const scale = Math.min(4, Math.max(1.6, 1800 / Math.max(vp.width, vp.height)));
+          // eslint-disable-next-line no-await-in-loop
+          const canvas = await renderPageToCanvas(doc, n, { scale });
+          // eslint-disable-next-line no-await-in-loop
+          const blob = await new Promise((r) => canvas.toBlob((b) => r(b), 'image/jpeg', 0.92));
+          const page = makePage(blob, `${base}-p${String(n).padStart(2, '0')}`);
+          setPages((ps) => [...ps, page]);
+          setSelId((cur) => cur ?? page.id);
+          setImporting((s) => (s ? { ...s, done: n } : s));
+        }
+        doc.destroy?.();
+      } catch {
+        setError(`Could not read ${file.name}.`);
+      }
+    }
+    setImporting(null);
   };
 
   // sequential detection queue
@@ -202,13 +252,20 @@ const DocumentScanner = () => {
     if (!next) return;
     detecting.current = true;
     (async () => {
-      patch(next.id, { status: 'detecting' });
+      const ai = aiRef.current;
+      patch(next.id, { status: ai ? 'ai' : 'detecting' });
       try {
         const im = new Image();
         await new Promise((res, rej) => { im.onload = res; im.onerror = rej; im.src = next.srcUrl; });
         const nat = { w: im.naturalWidth, h: im.naturalHeight };
         let corners = null;
-        try { corners = await detectDocument(next.srcUrl); } catch { /* fall through */ }
+        try {
+          corners = ai ? await detectDocumentAI(next.srcUrl) : await detectDocument(next.srcUrl);
+        } catch { /* fall through */ }
+        // AI missed → try the fast detector before giving up
+        if (!corners && ai) {
+          try { corners = await detectDocument(next.srcUrl); } catch { /* ignore */ }
+        }
         const auto = !!corners;
         if (!corners) corners = await defaultCorners(next.srcUrl);
         patch(next.id, { nat, corners, status: auto ? 'ready' : 'review' });
@@ -270,7 +327,7 @@ const DocumentScanner = () => {
     for (const id of ids) {
       // wait until detection has settled for this page
       // eslint-disable-next-line no-await-in-loop
-      while (['pending', 'detecting'].includes(cur(id)?.status)) {
+      while (['pending', 'detecting', 'ai'].includes(cur(id)?.status)) {
         // eslint-disable-next-line no-await-in-loop
         await new Promise((r) => setTimeout(r, 150));
       }
@@ -301,6 +358,13 @@ const DocumentScanner = () => {
     }
   };
 
+  const downloadOne = (page) => {
+    if (!page.result) return;
+    const ext = page.result.blob.type === 'image/png' ? 'png' : 'jpg';
+    const i = pages.findIndex((p) => p.id === page.id) + 1;
+    downloadBlob(page.result.blob, `${stripExt(page.name) || 'scan'}-${String(i).padStart(2, '0')}.${ext}`);
+  };
+
   const exportZip = async () => {
     const done = pages.filter((p) => p.result);
     if (!done.length) return;
@@ -319,13 +383,18 @@ const DocumentScanner = () => {
     return (
       <div className="mx-auto max-w-2xl">
         <FileDropzone
-          accept="image/*"
+          accept="image/*,application/pdf"
           multiple
           onFiles={addFiles}
-          title="Drop photos of your documents"
-          hint="one or many — receipts, IDs, forms, notes"
-          formats="JPG · PNG · WebP — straightened and cleaned up right here in your browser"
+          title="Drop photos or a PDF"
+          hint="one or many — receipts, IDs, forms, notes, or a whole PDF to re-scan"
+          formats="JPG · PNG · WebP · PDF — straightened and cleaned up right here in your browser"
         />
+        {importing && (
+          <p className="mt-3 text-center text-sm text-gray-500 dark:text-gray-400">
+            Reading {importing.name} — page {importing.done} of {importing.total}…
+          </p>
+        )}
         {error && <p className="mt-3 text-center text-sm text-red-600 dark:text-red-400">{error}</p>}
       </div>
     );
@@ -344,10 +413,26 @@ const DocumentScanner = () => {
           {anyResult && <span>· {scannedCount} scanned</span>}
           <label className="ml-1 cursor-pointer font-medium text-purple-600 hover:underline dark:text-purple-400">
             + Add
-            <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { addFiles([...e.target.files]); e.target.value = ''; }} />
+            <input type="file" accept="image/*,application/pdf" multiple className="hidden" onChange={(e) => { addFiles([...e.target.files]); e.target.value = ''; }} />
           </label>
+          {importing && (
+            <span className="text-purple-600 dark:text-purple-400">· reading PDF {importing.done}/{importing.total}</span>
+          )}
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setAiEdges((v) => !v)}
+            title="Use the AI segmentation model to find page edges — slower, but far more accurate on cluttered or low-contrast photos"
+            className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-semibold transition-colors ${
+              aiEdges
+                ? 'border-purple-600 bg-purple-50 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300'
+                : 'border-gray-200 text-gray-600 hover:border-purple-300 dark:border-gray-700 dark:text-gray-300'
+            }`}
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 3l1.4 3.6L10 8 6.4 9.4 5 13 3.6 9.4 0 8l3.6-1.4zM17 4l1 2.5L20.5 8 18 9l-1 2.5L16 9l-2.5-1L16 6.5zM15 14l1.2 3L19 18l-2.8 1L15 22l-1.2-3L11 18l2.8-1z" /></svg>
+            AI edges
+          </button>
           <button
             type="button"
             onClick={scanAll}
@@ -374,6 +459,7 @@ const DocumentScanner = () => {
               index={i}
               active={p.id === selId}
               onClick={() => setSelId(p.id)}
+              onDownload={() => downloadOne(p)}
               onRemove={() => {
                 setPages((ps) => ps.filter((x) => x.id !== p.id));
                 setSelId((cur) => (cur === p.id ? (pages.find((x) => x.id !== p.id)?.id ?? null) : cur));
@@ -409,6 +495,20 @@ const DocumentScanner = () => {
               className="rounded-lg bg-white px-2.5 py-1 text-[12px] font-medium text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
             >
               Re-detect edges
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                patch(sel.id, { status: 'ai' });
+                let c = null;
+                try { c = await detectDocumentAI(sel.srcUrl); } catch { /* ignore */ }
+                if (!c) { try { c = await detectDocument(sel.srcUrl); } catch { /* ignore */ } }
+                patch(sel.id, { corners: c || await defaultCorners(sel.srcUrl), status: 'review' });
+              }}
+              className="inline-flex items-center gap-1 rounded-lg bg-purple-50 px-2.5 py-1 text-[12px] font-medium text-purple-700 hover:bg-purple-100 dark:bg-purple-500/15 dark:text-purple-300"
+            >
+              <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 3l1.4 3.6L10 8 6.4 9.4 5 13 3.6 9.4 0 8l3.6-1.4z" /></svg>
+              AI detect
             </button>
             <button
               type="button"
@@ -456,7 +556,7 @@ const DocumentScanner = () => {
             ) : (
               <div className="flex h-48 items-center justify-center gap-2 text-sm text-gray-400">
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />
-                Finding the page…
+                {sel.status === 'ai' ? 'AI is finding the page…' : 'Finding the page…'}
               </div>
             )}
           </div>
@@ -467,13 +567,23 @@ const DocumentScanner = () => {
             </p>
             <div className="flex gap-2">
               {sel.result && (
-                <button
-                  type="button"
-                  onClick={() => patch(sel.id, { result: null, status: 'review' })}
-                  className="rounded-lg px-3 py-1.5 text-[13px] font-medium text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-                >
-                  Edit corners
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => downloadOne(sel)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-[13px] font-medium text-gray-700 hover:border-purple-300 dark:border-gray-700 dark:text-gray-200"
+                  >
+                    <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16" /></svg>
+                    Download page
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => patch(sel.id, { result: null, status: 'review' })}
+                    className="rounded-lg px-3 py-1.5 text-[13px] font-medium text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                  >
+                    Edit corners
+                  </button>
+                </>
               )}
               <button
                 type="button"

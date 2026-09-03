@@ -3,6 +3,7 @@
 // real scan. Everything runs on the device.
 
 import { getCv } from './opencvLoader';
+import { cutoutBackground } from './backgroundRemoval';
 
 const DETECT_EDGE = 800;   // downscale for corner detection (speed)
 const OUTPUT_MAX = 2200;   // cap the warped output's long side
@@ -88,6 +89,78 @@ export async function detectDocument(srcUrl) {
   }
 
   if (!quad) return null;
+  const inv = 1 / scale;
+  return orderCorners(quad.map((p) => ({ x: p.x * inv, y: p.y * inv })));
+}
+
+/**
+ * AI edge detection: segment the page from the background with the
+ * background-removal model (much cleaner than Canny on cluttered / low-contrast
+ * photos), then take the four extreme corners of that mask.
+ * @returns {Promise<[{x,y},{x,y},{x,y},{x,y}]|null>} full-res coords, TL,TR,BR,BL
+ */
+export async function detectDocumentAI(srcUrl, onProgress) {
+  const cv = await getCv();
+  const maskBlob = await cutoutBackground(srcUrl, onProgress);
+  const maskUrl = URL.createObjectURL(maskBlob);
+  const img = await loadImage(maskUrl);
+  const { canvas, scale } = drawToCanvas(img, DETECT_EDGE);
+  URL.revokeObjectURL(maskUrl);
+
+  const W = canvas.width;
+  const H = canvas.height;
+  const src = cv.imread(canvas);
+  const channels = new cv.MatVector();
+  const mask = new cv.Mat();
+  const contours = new cv.MatVector();
+  const hierarchy = new cv.Mat();
+  const kernel = cv.Mat.ones(7, 7, cv.CV_8U);
+  let quad = null;
+
+  try {
+    cv.split(src, channels);
+    const alpha = channels.get(3);
+    cv.threshold(alpha, mask, 128, 255, cv.THRESH_BINARY);
+    cv.morphologyEx(mask, mask, cv.MORPH_CLOSE, kernel);
+    cv.morphologyEx(mask, mask, cv.MORPH_OPEN, kernel);
+    alpha.delete();
+
+    cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+    let best = 0;
+    let bi = -1;
+    for (let i = 0; i < contours.size(); i += 1) {
+      const a = Math.abs(cv.contourArea(contours.get(i)));
+      if (a > best) { best = a; bi = i; }
+    }
+    if (bi >= 0 && best > W * H * 0.04) {
+      const hull = new cv.Mat();
+      cv.convexHull(contours.get(bi), hull);
+      const pts = [];
+      for (let i = 0; i < hull.rows; i += 1) {
+        pts.push({ x: hull.data32S[i * 2], y: hull.data32S[i * 2 + 1] });
+      }
+      hull.delete();
+      // try a real 4-gon first; fall back to the four extreme points
+      const c = contours.get(bi);
+      const peri = cv.arcLength(c, true);
+      const approx = new cv.Mat();
+      cv.approxPolyDP(c, approx, 0.02 * peri, true);
+      if (approx.rows === 4) {
+        quad = [];
+        for (let j = 0; j < 4; j += 1) quad.push({ x: approx.data32S[j * 2], y: approx.data32S[j * 2 + 1] });
+      } else {
+        const bySum = [...pts].sort((a, b) => (a.x + a.y) - (b.x + b.y));
+        const byDiff = [...pts].sort((a, b) => (a.x - a.y) - (b.x - b.y));
+        quad = [bySum[0], byDiff[byDiff.length - 1], bySum[bySum.length - 1], byDiff[0]];
+      }
+      approx.delete();
+    }
+  } finally {
+    src.delete(); channels.delete(); mask.delete();
+    contours.delete(); hierarchy.delete(); kernel.delete();
+  }
+
+  if (!quad || quad.some((p) => p == null)) return null;
   const inv = 1 / scale;
   return orderCorners(quad.map((p) => ({ x: p.x * inv, y: p.y * inv })));
 }
