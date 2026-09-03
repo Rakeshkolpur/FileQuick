@@ -3,14 +3,12 @@ import FileDropzone from '../../tool/FileDropzone';
 import { downloadBlob } from '../../tool/DownloadButton';
 import { ToolBackContext } from '../../ToolWrapper';
 import { formatBytes, stripExt } from '../../../lib/format';
-import { upscaleImage, preloadUpscaleModel, dataUrlBytes } from '../../../lib/upscale';
+import { upscaleImage, preloadUpscaleModel } from '../../../lib/upscale';
 
 const FACTORS = [
   { f: 2, label: '2×', hint: 'Twice the pixels — great for most photos' },
   { f: 4, label: '4×', hint: 'Four times — small or low-res shots' },
 ];
-
-const dataUrlToBlob = (u) => fetch(u).then((r) => r.blob());
 
 const ImageUpscaler = () => {
   const [file, setFile] = useState(null);
@@ -31,21 +29,32 @@ const ImageUpscaler = () => {
   const gesture = useRef(null);
   const abortRef = useRef(null);
   const urlRef = useRef(null);
+  const resultUrlRef = useRef(null);
   const registerBack = useContext(ToolBackContext);
 
   useEffect(() => { preloadUpscaleModel(2); }, []);
-  useEffect(() => () => { if (urlRef.current) URL.revokeObjectURL(urlRef.current); }, []);
+  useEffect(() => () => {
+    if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+    if (resultUrlRef.current) URL.revokeObjectURL(resultUrlRef.current);
+  }, []);
+
+  const clearResult = () => {
+    if (resultUrlRef.current) URL.revokeObjectURL(resultUrlRef.current);
+    resultUrlRef.current = null;
+    setResult(null);
+  };
 
   const reset = () => {
     abortRef.current?.abort();
     if (urlRef.current) URL.revokeObjectURL(urlRef.current);
     urlRef.current = null;
+    clearResult();
     setFile(null); setSrcUrl(null); setSrcDims(null);
-    setResult(null); setError(null); setBusy(false); setProgress(0);
+    setError(null); setBusy(false); setProgress(0);
     setPos(50); setZoom(1); setPan({ x: 0, y: 0 });
   };
 
-  const backToSetup = () => { setResult(null); setPos(50); setZoom(1); setPan({ x: 0, y: 0 }); };
+  const backToSetup = () => { clearResult(); setPos(50); setZoom(1); setPan({ x: 0, y: 0 }); };
 
   const started = !!file;
   useEffect(() => {
@@ -69,12 +78,13 @@ const ImageUpscaler = () => {
 
   const run = async () => {
     if (!srcUrl || busy) return;
-    setBusy(true); setError(null); setProgress(0); setResult(null);
+    setBusy(true); setError(null); setProgress(0); clearResult();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     try {
       const out = await upscaleImage(srcUrl, factor, setProgress, ctrl.signal);
-      setResult({ ...out, bytes: dataUrlBytes(out.url) });
+      resultUrlRef.current = out.blobUrl;
+      setResult(out);
       setPos(50); setZoom(1); setPan({ x: 0, y: 0 });
     } catch (e) {
       if (e?.name !== 'AbortError') setError(e?.message || 'Upscaling failed. Try a smaller image or the 2× option.');
@@ -86,7 +96,7 @@ const ImageUpscaler = () => {
 
   const download = async () => {
     if (!result) return;
-    const blob = await dataUrlToBlob(result.url);
+    const blob = await fetch(result.blobUrl).then((r) => r.blob());
     downloadBlob(blob, `${stripExt(file.name)}-upscaled-${factor}x.png`);
   };
 
@@ -162,7 +172,7 @@ const ImageUpscaler = () => {
               <h2 className="text-lg font-bold text-gray-900 dark:text-white">Upscaled {factor}×</h2>
               <p className="text-[13px] text-gray-500 dark:text-gray-400">
                 {outW} × {outH} px · {formatBytes(result.bytes)} · PNG
-                {result.capped && <span className="ml-1">· source was scaled to fit</span>}
+                {result.capped && <span className="ml-1">· source scaled to fit</span>}
               </p>
             </div>
             <button
@@ -186,7 +196,7 @@ const ImageUpscaler = () => {
           >
             {/* after (base) */}
             <div className="absolute inset-0" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
-              <img src={result.url} alt="Upscaled" draggable={false} className="absolute inset-0 h-full w-full object-contain" />
+              <img src={result.blobUrl} alt="Upscaled" draggable={false} className="absolute inset-0 h-full w-full object-contain" />
             </div>
             {/* before, clipped to the left of the line (screen-space) */}
             <div className="absolute inset-y-0 left-0 overflow-hidden" style={{ width: `${pos}%` }}>
@@ -280,7 +290,8 @@ const ImageUpscaler = () => {
               <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
                 <div className="h-full rounded-full bg-gradient-to-r from-purple-600 to-pink-600 transition-[width] duration-200" style={{ width: `${Math.max(4, progress * 100)}%` }} />
               </div>
-              <button type="button" onClick={() => abortRef.current?.abort()} className="mt-3 text-[12px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">Cancel</button>
+              <p className="mt-2 text-[11px] text-gray-400 dark:text-gray-500">4× can take up to a minute — the model is working, not frozen.</p>
+              <button type="button" onClick={() => abortRef.current?.abort()} className="mt-2 text-[12px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">Cancel</button>
             </div>
           ) : (
             <button
