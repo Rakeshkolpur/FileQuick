@@ -21,16 +21,21 @@ SRC = "src/assets/frames"
 OUT = "public/frames"
 THUMB = os.path.join(OUT, "thumb")
 os.makedirs(THUMB, exist_ok=True)
-NAMES = ["gold-crown", "love-hearts", "pink-kiss", "gaming-neon", "flower-butterfly"]
 N = 1600
 
-# per-frame tuning: (chroma tolerance, luma band pad, min area to clear a band)
+# every .png in src/assets/frames/ is processed. Pass names on the command line
+# to limit it, e.g.  python scripts/optimise-frames.py my-new-frame
+import sys
+NAMES = sys.argv[1:] or sorted(
+    os.path.splitext(f)[0] for f in os.listdir(SRC) if f.lower().endswith(".png")
+)
+
+# per-frame checkerboard-key tuning: (chroma tolerance, luma band pad, min area
+# to clear a trapped band). DEFAULT suits clean art on a plain checkerboard; add
+# an entry only if a frame keeps stray checker specks or loses grey detail.
+DEFAULT_TUNE = (22, 26, 5000)
 TUNE = {
-    "gold-crown":      (22, 26, 5000),
-    "love-hearts":     (22, 26, 5000),
-    "pink-kiss":       (22, 26, 5000),
-    "gaming-neon":     (60, 55, 900),   # neon bloom tints the checker blue/purple
-    "flower-butterfly": (22, 26, 5000),
+    "gaming-neon": (60, 55, 900),   # neon bloom tints the checker blue/purple
 }
 
 
@@ -85,37 +90,46 @@ def label_components(mask):
 
 
 for name in NAMES:
-    im = Image.open(os.path.join(SRC, name + ".png")).convert("RGB").resize((N, N), Image.LANCZOS)
-    arr = np.asarray(im).astype(int)
-    lo, hi = detect_checker(np.asarray(im))
+    raw = Image.open(os.path.join(SRC, name + ".png"))
+    im = raw.convert("RGB").resize((N, N), Image.LANCZOS)
 
-    cht, pad, min_area = TUNE[name]
-    chroma = arr.max(2) - arr.min(2)
-    luma = arr.mean(2)
-    # generous "could be checker" test — grey and within the tone band (plus the
-    # anti-alias ramp between the two tones)
-    checker_like = (chroma < cht) & (luma > lo - pad) & (luma < hi + pad)
+    # If the PNG already carries real transparency (made to spec), keep its
+    # alpha as-is and skip the checkerboard keying entirely.
+    src_alpha = raw.getchannel("A") if raw.mode in ("RGBA", "LA") else None
+    already_keyed = src_alpha is not None and (np.asarray(src_alpha) < 8).mean() > 0.15
 
-    seed = np.zeros((N, N), bool)
-    seed[:3] = seed[-3:] = seed[:, :3] = seed[:, -3:] = True  # border
-    cy = cx = N // 2                                          # centre hole
-    seed[cy - 6:cy + 6, cx - 6:cx + 6] = True
+    if already_keyed:
+        a = src_alpha.convert("L").resize((N, N), Image.LANCZOS)
+        out = im.convert("RGBA")
+        out.putalpha(a)
+    else:
+        arr = np.asarray(im).astype(int)
+        lo, hi = detect_checker(np.asarray(im))
+        cht, pad, min_area = TUNE.get(name, DEFAULT_TUNE)
+        chroma = arr.max(2) - arr.min(2)
+        luma = arr.mean(2)
+        # generous "could be checker" test — grey and within the tone band
+        checker_like = (chroma < cht) & (luma > lo - pad) & (luma < hi + pad)
 
-    transp = flood_binary(seed, checker_like)
+        seed = np.zeros((N, N), bool)
+        seed[:3] = seed[-3:] = seed[:, :3] = seed[:, -3:] = True  # border
+        c = N // 2                                                # centre hole
+        seed[c - 6:c + 6, c - 6:c + 6] = True
 
-    # restore small enclosed grey details
-    holes = checker_like & ~transp
-    lab, n = label_components(holes)
-    if n:
-        areas = np.bincount(lab.ravel())
-        big = {i for i in range(1, n + 1) if areas[i] > min_area}  # keep big bands transparent
-        keep_transparent = np.isin(lab, list(big)) if big else np.zeros_like(holes)
-        transp |= keep_transparent
+        transp = flood_binary(seed, checker_like)
 
-    alpha = np.where(transp, 0, 255).astype(np.uint8)
-    a = Image.fromarray(alpha, "L").filter(ImageFilter.MinFilter(3)).filter(ImageFilter.GaussianBlur(0.8))
-    out = im.convert("RGBA")
-    out.putalpha(a)
+        # restore small enclosed grey details (crown pearls, rose highlights)
+        holes = checker_like & ~transp
+        lab, n = label_components(holes)
+        if n:
+            areas = np.bincount(lab.ravel())
+            big = [i for i in range(1, n + 1) if areas[i] > min_area]
+            transp |= np.isin(lab, big) if big else np.zeros_like(holes)
+
+        alpha = np.where(transp, 0, 255).astype(np.uint8)
+        a = Image.fromarray(alpha, "L").filter(ImageFilter.MinFilter(3)).filter(ImageFilter.GaussianBlur(0.8))
+        out = im.convert("RGBA")
+        out.putalpha(a)
 
     pct = (np.asarray(a) < 8).mean() * 100
 
@@ -136,5 +150,6 @@ for name in NAMES:
     out.save(os.path.join(OUT, name + ".webp"), "WEBP", quality=90, method=6)
     out.resize((160, 160), Image.LANCZOS).save(os.path.join(THUMB, name + ".webp"), "WEBP", quality=88, method=6)
     kb = os.path.getsize(os.path.join(OUT, name + ".webp")) / 1024
-    print(f"{name:18s} checker {lo:>3}/{hi:<3}  transparent {pct:4.1f}%   "
+    tag = "kept alpha" if already_keyed else "keyed checker"
+    print(f"{name:20s} {tag:13s} transparent {pct:4.1f}%   "
           f"inner r={inner:.2f}  suggested fit={fit}   {kb:6.1f} KB")
