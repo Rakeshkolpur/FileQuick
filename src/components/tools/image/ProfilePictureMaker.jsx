@@ -138,6 +138,14 @@ const PHOTO_FRAMES = [
   { id: 'pink-kiss', name: 'Pink Kiss', src: '/frames/pink-kiss.webp', thumb: '/frames/thumb/pink-kiss.webp', fit: 1.3 },
   { id: 'gaming-neon', name: 'Gaming Neon', src: '/frames/gaming-neon.webp', thumb: '/frames/thumb/gaming-neon.webp', fit: 1.3 },
   { id: 'flower-butterfly', name: 'Flower & Butterfly', src: '/frames/flower-butterfly.webp', thumb: '/frames/thumb/flower-butterfly.webp', fit: 1.45 },
+  { id: 'green-leaf-wreath', name: 'Leaf Wreath', src: '/frames/green-leaf-wreath.webp', thumb: '/frames/thumb/green-leaf-wreath.webp', fit: 1.3 },
+  { id: 'fire-flames', name: 'Fire', src: '/frames/fire-flames.webp', thumb: '/frames/thumb/fire-flames.webp', fit: 1.3 },
+  { id: 'ocean-wave', name: 'Ocean Wave', src: '/frames/ocean-wave.webp', thumb: '/frames/thumb/ocean-wave.webp', fit: 1.45 },
+  { id: 'purple-galaxy', name: 'Galaxy', src: '/frames/purple-galaxy.webp', thumb: '/frames/thumb/purple-galaxy.webp', fit: 1.3 },
+  { id: 'diamond-ring', name: 'Diamonds', src: '/frames/diamond-ring.webp', thumb: '/frames/thumb/diamond-ring.webp', fit: 1.2 },
+  { id: 'black-gold-ring', name: 'Black & Gold', src: '/frames/black-gold-ring.webp', thumb: '/frames/thumb/black-gold-ring.webp', fit: 1.44 },
+  { id: 'gold-ring', name: 'Gold Ring', src: '/frames/gold-ring.webp', thumb: '/frames/thumb/gold-ring.webp', fit: 1.0 },
+  { id: 'electric-plasma', name: 'Plasma', src: '/frames/electric-plasma.webp', thumb: '/frames/thumb/electric-plasma.webp', fit: 1.2 },
 ];
 
 const SHAPES = [

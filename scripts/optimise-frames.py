@@ -35,7 +35,17 @@ NAMES = sys.argv[1:] or sorted(
 # an entry only if a frame keeps stray checker specks or loses grey detail.
 DEFAULT_TUNE = (22, 26, 5000)
 TUNE = {
-    "gaming-neon": (60, 55, 900),   # neon bloom tints the checker blue/purple
+    "gaming-neon": (60, 55, 900),      # neon bloom tints the checker blue/purple
+    "black-gold-ring": (26, 40, 250),
+    "diamond-ring": (24, 34, 300),
+}
+
+# frames whose centre checkerboard the flood can't clear (a glow/gradient across
+# it breaks connectivity): force everything inside this radius (fraction of the
+# half-width) fully transparent. Keep it below where the ring art starts.
+FORCE_INNER = {
+    "electric-plasma": 0.60,
+    "gold-ring": 0.74,
 }
 
 
@@ -89,8 +99,16 @@ def label_components(mask):
     return lab, cur
 
 
+def to_square(img):
+    w, h = img.size
+    if w == h:
+        return img
+    s = min(w, h)
+    return img.crop(((w - s) // 2, (h - s) // 2, (w - s) // 2 + s, (h - s) // 2 + s))
+
+
 for name in NAMES:
-    raw = Image.open(os.path.join(SRC, name + ".png"))
+    raw = to_square(Image.open(os.path.join(SRC, name + ".png")))
     im = raw.convert("RGB").resize((N, N), Image.LANCZOS)
 
     # If the PNG already carries real transparency (made to spec), keep its
@@ -129,6 +147,13 @@ for name in NAMES:
         alpha = np.where(transp, 0, 255).astype(np.uint8)
         a = Image.fromarray(alpha, "L").filter(ImageFilter.MinFilter(3)).filter(ImageFilter.GaussianBlur(0.8))
         out = im.convert("RGBA")
+        out.putalpha(a)
+
+    if name in FORCE_INNER:
+        a = np.asarray(a).copy()
+        yy, xx = np.mgrid[0:N, 0:N]
+        a[np.sqrt((xx - N / 2) ** 2 + (yy - N / 2) ** 2) / (N / 2) < FORCE_INNER[name]] = 0
+        a = Image.fromarray(a, "L").filter(ImageFilter.GaussianBlur(1.0))
         out.putalpha(a)
 
     pct = (np.asarray(a) < 8).mean() * 100
