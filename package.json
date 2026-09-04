@@ -1,7 +1,7 @@
 {
   "name": "imageresizer",
   "private": true,
-  "version": "1.0.4",
+  "version": "1.0.5",
   "type": "module",
   "description": "FileQuick — all your image and PDF tools in one place, offline.",
   "author": "FileQuick",
