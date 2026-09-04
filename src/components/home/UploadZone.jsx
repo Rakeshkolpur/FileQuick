@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { LuUploadCloud, LuFolderOpen } from 'react-icons/lu';
 
 const PDF_ACTIONS = [
   { id: 'pdf-compressor', label: 'Compress' },
@@ -72,17 +73,14 @@ const UploadZone = ({ v2 = false }) => {
 
       {!pdfName && v2 ? (
         <>
-          <svg className="mx-auto mb-3 h-12 w-12 text-indigo-500 dark:text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M7 18a4 4 0 01-.9-7.9 5 5 0 019.7-1.6A4.5 4.5 0 0117 18H7z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 12v6m0-6l-2.5 2.5M12 12l2.5 2.5" />
-          </svg>
+          <LuUploadCloud className="mx-auto mb-3 h-12 w-12 text-indigo-500 dark:text-indigo-400" strokeWidth={1.6} />
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">Drop any file here</h2>
           <p className="my-2 text-sm text-gray-400 dark:text-gray-500">or</p>
           <button
             onClick={() => inputRef.current?.click()}
             className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 hover:bg-indigo-700"
           >
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" /></svg>
+            <LuFolderOpen className="h-4 w-4" />
             Choose File
           </button>
           <p className="mt-4 text-xs text-gray-400 dark:text-gray-500">PDF, JPG, PNG, WEBP, DOCX and more</p>

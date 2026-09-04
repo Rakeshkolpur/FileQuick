@@ -1,37 +1,38 @@
 import React from 'react';
+import {
+  LuImage, LuFileArchive, LuCrop, LuRepeat, LuScissors, LuCombine, LuFileText,
+  LuTrash2, LuListOrdered, LuUnlock, LuLock, LuFileSignature, LuAlignLeft,
+  LuEraser, LuRotateCw, LuFileOutput, LuHash, LuDroplet, LuPresentation,
+  LuTable, LuFileType2, LuUser, LuContact, LuExpand, LuScanLine,
+} from 'react-icons/lu';
 
-const Svg = ({ d }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-full h-full">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={d} />
-  </svg>
-);
-
+const C = 'h-full w-full';
 const I = {
-  image: <Svg d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />,
-  compress: <Svg d="M19 14l-7 7m0 0l-7-7m7 7V3" />,
-  crop: <Svg d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />,
-  convert: <Svg d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />,
-  scissors: <Svg d="M14.12 14.12L19 19M12 12l7-7m-7 7l-2.88 2.88M12 12L9.12 9.12m0 5.76a3 3 0 10-4.24 4.24 3 3 0 004.24-4.24zm0-5.76a3 3 0 10-4.24-4.24 3 3 0 004.24 4.24z" />,
-  merge: <Svg d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />,
-  pdf: <Svg d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />,
-  trash: <Svg d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />,
-  organize: <Svg d="M4 6h16M4 10h16M4 14h16M4 18h16" />,
-  unlock: <Svg d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />,
-  lock: <Svg d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />,
-  sign: <Svg d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />,
-  text: <Svg d="M4 6h16M4 12h16M4 18h7" />,
-  bg: <Svg d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM8 12l2 2 4-4" />,
-  rotate: <Svg d="M4 4v5h5M4 9a8 8 0 0113.657-4M20 20v-5h-5M20 15A8 8 0 016.343 19" />,
-  extract: <Svg d="M9 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2v-7M13 3h6v6M19 3l-8 8" />,
-  hash: <Svg d="M9 4L7 20M17 4l-2 16M4 9h16M3 15h16" />,
-  water: <Svg d="M12 3s6 6.5 6 11a6 6 0 11-12 0C6 9.5 12 3 12 3z" />,
-  present: <Svg d="M3 4h18M4 4v9a2 2 0 002 2h12a2 2 0 002-2V4M9 20l3-4 3 4" />,
-  grid: <Svg d="M4 4h16v16H4zM4 10h16M4 15h16M10 4v16M15 4v16" />,
-  doc: <Svg d="M8 3h6l4 4v13a1 1 0 01-1 1H8a1 1 0 01-1-1V4a1 1 0 011-1zM14 3v4h4M9 13h6M9 17h6" />,
-  user: <Svg d="M15.5 8.5a3.5 3.5 0 11-7 0 3.5 3.5 0 017 0zM4.5 20a7.5 7.5 0 0115 0" />,
-  idcard: <Svg d="M3 6h18v12H3zM8 11a2 2 0 100-4 2 2 0 000 4zm-2 5a2.5 2.5 0 015 0M14 9h4M14 13h4" />,
-  upscale: <Svg d="M4 9V4h5M20 15v5h-5M4 4l6 6M20 20l-6-6M15 4h5v5M9 20H4v-5" />,
-  scan: <Svg d="M4 7V5a1 1 0 011-1h2M4 17v2a1 1 0 001 1h2M20 7V5a1 1 0 00-1-1h-2M20 17v2a1 1 0 01-1 1h-2M4 12h16" />,
+  image: <LuImage className={C} />,
+  compress: <LuFileArchive className={C} />,
+  crop: <LuCrop className={C} />,
+  convert: <LuRepeat className={C} />,
+  scissors: <LuScissors className={C} />,
+  merge: <LuCombine className={C} />,
+  pdf: <LuFileText className={C} />,
+  trash: <LuTrash2 className={C} />,
+  organize: <LuListOrdered className={C} />,
+  unlock: <LuUnlock className={C} />,
+  lock: <LuLock className={C} />,
+  sign: <LuFileSignature className={C} />,
+  text: <LuAlignLeft className={C} />,
+  bg: <LuEraser className={C} />,
+  rotate: <LuRotateCw className={C} />,
+  extract: <LuFileOutput className={C} />,
+  hash: <LuHash className={C} />,
+  water: <LuDroplet className={C} />,
+  present: <LuPresentation className={C} />,
+  grid: <LuTable className={C} />,
+  doc: <LuFileType2 className={C} />,
+  user: <LuUser className={C} />,
+  idcard: <LuContact className={C} />,
+  upscale: <LuExpand className={C} />,
+  scan: <LuScanLine className={C} />,
 };
 
 // category: 'image' | 'pdf'
