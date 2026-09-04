@@ -1,6 +1,23 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LuUploadCloud, LuFolderOpen } from 'react-icons/lu';
+import { LuFolderOpen } from 'react-icons/lu';
+
+// filled gradient upload cloud
+const CloudMark = () => (
+  <svg viewBox="0 0 72 56" className="mx-auto mb-3 h-16 w-20 drop-shadow-[0_10px_22px_rgba(99,102,241,0.35)]">
+    <defs>
+      <linearGradient id="fq-cloud" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stopColor="#a5b4fc" />
+        <stop offset="1" stopColor="#6366f1" />
+      </linearGradient>
+    </defs>
+    <path
+      fill="url(#fq-cloud)"
+      d="M20 52a14 14 0 01-2.6-27.75 18 18 0 0134.6-4.2A13 13 0 0150 52H20z"
+    />
+    <path fill="#fff" d="M36 15l10 11h-6.2v13h-7.6V26H26l10-11z" />
+  </svg>
+);
 
 const PDF_ACTIONS = [
   { id: 'pdf-compressor', label: 'Compress' },
@@ -73,7 +90,7 @@ const UploadZone = ({ v2 = false }) => {
 
       {!pdfName && v2 ? (
         <>
-          <LuUploadCloud className="mx-auto mb-3 h-12 w-12 text-indigo-500 dark:text-indigo-400" strokeWidth={1.6} />
+          <CloudMark />
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">Drop any file here</h2>
           <p className="my-2 text-sm text-gray-400 dark:text-gray-500">or</p>
           <button

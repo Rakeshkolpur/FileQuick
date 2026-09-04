@@ -11,6 +11,10 @@ import HowItWorks from './HowItWorks';
 import HomeDesignToggle from './HomeDesignToggle';
 import { getHomeSections } from '../../data/tools';
 import { usePageMeta } from '../../lib/seo';
+import pdfIcon from '../../assets/pdf.png';
+import wordIcon from '../../assets/word.png';
+import excelIcon from '../../assets/excel.png';
+import jpgIcon from '../../assets/jpg.png';
 
 /* colour → [icon tile classes, soft card bg, arrow colour] */
 // per colour: [solid icon tile, tinted icon square, soft card bg, accent text]
@@ -57,14 +61,15 @@ const TRUST = [
   { title: 'Made with ❤️', lines: ['Built to make your file', 'work effortless.'], color: 'pink', Icon: LuHeart },
 ];
 
-/* floating office-file marks around the upload card */
-const FileMark = ({ label, className, bg, fold }) => (
-  <div className={`pointer-events-none absolute hidden lg:block ${className}`}>
-    <div className={`relative h-12 w-11 rounded-lg ${bg} shadow-lg shadow-black/10 ring-1 ring-black/5`}>
-      <span className={`absolute right-0 top-0 h-3 w-3 rounded-bl-md ${fold}`} />
-      <span className="absolute inset-x-0 bottom-1.5 text-center text-[9px] font-extrabold tracking-tight text-white">{label}</span>
-    </div>
-  </div>
+/* floating file-type icons that cascade down the right of the upload card */
+const FileFloat = ({ src, className, spin }) => (
+  <img
+    src={src}
+    alt=""
+    aria-hidden
+    className={`pointer-events-none absolute hidden h-12 w-12 drop-shadow-[0_10px_20px_rgba(79,70,229,0.18)] motion-safe:animate-[float_6s_ease-in-out_infinite] lg:block ${className}`}
+    style={{ animationDelay: `${spin || 0}s` }}
+  />
 );
 
 const HomeV2 = () => {
@@ -98,21 +103,30 @@ const HomeV2 = () => {
           </div>
         </div>
 
-        <div className="relative">
-          <div className="pointer-events-none absolute -left-6 top-10 -z-10 h-56 w-56 rounded-full bg-indigo-200/40 blur-2xl dark:bg-indigo-500/10" />
-          <FileMark label="PDF" className="-right-4 -top-5" bg="bg-red-500" fold="bg-red-300" />
-          <FileMark label="W" className="-right-8 top-24" bg="bg-blue-600" fold="bg-blue-400" />
-          <FileMark label="X" className="-right-3 bottom-6" bg="bg-emerald-600" fold="bg-emerald-400" />
-          <FileMark label="JPG" className="-left-6 bottom-2" bg="bg-violet-500" fold="bg-violet-300" />
-          <span className="pointer-events-none absolute -right-10 top-1/2 hidden h-3 w-3 rounded-full border-2 border-teal-400 lg:block" />
-          <span className="pointer-events-none absolute right-2 -bottom-4 hidden h-2 w-2 rounded-full bg-indigo-400 lg:block" />
+        <div className="relative lg:pr-10">
+          {/* soft colour blobs behind the card */}
+          <div className="pointer-events-none absolute -left-10 bottom-0 -z-10 h-44 w-44 rounded-full bg-sky-200/40 blur-3xl dark:bg-sky-500/10" />
+          <div className="pointer-events-none absolute -right-6 top-4 -z-10 h-52 w-52 rounded-full bg-violet-200/40 blur-3xl dark:bg-violet-500/10" />
 
-          <div className="rounded-3xl border border-indigo-100 bg-indigo-50/60 p-2.5 shadow-xl shadow-indigo-500/5 dark:border-gray-700 dark:bg-gray-800/50">
+          {/* cascading file-type icons */}
+          <FileFloat src={pdfIcon} className="-right-2 -top-6 rotate-[8deg]" spin={0} />
+          <FileFloat src={wordIcon} className="right-1 top-[30%] -rotate-[6deg]" spin={1.4} />
+          <FileFloat src={excelIcon} className="-right-3 bottom-4 rotate-[6deg]" spin={0.7} />
+          <FileFloat src={jpgIcon} className="-left-7 bottom-6 -rotate-[10deg]" spin={2.1} />
+
+          {/* little bubbles */}
+          <span className="pointer-events-none absolute right-[18%] top-[14%] hidden h-3.5 w-3.5 rounded-full border-2 border-teal-400/70 lg:block" />
+          <span className="pointer-events-none absolute -right-4 top-[52%] hidden h-2.5 w-2.5 rounded-full bg-teal-400/80 lg:block" />
+          <span className="pointer-events-none absolute right-[8%] -bottom-3 hidden h-2 w-2 rounded-full bg-indigo-500 lg:block" />
+          <span className="pointer-events-none absolute -right-1 top-[6%] hidden h-2 w-2 rotate-45 bg-orange-400/80 lg:block" />
+          <span className="pointer-events-none absolute -left-2 top-[38%] hidden h-2.5 w-2.5 rotate-45 bg-violet-400/70 lg:block" />
+
+          <div className="rounded-3xl border border-indigo-100/80 bg-gradient-to-br from-violet-50 via-indigo-50/50 to-sky-50/40 p-3 shadow-xl shadow-indigo-500/[0.08] dark:border-gray-700 dark:from-gray-800/70 dark:via-gray-800/50 dark:to-gray-800/60">
             <UploadZone v2 />
           </div>
           <p className="mt-3 text-center text-[13px] text-gray-500 dark:text-gray-400">
-            <LuSparkles className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
-            We&apos;ll detect your file and show you <span className="font-medium text-indigo-600 dark:text-indigo-400">smart actions</span>
+            <LuSparkles className="mr-1 inline h-3.5 w-3.5 align-[-2px] text-indigo-500" />
+            We&apos;ll detect your file and show you <span className="font-semibold text-indigo-600 dark:text-indigo-400">smart actions</span>
           </p>
         </div>
       </section>
