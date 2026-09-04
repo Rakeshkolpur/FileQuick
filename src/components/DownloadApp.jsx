@@ -5,6 +5,7 @@ import {
 } from 'react-icons/lu';
 import { usePageMeta } from '../lib/seo';
 import { DESKTOP, hasAcceptedEula, setEulaAccepted } from '../lib/desktopApp';
+import { isDesktop, openOutputFolder, checkForUpdates } from '../lib/desktop';
 
 const DownloadGlyph = ({ className = 'h-5 w-5' }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -14,7 +15,7 @@ const DownloadGlyph = ({ className = 'h-5 w-5' }) => (
 
 const PERKS = [
   { Icon: LuInfinity, title: 'No file-size limits', text: 'The web app caps PDFs at 50 MB to protect your browser tab. The desktop app has no cap — batch huge scans and long PDFs.' },
-  { Icon: LuWifiOff, title: 'Fully offline', text: 'Every tool runs on your machine. Once installed it needs no internet at all — work on a plane, in a vault, anywhere.' },
+  { Icon: LuWifiOff, title: 'Works offline', text: 'Every tool runs on your machine. A couple of the AI tools fetch their model once on first use, then work with no internet at all.' },
   { Icon: LuFolderClock, title: 'Your files, kept', text: 'Results are saved into a FileQuick folder on your PC with a history you can reopen later. Nothing leaves your computer.' },
   { Icon: LuRefreshCw, title: 'Automatic updates', text: 'When we ship a new version you get a quiet notification inside the app — one click to update, whenever suits you.' },
   { Icon: LuShieldCheck, title: 'Same privacy promise', text: 'No account, no telemetry, no uploads. The desktop build only ever contacts GitHub to check for a newer version.' },
@@ -29,11 +30,43 @@ const DownloadApp = () => {
 
   const [agreed, setAgreed] = useState(hasAcceptedEula());
   const canDownload = agreed && DESKTOP.available;
+  const runningDesktop = isDesktop();
 
   const onToggle = (e) => {
     setAgreed(e.target.checked);
     setEulaAccepted(e.target.checked);
   };
+
+  if (runningDesktop) {
+    return (
+      <div className="mx-auto max-w-lg py-16 text-center">
+        <span className="mx-auto mb-5 grid h-14 w-14 place-items-center rounded-2xl bg-green-100 text-green-600 dark:bg-green-500/15 dark:text-green-300">
+          <LuMonitor className="h-7 w-7" strokeWidth={1.8} />
+        </span>
+        <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white">You’re on the desktop app</h1>
+        <p className="mt-2 text-[15px] text-gray-600 dark:text-gray-300">
+          No file-size limits, everything runs offline, and your results are saved to your FileQuick
+          folder. Updates arrive automatically.
+        </p>
+        <div className="mt-6 flex justify-center gap-3">
+          <button
+            type="button"
+            onClick={openOutputFolder}
+            className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
+          >
+            Open my files folder
+          </button>
+          <button
+            type="button"
+            onClick={checkForUpdates}
+            className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-semibold text-gray-700 hover:border-indigo-300 dark:border-gray-700 dark:text-gray-200"
+          >
+            Check for updates
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -111,6 +144,12 @@ const DownloadApp = () => {
         {DESKTOP.available && !agreed && (
           <p className="mt-3 text-[12px] text-gray-400 dark:text-gray-500">Tick the box above to enable the download.</p>
         )}
+        <p className="mt-3 text-[12px] leading-relaxed text-gray-400 dark:text-gray-500">
+          The installer isn’t code-signed yet, so Windows may show a blue “Windows protected your PC”
+          screen on first run — click <span className="font-medium">More info → Run anyway</span>. The
+          app is open source; you can check every line on{' '}
+          <a href={DESKTOP.releasesUrl.replace('/releases', '')} className="underline" target="_blank" rel="noreferrer">GitHub</a>.
+        </p>
       </div>
 
       {/* perks */}

@@ -14,7 +14,8 @@
  * `isEvalSupported: false`, the documented mitigation for malicious-PDF JS.)
  */
 
-// Per-category size ceilings, in MB.
+// Per-category size ceilings, in MB. These protect a *browser tab* from running
+// out of memory — the desktop app (window.fq) has no such limit and lifts them.
 export const SIZE_LIMIT_MB = {
   pdf: 50,
   image: 30,
@@ -22,6 +23,9 @@ export const SIZE_LIMIT_MB = {
   text: 10,
   default: 40,
 };
+
+const isDesktopApp = () =>
+  typeof window !== 'undefined' && !!window.fq && window.fq.isDesktop === true;
 
 const IMAGE_EXT = /\.(jpe?g|png|webp|gif|bmp|tiff?|avif|heic|heif)$/i;
 const OFFICE_EXT = /\.(docx?|pptx?|ppsx?|xlsx?m?|od[tsp]|rtf)$/i;
@@ -71,9 +75,11 @@ export function screenFiles(list, { accept, maxMB } = {}) {
   const accepted = [];
   const rejected = [];
 
+  const desktop = isDesktopApp();
+
   for (const file of files) {
     const cat = fileCategory(file);
-    const cap = maxMB || SIZE_LIMIT_MB[cat] || SIZE_LIMIT_MB.default;
+    const cap = desktop ? Infinity : (maxMB || SIZE_LIMIT_MB[cat] || SIZE_LIMIT_MB.default);
 
     if (!file.size) {
       rejected.push({ file, reason: `"${file.name || 'That file'}" is empty.` });

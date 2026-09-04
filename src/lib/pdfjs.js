@@ -3,7 +3,8 @@ import * as pdfjsLib from 'pdfjs-dist';
 // The worker file is shipped in /public (identical to the installed pdfjs-dist
 // build). Serving it as a static asset avoids CDN dependencies and version drift.
 if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+  // BASE_URL is '/' on the web and './' in the desktop (file://) build.
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `${import.meta.env.BASE_URL || '/'}pdf.worker.min.js`;
 }
 
 export { pdfjsLib };

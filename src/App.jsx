@@ -4,6 +4,7 @@ import Navigation from './components/Navigation';
 import Footer from './components/Footer';
 import ScrollToTop from './components/ScrollToTop';
 import BackToTop from './components/BackToTop';
+import DesktopBridge from './components/DesktopBridge';
 import AppRoutes from './routes';
 
 const App = () => (
@@ -15,6 +16,7 @@ const App = () => (
     </main>
     <Footer />
     <BackToTop />
+    <DesktopBridge />
   </div>
 );
 

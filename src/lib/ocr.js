@@ -7,9 +7,11 @@
  * The English language model (~10 MB) is fetched once from the tessdata CDN and
  * cached by the browser. It is public data; no user content is uploaded.
  */
-const WORKER_PATH = '/tesseract/worker.min.js';
+// BASE_URL is '/' on the web, './' in the desktop (file://) build.
+const B = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL) || '/';
+const WORKER_PATH = `${B}tesseract/worker.min.js`;
 const LANG_PATH = 'https://tessdata.projectnaptha.com/4.0.0';
-const LIB_PATH = '/tesseract/tesseract.min.js';
+const LIB_PATH = `${B}tesseract/tesseract.min.js`;
 
 // We ship only the SIMD core (universal in browsers since 2023). If a very old
 // browser lacks it, OCR fails with a clear message rather than silently.
@@ -21,7 +23,7 @@ const wasmSimd = () => {
     ]));
   } catch (_) { return false; }
 };
-const CORE_PATH = '/tesseract/tesseract-core-simd.wasm.js';
+const CORE_PATH = `${B}tesseract/tesseract-core-simd.wasm.js`;
 
 let libPromise = null;
 const loadLib = () => {

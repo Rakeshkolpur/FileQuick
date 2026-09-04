@@ -13,8 +13,13 @@ const siteUrlHtml = {
   transformIndexHtml: (html) => html.replaceAll('__SITE_URL__', SITE_URL),
 }
 
+// The desktop (Electron) build loads assets over file://, so it needs relative
+// URLs. The web build keeps absolute paths for clean canonical URLs.
+const isElectron = process.env.ELECTRON === '1'
+
 // https://vite.dev/config/
 export default defineConfig({
+  base: isElectron ? './' : '/',
   plugins: [react(), tailwindcss(), siteUrlHtml],
   server: {
     port: process.env.PORT ? Number(process.env.PORT) : 5173,

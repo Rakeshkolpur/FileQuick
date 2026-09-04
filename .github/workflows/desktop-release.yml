@@ -1,0 +1,32 @@
+name: Desktop release
+
+# Tag a version to build + publish the Windows installer to GitHub Releases.
+#   git tag v1.0.0 && git push origin v1.0.0
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # Web bundle with relative asset paths (dist/)
+      - run: node scripts/build-desktop.mjs
+
+      # Package + upload the installer + latest.yml to the GitHub Release
+      - run: npx electron-builder --win --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

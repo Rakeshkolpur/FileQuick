@@ -1,0 +1,37 @@
+appId: in.filequik.desktop
+productName: FileQuick
+copyright: © FileQuick
+
+directories:
+  output: release
+  buildResources: build
+
+# Only the built web app + the Electron shell go into the package.
+files:
+  - dist/**/*
+  - electron/**/*
+  - "!**/*.map"
+
+extraMetadata:
+  main: electron/main.cjs
+
+win:
+  target:
+    - nsis
+  artifactName: FileQuick-Setup-${version}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  # No code-signing certificate yet — Windows shows a one-time SmartScreen
+  # prompt on first install. Add `certificateFile` / `certificatePassword`
+  # (or a CI signing step) here once a cert is available.
+
+# Auto-update feed. `electron-updater` reads the latest release here.
+publish:
+  provider: github
+  owner: Rakeshkolpur
+  repo: FileQuick

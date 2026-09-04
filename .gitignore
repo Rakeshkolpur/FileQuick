@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Electron packaging output
+release/
+
 # Env
 .env
 .env.*
