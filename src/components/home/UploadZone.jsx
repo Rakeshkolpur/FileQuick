@@ -9,7 +9,7 @@ const PDF_ACTIONS = [
   { id: 'pdf-to-word', label: 'To Word' },
 ];
 
-const UploadZone = () => {
+const UploadZone = ({ v2 = false }) => {
   const navigate = useNavigate();
   const inputRef = useRef(null);
   const [dragging, setDragging] = useState(false);
@@ -49,13 +49,15 @@ const UploadZone = () => {
     return () => window.removeEventListener('paste', onPaste);
   }, [handleFile]);
 
+  const dragClass = dragging
+    ? (v2 ? 'border-indigo-500 bg-indigo-50/70 dark:bg-indigo-500/10'
+          : 'border-purple-500 bg-purple-50/70 dark:bg-purple-500/10 scale-[1.01] shadow-xl shadow-purple-500/10')
+    : (v2 ? 'border-indigo-200 bg-white/40 hover:border-indigo-400 dark:border-indigo-800/60 dark:bg-white/[0.03]'
+          : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:border-purple-400 dark:hover:border-purple-500');
+
   return (
     <div
-      className={`relative rounded-2xl border-2 border-dashed p-10 text-center transition-all duration-200 ${
-        dragging
-          ? 'border-purple-500 bg-purple-50/70 dark:bg-purple-500/10 scale-[1.01] shadow-xl shadow-purple-500/10'
-          : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:border-purple-400 dark:hover:border-purple-500'
-      }`}
+      className={`relative rounded-2xl border-2 border-dashed text-center transition-all duration-200 ${v2 ? 'p-8 sm:p-12' : 'p-10'} ${dragClass}`}
       onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
       onDragLeave={(e) => { e.preventDefault(); setDragging(false); }}
       onDrop={(e) => { e.preventDefault(); setDragging(false); handleFile(e.dataTransfer.files?.[0]); }}
@@ -68,7 +70,24 @@ const UploadZone = () => {
         onChange={(e) => handleFile(e.target.files?.[0])}
       />
 
-      {!pdfName ? (
+      {!pdfName && v2 ? (
+        <>
+          <svg className="mx-auto mb-3 h-12 w-12 text-indigo-500 dark:text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M7 18a4 4 0 01-.9-7.9 5 5 0 019.7-1.6A4.5 4.5 0 0117 18H7z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 12v6m0-6l-2.5 2.5M12 12l2.5 2.5" />
+          </svg>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Drop any file here</h2>
+          <p className="my-2 text-sm text-gray-400 dark:text-gray-500">or</p>
+          <button
+            onClick={() => inputRef.current?.click()}
+            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 hover:bg-indigo-700"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" /></svg>
+            Choose File
+          </button>
+          <p className="mt-4 text-xs text-gray-400 dark:text-gray-500">PDF, JPG, PNG, WEBP, DOCX and more</p>
+        </>
+      ) : !pdfName ? (
         <>
           <div className="mx-auto mb-4 w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center shadow-lg shadow-purple-600/25">
             <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>

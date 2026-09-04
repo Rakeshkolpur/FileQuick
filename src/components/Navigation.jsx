@@ -160,7 +160,7 @@ const Navigation = () => {
                   >
                     {cat.label}
                     {cat.badge && (
-                      <span className="ml-1.5 rounded bg-purple-600 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-white">
+                      <span className="ml-1.5 rounded-full bg-violet-100 px-1.5 py-px text-[10px] font-bold text-violet-700 dark:bg-violet-500/20 dark:text-violet-300">
                         {cat.badge}
                       </span>
                     )}
@@ -192,7 +192,7 @@ const Navigation = () => {
             <Link
               to="/signup"
               onClick={closeAll}
-              className="hidden md:inline-flex items-center rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 px-3.5 py-1.5 text-sm font-semibold text-white shadow-sm shadow-purple-600/25 hover:brightness-110"
+              className="hidden md:inline-flex items-center rounded-lg bg-indigo-600 px-3.5 py-1.5 text-sm font-semibold text-white shadow-sm shadow-indigo-600/25 hover:bg-indigo-700"
             >
               Sign Up Free
             </Link>
