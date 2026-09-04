@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styles from './Navigation.module.css';
 import { useTheme } from '../context/ThemeContext';
-import { NAV_CATEGORIES, getMenuColumns } from '../data/tools';
+import { NAV_CATEGORIES, getMenuColumns, getToolTint } from '../data/tools';
 import Logo from './Logo';
 
 const SunIcon = () => (
@@ -26,8 +26,12 @@ const Chevron = ({ open }) => (
   </svg>
 );
 
-const IconChip = ({ children }) => (
-  <span className="w-7 h-7 shrink-0 rounded-md bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-300 flex items-center justify-center p-1.5">
+const IconChip = ({ children, tint }) => (
+  <span
+    className={`w-7 h-7 shrink-0 rounded-md flex items-center justify-center p-1.5 ${
+      tint || 'bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-300'
+    }`}
+  >
     {children}
   </span>
 );
@@ -72,7 +76,7 @@ const MegaMenu = ({ columns, onNavigate }) => {
                       style={{ animationDelay: `${delay}ms` }}
                       className={`${styles.menuItem} flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-sm text-gray-700 dark:text-gray-200 hover:bg-purple-50 dark:hover:bg-gray-700/60 transition-colors`}
                     >
-                      <IconChip>{t.icon}</IconChip>
+                      <IconChip tint={getToolTint(t)}>{t.icon}</IconChip>
                       <span className="whitespace-nowrap">{t.title}</span>
                       {t.status === 'soon' && (
                         <span className="ml-auto text-[9px] font-semibold uppercase tracking-wide bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-300 px-1 py-0.5 rounded">
@@ -247,7 +251,7 @@ const Navigation = () => {
                               onClick={closeAll}
                               className="flex items-center gap-3 px-5 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                             >
-                              <IconChip>{t.icon}</IconChip>
+                              <IconChip tint={getToolTint(t)}>{t.icon}</IconChip>
                               <span>{t.title}</span>
                               {t.status === 'soon' && (
                                 <span className="ml-auto text-[9px] font-semibold uppercase bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-300 px-1 rounded">

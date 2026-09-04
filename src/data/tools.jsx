@@ -205,6 +205,33 @@ const GROUP_ORDER = {
   pdf: ['Optimize', 'Merge & Split', 'Edit', 'Pages', 'Convert to PDF', 'Convert from PDF', 'Security'],
 };
 
+// Per-tool icon colours for the mega-menu / tool lists — mirrors the HomeV2
+// "Popular Tools" palette (solid tile + white glyph). Coloured by group so each
+// mega-menu column reads as one hue.
+const TINT_SOLID = {
+  rose: 'bg-rose-500 text-white shadow-sm shadow-rose-500/30',
+  indigo: 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30',
+  violet: 'bg-violet-600 text-white shadow-sm shadow-violet-600/30',
+  sky: 'bg-sky-500 text-white shadow-sm shadow-sky-500/30',
+  emerald: 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/30',
+  blue: 'bg-blue-600 text-white shadow-sm shadow-blue-600/30',
+  amber: 'bg-amber-500 text-white shadow-sm shadow-amber-500/30',
+  teal: 'bg-teal-500 text-white shadow-sm shadow-teal-500/30',
+};
+const GROUP_TINT = {
+  'Resize & Crop': 'emerald',
+  Optimize: 'rose',
+  Enhance: 'violet',
+  Convert: 'teal',
+  'Merge & Split': 'indigo',
+  Edit: 'violet',
+  Pages: 'sky',
+  'Convert to PDF': 'emerald',
+  'Convert from PDF': 'blue',
+  Security: 'amber',
+};
+export const getToolTint = (tool) => TINT_SOLID[GROUP_TINT[tool?.group]] || TINT_SOLID.indigo;
+
 export const getAllTools = () => TOOLS;
 export const getToolById = (id) => TOOLS.find((t) => t.id === id) || null;
 export const getToolsByCategory = (slug) => {
