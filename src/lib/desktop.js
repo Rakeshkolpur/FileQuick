@@ -7,13 +7,13 @@
 export const isDesktop = () =>
   typeof window !== 'undefined' && !!window.fq && window.fq.isDesktop === true;
 
-/** Ask the desktop app to save a Blob into the user's FileQuick folder. */
+/** Ask the desktop app to save a Blob — opens a native Save dialog. */
 export async function saveToDesktop(blob, filename) {
   if (!isDesktop()) return null;
   const buf = new Uint8Array(await blob.arrayBuffer());
-  const res = await window.fq.saveFile(filename || 'file', buf);
-  window.dispatchEvent(new CustomEvent('fq:saved', { detail: res }));
-  return res; // { path }
+  const res = await window.fq.saveFileAs(filename || 'file', buf);
+  if (res && !res.canceled) window.dispatchEvent(new CustomEvent('fq:saved', { detail: res }));
+  return res; // { path } | { canceled: true }
 }
 
 export const openOutputFolder = () => isDesktop() && window.fq.openOutputFolder();

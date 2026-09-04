@@ -77,12 +77,12 @@ const DesktopSidebar = () => {
           onClick={toggle}
           className="flex w-full items-center justify-between rounded-xl px-2 py-2 text-[14px] font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/5"
         >
-          <span className="flex items-center gap-2.5">
-            {dark ? <LuMoon className="h-4 w-4" /> : <LuSun className="h-4 w-4" />}
-            Dark Mode
+          <span className="flex min-w-0 items-center gap-2.5">
+            {dark ? <LuMoon className="h-4 w-4 shrink-0" /> : <LuSun className="h-4 w-4 shrink-0" />}
+            <span className="truncate">Dark Mode</span>
           </span>
-          <span className={`relative h-5 w-9 rounded-full transition-colors ${dark ? 'bg-indigo-600' : 'bg-gray-300'}`}>
-            <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${dark ? 'translate-x-4' : 'translate-x-0.5'}`} />
+          <span className={`relative inline-block h-5 w-9 shrink-0 rounded-full transition-colors ${dark ? 'bg-indigo-600' : 'bg-gray-300'}`}>
+            <span className={`absolute top-0.5 left-0.5 block h-4 w-4 rounded-full bg-white shadow transition-transform ${dark ? 'translate-x-4' : 'translate-x-0'}`} />
           </span>
         </button>
         <p className="mt-3 px-2 text-[11px] text-gray-400 dark:text-gray-500">

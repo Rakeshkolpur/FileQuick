@@ -1,13 +1,13 @@
 import React from 'react';
 
 export const downloadBlob = (blob, filename) => {
-  // In the desktop app, "download" means "save into the user's FileQuick
-  // folder" — same call site, no per-tool changes. A <DesktopBridge> toast
-  // confirms it and offers to open the folder.
+  // In the desktop app, "download" opens a real native Save dialog — same
+  // call site, no per-tool changes — so the user picks where it goes, same
+  // as any other desktop app. A <DesktopBridge> toast confirms it afterwards.
   if (typeof window !== 'undefined' && window.fq && window.fq.isDesktop) {
     blob.arrayBuffer()
-      .then((buf) => window.fq.saveFile(filename || 'download', new Uint8Array(buf)))
-      .then((res) => window.dispatchEvent(new CustomEvent('fq:saved', { detail: res })))
+      .then((buf) => window.fq.saveFileAs(filename || 'download', new Uint8Array(buf)))
+      .then((res) => { if (res && !res.canceled) window.dispatchEvent(new CustomEvent('fq:saved', { detail: res })); })
       .catch((err) => window.dispatchEvent(new CustomEvent('fq:saved', { detail: { error: String(err) } })));
     return;
   }

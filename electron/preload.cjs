@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('fq', {
 
   // data: ArrayBuffer | Uint8Array from a Blob the tool produced
   saveFile: (name, data) => ipcRenderer.invoke('fq:save-file', { name, data }),
+  saveFileAs: (name, data) => ipcRenderer.invoke('fq:save-file-as', { name, data }),
   openOutputFolder: () => ipcRenderer.invoke('fq:open-output-folder'),
   reveal: (filePath) => ipcRenderer.invoke('fq:reveal', filePath),
   openFile: (filePath) => ipcRenderer.invoke('fq:open-file', filePath),

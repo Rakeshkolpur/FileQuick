@@ -141,7 +141,9 @@ input[type="range"]::-moz-range-thumb {
   height: 100%;
 }
 
-/* Custom scrollbar styling */
+/* Custom scrollbar styling (website only — the desktop app gets a plain
+   neutral one below, a thick purple/pink bar looks out of place in a
+   native window). */
 ::-webkit-scrollbar {
   width: 10px;
 }
@@ -158,6 +160,22 @@ input[type="range"]::-moz-range-thumb {
 
 ::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(to bottom, #7c3aed, #db2777);
+}
+
+/* Desktop app: thin, neutral, native-looking scrollbar everywhere. */
+html.desktop-app ::-webkit-scrollbar {
+  width: 8px;
+}
+html.desktop-app ::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 8px;
+}
+html.desktop-app ::-webkit-scrollbar-thumb {
+  background: rgba(120, 130, 150, 0.35);
+  border-radius: 8px;
+}
+html.desktop-app ::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 130, 150, 0.55);
 }
 
 /* Image container hover effect */

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { LuFolderOpen, LuTrash2, LuRefreshCw, LuMoon, LuSun } from 'react-icons/lu';
+import { LuFolderOpen, LuTrash2, LuRefreshCw } from 'react-icons/lu';
 import { useTheme } from '../../context/ThemeContext';
 import { desktopInfo, openOutputFolder, clearHistory, checkForUpdates } from '../../lib/desktop';
 import { usePageMeta } from '../../lib/seo';
@@ -47,10 +47,13 @@ const SettingsPage = () => {
           title="Dark Mode"
           text="Switch between light and dark appearance."
           action={
-            <button type="button" onClick={toggle} className="relative h-6 w-11 shrink-0 rounded-full bg-gray-300 transition-colors dark:bg-indigo-600">
-              <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${dark ? 'translate-x-5' : 'translate-x-0.5'}`} />
+            <button
+              type="button"
+              onClick={toggle}
+              className={`relative inline-block h-6 w-11 shrink-0 rounded-full transition-colors ${dark ? 'bg-indigo-600' : 'bg-gray-300'}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 block h-5 w-5 rounded-full bg-white shadow transition-transform ${dark ? 'translate-x-5' : 'translate-x-0'}`} />
               <span className="sr-only">Toggle dark mode</span>
-              {dark ? <LuMoon className="absolute left-1 top-1 h-3.5 w-3.5 text-white" /> : <LuSun className="absolute right-1 top-1 h-3.5 w-3.5 text-gray-500" />}
             </button>
           }
         />

@@ -86,6 +86,24 @@ ipcMain.handle('fq:save-file', async (_e, { name, data }) => {
   return { path: target };
 });
 
+// The main "Download" action in every tool: a real native Save dialog, like
+// any other desktop app, instead of silently dropping the file somewhere.
+ipcMain.handle('fq:save-file-as', async (_e, { name, data }) => {
+  ensureDirs();
+  const safe = String(name || 'file').replace(/[^\w.\- ]+/g, '_').slice(0, 180) || 'file';
+  const ext = path.extname(safe).replace(/^\./, '') || 'bin';
+  const { canceled, filePath } = await dialog.showSaveDialog(win, {
+    title: 'Save file',
+    defaultPath: path.join(app.getPath('downloads'), safe),
+    filters: [{ name: ext.toUpperCase(), extensions: [ext] }, { name: 'All Files', extensions: ['*'] }],
+  });
+  if (canceled || !filePath) return { canceled: true };
+  const buf = Buffer.from(data);
+  await fsp.writeFile(filePath, buf);
+  await appendHistory({ name: path.basename(filePath), path: filePath, size: buf.length, at: Date.now() });
+  return { path: filePath };
+});
+
 ipcMain.handle('fq:open-output-folder', async () => {
   ensureDirs();
   await shell.openPath(outputDir);
@@ -186,40 +204,10 @@ function stopEngine() {
   engineProc = null;
 }
 
-/* ---------------- menu ---------------- */
-
-function buildMenu() {
-  const template = [
-    {
-      label: 'File',
-      submenu: [
-        { label: 'Open my FileQuick folder', click: () => shell.openPath(outputDir) },
-        { type: 'separator' },
-        { role: 'quit' },
-      ],
-    },
-    { label: 'Edit', submenu: [{ role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
-    { label: 'View', submenu: [{ role: 'reload' }, { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { type: 'separator' }, { role: 'togglefullscreen' }] },
-    {
-      label: 'Help',
-      submenu: [
-        { label: 'Check for updates…', click: () => { try { require('electron-updater').autoUpdater.checkForUpdates(); } catch { /* dev */ } } },
-        { label: 'Visit filequik.in', click: () => shell.openExternal('https://filequik.in') },
-        {
-          label: 'About FileQuick',
-          click: () => dialog.showMessageBox(win, {
-            type: 'info', title: 'FileQuick',
-            message: `FileQuick ${app.getVersion()}`,
-            detail: 'All your file tools, offline. Files never leave this computer.',
-          }),
-        },
-      ],
-    },
-  ];
-  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
-}
-
 /* ---------------- lifecycle ---------------- */
+// No native File/Edit/View/Help menu bar — the sidebar (Settings, folder
+// access, check-for-updates) already covers everything it would have, and a
+// plain content window feels more like an app, less like a browser chrome.
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -228,7 +216,7 @@ if (!app.requestSingleInstanceLock()) {
 
   app.whenReady().then(() => {
     ensureDirs();
-    buildMenu();
+    Menu.setApplicationMenu(null);
     createWindow();
     wireUpdater();
     startEngine();

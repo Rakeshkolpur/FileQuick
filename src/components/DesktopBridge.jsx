@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { isDesktop, onUpdate, downloadUpdate, installUpdate, openOutputFolder } from '../lib/desktop';
+import { isDesktop, onUpdate, downloadUpdate, installUpdate, revealFile } from '../lib/desktop';
 
 /**
  * Desktop-only chrome: a centred "update available" popup (Download -> progress
- * bar -> Restart Now) and a toast when a file is saved into the FileQuick
- * folder. Renders nothing on the web.
+ * bar -> Restart Now) and a small toast confirming a save (the Save dialog
+ * itself is where the user actually picked the folder). Renders nothing on the web.
  */
 const DesktopBridge = () => {
   const [toast, setToast] = useState(null); // { path } | { error } | null
@@ -117,13 +117,13 @@ const DesktopBridge = () => {
             <span className="text-red-300">Couldn’t save the file: {toast.error}</span>
           ) : (
             <span className="flex items-center gap-3">
-              Saved to your FileQuick folder
+              Saved
               <button
                 type="button"
-                onClick={openOutputFolder}
+                onClick={() => revealFile(toast.path)}
                 className="rounded-md bg-white/10 px-2 py-1 font-semibold hover:bg-white/20"
               >
-                Open folder
+                Show in folder
               </button>
             </span>
           )}
