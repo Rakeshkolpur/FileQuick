@@ -29,10 +29,16 @@ The renderer stays sandboxed (`contextIsolation`, no `nodeIntegration`,
 ## Commands
 
 ```bash
-npm run electron:dev       # develop (hot reload)
+npm run electron:compile   # esbuild -> electron-dist/{main,preload}.cjs
+npm run electron:dev       # develop (Vite :5173 + Electron, hot reload)
 npm run electron:build     # build release/FileQuick-Setup-<version>.exe locally
 npm run electron:publish   # build + upload to the GitHub Release (needs GH_TOKEN)
 ```
+
+The packaged app has been verified to run (main process loads, window
+renders `dist/index.html` from the asar). Run `electron:build` on a normal
+machine with GitHub reachable — the first run downloads NSIS + winCodeSign
+(~few min).
 
 ## Releasing
 
