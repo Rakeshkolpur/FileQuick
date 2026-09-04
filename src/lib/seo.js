@@ -61,3 +61,33 @@ export function usePageMeta(meta) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 }
+
+/**
+ * Inject a <script type="application/ld+json"> for the current page (FAQ,
+ * breadcrumbs, etc.) and clean it up on unmount. `id` keeps it unique so a
+ * re-render or a second page doesn't stack duplicates.
+ */
+export function useJsonLd(id, data) {
+  const json = data ? JSON.stringify(data) : '';
+  useEffect(() => {
+    if (!json) return undefined;
+    const el = document.createElement('script');
+    el.type = 'application/ld+json';
+    el.id = `ld-${id}`;
+    el.textContent = json;
+    document.head.querySelector(`#ld-${id}`)?.remove();
+    document.head.appendChild(el);
+    return () => el.remove();
+  }, [id, json]);
+}
+
+/** FAQPage schema from a [{ q, a }] list. */
+export const faqJsonLd = (items) => ({
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: items.map(({ q, a }) => ({
+    '@type': 'Question',
+    name: q,
+    acceptedAnswer: { '@type': 'Answer', text: a },
+  })),
+});

@@ -47,7 +47,13 @@ const Footer = () => (
 
       <div className="mt-10 pt-6 border-t border-gray-200 dark:border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-3">
         <p className="text-sm text-gray-400">© {new Date().getFullYear()} FileQuick</p>
-        <div className="flex gap-5">
+        <div className="flex flex-wrap justify-center gap-x-5 gap-y-2">
+          <Link to="/about" className="text-sm text-gray-500 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400">
+            About
+          </Link>
+          <Link to="/faq" className="text-sm text-gray-500 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400">
+            FAQ
+          </Link>
           <Link to="/contact" className="text-sm text-gray-500 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400">
             Contact
           </Link>

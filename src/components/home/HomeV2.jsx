@@ -8,6 +8,7 @@ import {
 import ToolsGrid from '../ToolsGrid';
 import UploadZone from './UploadZone';
 import HowItWorks from './HowItWorks';
+import FaqAccordion from '../FaqAccordion';
 import HomeDesignToggle from './HomeDesignToggle';
 import { getHomeSections } from '../../data/tools';
 import { usePageMeta } from '../../lib/seo';
@@ -192,6 +193,18 @@ const HomeV2 = () => {
       </div>
 
       <HowItWorks />
+
+      {/* ---------- FAQ ---------- */}
+      <section>
+        <h2 className="mb-4 flex items-center gap-3 text-xl font-bold text-gray-900 md:text-2xl dark:text-white">
+          <span className="h-5 w-1.5 rounded-full bg-gradient-to-b from-purple-500 to-pink-500" />
+          Frequently asked questions
+        </h2>
+        <FaqAccordion />
+        <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+          More questions? <Link to="/faq" className="font-medium text-indigo-600 hover:underline dark:text-indigo-400">See the full FAQ</Link> or <Link to="/contact" className="font-medium text-indigo-600 hover:underline dark:text-indigo-400">contact us</Link>.
+        </p>
+      </section>
 
       {/* ---------- trust bar (last row before the footer) ---------- */}
       <section className="grid grid-cols-1 gap-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm sm:grid-cols-2 lg:grid-cols-4 lg:divide-x lg:divide-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:lg:divide-gray-700">
