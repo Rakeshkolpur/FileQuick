@@ -73,9 +73,18 @@ const UploadZone = ({ v2 = false }) => {
     : (v2 ? 'border-indigo-200 bg-white/40 hover:border-indigo-400 dark:border-indigo-800/60 dark:bg-white/[0.03]'
           : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:border-purple-400 dark:hover:border-purple-500');
 
+  const openPicker = () => inputRef.current?.click();
+
   return (
     <div
-      className={`relative rounded-2xl border-2 border-dashed text-center transition-all duration-200 ${v2 ? 'p-8 sm:p-12' : 'p-10'} ${dragClass}`}
+      className={`relative rounded-2xl border-2 border-dashed text-center transition-all duration-200 ${!pdfName ? 'cursor-pointer' : ''} ${v2 ? 'p-8 sm:p-12' : 'p-10'} ${dragClass}`}
+      role={!pdfName ? 'button' : undefined}
+      tabIndex={!pdfName ? 0 : undefined}
+      aria-label={!pdfName ? 'Choose a file, or drop one here' : undefined}
+      onClick={() => { if (!pdfName) openPicker(); }}
+      onKeyDown={(e) => {
+        if (!pdfName && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openPicker(); }
+      }}
       onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
       onDragLeave={(e) => { e.preventDefault(); setDragging(false); }}
       onDrop={(e) => { e.preventDefault(); setDragging(false); handleFile(e.dataTransfer.files?.[0]); }}
@@ -92,15 +101,16 @@ const UploadZone = ({ v2 = false }) => {
         <>
           <CloudMark />
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">Drop any file here</h2>
-          <p className="my-2 text-sm text-gray-400 dark:text-gray-500">or</p>
+          <p className="my-2 text-sm text-gray-400 dark:text-gray-500">tap anywhere, or</p>
           <button
-            onClick={() => inputRef.current?.click()}
+            onClick={(e) => { e.stopPropagation(); openPicker(); }}
             className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 hover:bg-indigo-700"
           >
             <LuFolderOpen className="h-4 w-4" />
             Choose File
           </button>
-          <p className="mt-4 text-xs text-gray-400 dark:text-gray-500">PDF, JPG, PNG, WEBP, DOCX and more</p>
+          <p className="mt-4 text-xs text-gray-400 dark:text-gray-500">You can also paste an image from your clipboard</p>
+          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">PDF, JPG, PNG, WEBP, DOCX and more</p>
         </>
       ) : !pdfName ? (
         <>
@@ -114,7 +124,7 @@ const UploadZone = ({ v2 = false }) => {
             or paste from your clipboard — we&apos;ll open the right tool for you
           </p>
           <button
-            onClick={() => inputRef.current?.click()}
+            onClick={(e) => { e.stopPropagation(); openPicker(); }}
             className="px-7 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-95 shadow-lg shadow-purple-600/20 transition-opacity"
           >
             Select File

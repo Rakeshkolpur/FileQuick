@@ -81,15 +81,17 @@ const HomeV2 = () => {
       <div className="pointer-events-none absolute left-1/2 top-[-2rem] -z-10 hidden h-[560px] w-[100vw] max-w-[calc(100%+8rem)] -translate-x-1/2 bg-gradient-to-b from-indigo-50 via-violet-50/50 to-transparent lg:block dark:from-indigo-500/[0.06] dark:via-transparent" />
 
       {/* ---------- hero ---------- */}
-      <section className="grid items-center gap-10 pt-4 lg:grid-cols-2">
-        <div>
+      {/* h1 stays in the DOM for SEO even though the hero copy is hidden on phones */}
+      <h1 className="sr-only">FileQuick — every file tool in one place: resize, compress, convert, merge, sign and edit images and PDFs</h1>
+      <section className="grid items-center gap-10 pt-0 lg:grid-cols-2 lg:pt-4">
+        <div className="hidden lg:block">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-100 px-3 py-1 text-[13px] font-semibold text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300">
             <LuSparkles className="h-3.5 w-3.5" /> All-in-One File Toolkit
           </span>
-          <h1 className="mt-5 text-[42px] font-extrabold leading-[1.03] tracking-tight text-gray-900 sm:text-6xl dark:text-white">
+          <p className="mt-5 text-[42px] font-extrabold leading-[1.03] tracking-tight text-gray-900 sm:text-6xl dark:text-white">
             One place.<br />
             Every <span className="text-indigo-600 dark:text-indigo-400">file tool.</span>
-          </h1>
+          </p>
           <p className="mt-5 max-w-md text-[15px] leading-relaxed text-gray-600 dark:text-gray-300">
             Resize images, edit PDFs, convert documents and do more — without jumping between different websites.
           </p>
@@ -127,6 +129,16 @@ const HomeV2 = () => {
             <LuSparkles className="mr-1 inline h-3.5 w-3.5 align-[-2px] text-indigo-500" />
             We&apos;ll detect your file and show you <span className="font-semibold text-indigo-600 dark:text-indigo-400">smart actions</span>
           </p>
+
+          {/* compact trust row — mobile only (desktop shows it in the hero copy) */}
+          <div className="mt-4 flex flex-wrap justify-center gap-x-5 gap-y-2 lg:hidden">
+            {BADGES.map((b) => (
+              <span key={b.label} className="inline-flex items-center gap-1.5 text-[13px] font-medium text-gray-600 dark:text-gray-300">
+                <span className={`grid h-5 w-5 place-items-center rounded-full ${TINT[b.color][1]}`}><b.Icon className="h-3 w-3" strokeWidth={2} /></span>
+                {b.label}
+              </span>
+            ))}
+          </div>
         </div>
       </section>
 
