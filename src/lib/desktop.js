@@ -18,7 +18,13 @@ export async function saveToDesktop(blob, filename) {
 
 export const openOutputFolder = () => isDesktop() && window.fq.openOutputFolder();
 export const revealFile = (p) => isDesktop() && window.fq.reveal(p);
+export const openFile = (p) => isDesktop() && window.fq.openFile(p);
 export const desktopInfo = () => (isDesktop() ? window.fq.getInfo() : Promise.resolve(null));
+
+/** Recent files this app has saved — [{ name, path, size, at }], newest first. */
+export const getHistory = () => (isDesktop() ? window.fq.history() : Promise.resolve([]));
+export const clearHistory = () => isDesktop() && window.fq.clearHistory();
+export const removeHistory = (filePath) => isDesktop() && window.fq.removeHistory(filePath);
 
 /** Subscribe to auto-update events. Returns an unsubscribe fn (no-op on web). */
 export const onUpdate = (cb) => (isDesktop() ? window.fq.onUpdate(cb) : () => {});

@@ -9,6 +9,11 @@ import About from './components/About';
 import FaqPage from './components/FaqPage';
 import DownloadApp from './components/DownloadApp';
 import AccountsSoon from './components/AccountsSoon';
+import DocumentToolsPage from './components/desktop/DocumentToolsPage';
+import AllToolsPage from './components/desktop/AllToolsPage';
+import RecentFilesPage from './components/desktop/RecentFilesPage';
+import FavoritesPage from './components/desktop/FavoritesPage';
+import SettingsPage from './components/desktop/SettingsPage';
 import { getToolById } from './data/tools';
 
 // Old / alternate tool slugs people may have bookmarked or that show up in
@@ -76,6 +81,13 @@ const AppRoutes = () => (
     <Route path="/convert" element={<HomePage />} />
     <Route path="/ai" element={<HomePage />} />
     <Route path="/category/:categoryId" element={<CategoryRoute />} />
+
+    {/* Desktop app sidebar destinations (harmless to reach on the web too) */}
+    <Route path="/document-tools" element={<DocumentToolsPage />} />
+    <Route path="/all-tools" element={<AllToolsPage />} />
+    <Route path="/recent-files" element={<RecentFilesPage />} />
+    <Route path="/favorites" element={<FavoritesPage />} />
+    <Route path="/settings" element={<SettingsPage />} />
 
     {/* Static pages */}
     <Route path="/about" element={<About />} />

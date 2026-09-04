@@ -12,7 +12,10 @@ contextBridge.exposeInMainWorld('fq', {
   saveFile: (name, data) => ipcRenderer.invoke('fq:save-file', { name, data }),
   openOutputFolder: () => ipcRenderer.invoke('fq:open-output-folder'),
   reveal: (filePath) => ipcRenderer.invoke('fq:reveal', filePath),
+  openFile: (filePath) => ipcRenderer.invoke('fq:open-file', filePath),
   history: () => ipcRenderer.invoke('fq:history'),
+  clearHistory: () => ipcRenderer.invoke('fq:clear-history'),
+  removeHistory: (filePath) => ipcRenderer.invoke('fq:remove-history', filePath),
 
   checkForUpdates: () => ipcRenderer.invoke('fq:check-updates'),
   downloadUpdate: () => ipcRenderer.invoke('fq:download-update'),

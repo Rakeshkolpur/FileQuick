@@ -80,8 +80,9 @@ ipcMain.handle('fq:save-file', async (_e, { name, data }) => {
   const ext = path.extname(target);
   const stem = target.slice(0, target.length - ext.length);
   for (let i = 2; fs.existsSync(target); i += 1) target = `${stem} (${i})${ext}`;
-  await fsp.writeFile(target, Buffer.from(data));
-  await appendHistory({ name: path.basename(target), path: target, at: Date.now() });
+  const buf = Buffer.from(data);
+  await fsp.writeFile(target, buf);
+  await appendHistory({ name: path.basename(target), path: target, size: buf.length, at: Date.now() });
   return { path: target };
 });
 
@@ -94,7 +95,21 @@ ipcMain.handle('fq:reveal', async (_e, filePath) => {
   if (filePath && fs.existsSync(filePath)) shell.showItemInFolder(filePath);
 });
 
+ipcMain.handle('fq:open-file', async (_e, filePath) => {
+  if (filePath && fs.existsSync(filePath)) return shell.openPath(filePath);
+  return 'File not found';
+});
+
 ipcMain.handle('fq:history', async () => readHistory());
+
+ipcMain.handle('fq:clear-history', async () => {
+  await fsp.writeFile(historyFile, '[]').catch(() => {});
+});
+
+ipcMain.handle('fq:remove-history', async (_e, filePath) => {
+  const list = (await readHistory()).filter((e) => e.path !== filePath);
+  await fsp.writeFile(historyFile, JSON.stringify(list, null, 2)).catch(() => {});
+});
 
 async function readHistory() {
   try { return JSON.parse(await fsp.readFile(historyFile, 'utf8')); } catch { return []; }

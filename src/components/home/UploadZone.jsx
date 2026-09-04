@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LuFolderOpen } from 'react-icons/lu';
+import { LuFolderOpen, LuUploadCloud } from 'react-icons/lu';
 import { screenFiles, rejectionMessage } from '../../lib/fileValidation';
 
 // filled gradient upload cloud
@@ -28,7 +28,7 @@ const PDF_ACTIONS = [
   { id: 'pdf-to-word', label: 'To Word' },
 ];
 
-const UploadZone = ({ v2 = false }) => {
+const UploadZone = forwardRef(({ v2 = false, desktop = false }, ref) => {
   const navigate = useNavigate();
   const inputRef = useRef(null);
   const [dragging, setDragging] = useState(false);
@@ -73,16 +73,19 @@ const UploadZone = ({ v2 = false }) => {
   }, [handleFile]);
 
   const dragClass = dragging
-    ? (v2 ? 'border-indigo-500 bg-indigo-50/70 dark:bg-indigo-500/10'
+    ? (desktop ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10'
+      : v2 ? 'border-indigo-500 bg-indigo-50/70 dark:bg-indigo-500/10'
           : 'border-purple-500 bg-purple-50/70 dark:bg-purple-500/10 scale-[1.01] shadow-xl shadow-purple-500/10')
-    : (v2 ? 'border-indigo-200 bg-white/40 hover:border-indigo-400 dark:border-indigo-800/60 dark:bg-white/[0.03]'
+    : (desktop ? 'border-gray-200 bg-gray-50/60 hover:border-indigo-400 dark:border-white/10 dark:bg-white/[0.02] dark:hover:border-indigo-500'
+      : v2 ? 'border-indigo-200 bg-white/40 hover:border-indigo-400 dark:border-indigo-800/60 dark:bg-white/[0.03]'
           : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:border-purple-400 dark:hover:border-purple-500');
 
   const openPicker = () => inputRef.current?.click();
+  useImperativeHandle(ref, () => ({ openPicker }));
 
   return (
     <div
-      className={`relative rounded-2xl border-2 border-dashed text-center transition-all duration-200 ${!pdfName ? 'cursor-pointer' : ''} ${v2 ? 'p-8 sm:p-12' : 'p-10'} ${dragClass}`}
+      className={`relative rounded-2xl border-2 border-dashed text-center transition-all duration-200 ${!pdfName ? 'cursor-pointer' : ''} ${desktop ? 'p-10' : v2 ? 'p-8 sm:p-12' : 'p-10'} ${dragClass}`}
       role={!pdfName ? 'button' : undefined}
       tabIndex={!pdfName ? 0 : undefined}
       aria-label={!pdfName ? 'Choose a file, or drop one here' : undefined}
@@ -102,7 +105,24 @@ const UploadZone = ({ v2 = false }) => {
         onChange={(e) => handleFile(e.target.files?.[0])}
       />
 
-      {!pdfName && v2 ? (
+      {!pdfName && desktop ? (
+        <>
+          <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-indigo-600 shadow-lg shadow-indigo-600/30">
+            <LuUploadCloud className="h-8 w-8 text-white" strokeWidth={1.75} />
+          </div>
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Drop your file here</h2>
+          <p className="my-2 text-sm text-gray-400 dark:text-gray-500">or</p>
+          <button
+            onClick={(e) => { e.stopPropagation(); openPicker(); }}
+            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 hover:bg-indigo-700"
+          >
+            <LuFolderOpen className="h-4 w-4" />
+            Browse Files
+          </button>
+          <p className="mt-4 text-xs text-gray-400 dark:text-gray-500">Supports: PDF, JPG, PNG, WEBP and more</p>
+          {error && <p className="mt-3 text-xs font-medium text-red-600 dark:text-red-400" role="alert">{error}</p>}
+        </>
+      ) : !pdfName && v2 ? (
         <>
           <CloudMark />
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">Drop any file here</h2>
@@ -168,6 +188,8 @@ const UploadZone = ({ v2 = false }) => {
       )}
     </div>
   );
-};
+});
+
+UploadZone.displayName = 'UploadZone';
 
 export default UploadZone;
