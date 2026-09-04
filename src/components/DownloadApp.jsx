@@ -79,7 +79,7 @@ const DownloadApp = () => {
           FileQuick for Desktop
         </h1>
         <p className="mx-auto mt-3 max-w-xl text-[15px] leading-relaxed text-gray-600 dark:text-gray-300">
-          The same tools you use here, installed on your PC — no file-size limits, no internet needed,
+          The same tools you use here, installed on your PC — no file-size limits, works offline,
           and a local history of everything you make. Free, and still no account.
         </p>
       </div>

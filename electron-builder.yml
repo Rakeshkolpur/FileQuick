@@ -6,14 +6,18 @@ directories:
   output: release
   buildResources: build
 
-# Only the built web app + the Electron shell go into the package.
+# The renderer is the pre-built Vite bundle (dist/); the main + preload are
+# bundled by esbuild into electron-dist/ with electron-updater inlined. So the
+# package carries NO node_modules — small and fast to build.
 files:
   - dist/**/*
-  - electron/**/*
+  - electron-dist/**/*
   - "!**/*.map"
 
 extraMetadata:
-  main: electron/main.cjs
+  main: electron-dist/main.cjs
+
+npmRebuild: false
 
 win:
   target:

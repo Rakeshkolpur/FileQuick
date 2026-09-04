@@ -29,24 +29,10 @@ const PdfToJpg = () => {
       setLoading(true);
       
       try {
-        // Load PDF.js
+        // Use the bundled pdf.js (same as every other PDF tool) — no CDN, works offline.
         if (!window.pdfjsLib) {
-          // Load PDF.js from CDN
-          const pdfJsScript = document.createElement('script');
-          pdfJsScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js';
-          pdfJsScript.async = true;
-          document.body.appendChild(pdfJsScript);
-          
-          // Wait for script to load
-          await new Promise((resolve, reject) => {
-            pdfJsScript.onload = resolve;
-            pdfJsScript.onerror = () => reject(new Error('Failed to load PDF.js library'));
-          });
-          
-          // Set worker source
-          window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
-          
-          console.log('PDF.js loaded successfully');
+          const { pdfjsLib } = await import('../../../lib/pdfjs');
+          window.pdfjsLib = pdfjsLib;
         }
       } catch (err) {
         console.error('Error loading libraries:', err);

@@ -23,8 +23,9 @@ jobs:
 
       - run: npm ci
 
-      # Web bundle with relative asset paths (dist/)
+      # Web bundle with relative asset paths (dist/) + bundled main (electron-dist/)
       - run: node scripts/build-desktop.mjs
+      - run: node scripts/build-electron-main.mjs
 
       # Package + upload the installer + latest.yml to the GitHub Release
       - run: npx electron-builder --win --publish always

@@ -1,7 +1,10 @@
 /* Dev runner: start Vite on a fixed port, wait for it, then launch Electron
  * pointed at it. Ctrl-C or closing the window stops both. */
-import { spawn } from 'node:child_process';
+import { spawn, execSync } from 'node:child_process';
 import net from 'node:net';
+
+// bundle main + preload -> electron-dist/
+execSync('node scripts/build-electron-main.mjs', { stdio: 'inherit' });
 
 const PORT = 5173;
 const vite = spawn('npx', ['vite', '--port', String(PORT), '--strictPort'], { stdio: 'inherit', shell: true });

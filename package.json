@@ -3,7 +3,9 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "main": "electron/main.cjs",
+  "description": "FileQuick — all your image and PDF tools in one place, offline.",
+  "author": "FileQuick",
+  "main": "electron-dist/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "node scripts/gen-sitemap.mjs && vite build",
@@ -12,9 +14,10 @@
     "preview": "vite preview",
     "server": "python server/convert_server.py",
     "start": "node start.js",
+    "electron:compile": "node scripts/build-electron-main.mjs",
     "electron:dev": "node scripts/electron-dev.mjs",
-    "electron:build": "node scripts/build-desktop.mjs && electron-builder --win",
-    "electron:publish": "node scripts/build-desktop.mjs && electron-builder --win --publish always"
+    "electron:build": "node scripts/build-desktop.mjs && node scripts/build-electron-main.mjs && electron-builder --win",
+    "electron:publish": "node scripts/build-desktop.mjs && node scripts/build-electron-main.mjs && electron-builder --win --publish always"
   },
   "dependencies": {
     "@ant-design/icons": "^6.0.0",
