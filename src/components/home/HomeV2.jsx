@@ -158,11 +158,11 @@ const HomeV2 = () => {
         <h2 className="mb-4 text-xl font-bold text-gray-900 dark:text-white">Explore Tools by Category</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
           {CATS.map((c) => {
-            const [, , soft, accent] = TINT[c.color];
+            const [, square, soft, accent] = TINT[c.color];
             const body = (
               <>
                 <div className="flex items-start gap-3">
-                  <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white shadow-sm ring-1 ring-black/[0.04] dark:bg-gray-800 dark:ring-white/10 ${accent}`}>
+                  <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl shadow-sm ring-1 ring-white/60 dark:ring-white/10 ${square}`}>
                     <c.Icon className="h-5 w-5" strokeWidth={1.9} />
                   </span>
                   <span className="min-w-0">
