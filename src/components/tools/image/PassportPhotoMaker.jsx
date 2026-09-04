@@ -153,7 +153,8 @@ const PassportPhotoMaker = () => {
   const runCutout = async (f, tok) => {
     setBgBusy(true); setBgProgress(0);
     try {
-      const png = await cutoutBackground(f, (p) => setBgProgress(p));
+      // hq model + edge refinement — matters for fine hair on a passport photo
+      const png = await cutoutBackground(f, (p) => setBgProgress(p), { hq: true, refine: true });
       if (tok !== loadTok.current) return;
       const cu = await loadFromUrl(URL.createObjectURL(png));
       urls.current.push(cu.src);
@@ -327,7 +328,9 @@ const PassportPhotoMaker = () => {
             <div className="absolute inset-0 grid place-items-center bg-white/70 dark:bg-gray-900/70">
               <div className="text-center">
                 <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-purple-600 border-t-transparent" />
-                <p className="mt-2 text-[11px] text-gray-500">Removing background… {Math.round(bgProgress * 100)}%</p>
+                <p className="mt-2 text-[11px] text-gray-500">
+                  {bgProgress < 0.9 ? 'Removing background…' : 'Refining hair edges…'} {Math.round(bgProgress * 100)}%
+                </p>
               </div>
             </div>
           )}
@@ -351,8 +354,8 @@ const PassportPhotoMaker = () => {
           <div className="mb-1.5 flex items-center justify-between">
             <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-400">Background</p>
             <label className="flex items-center gap-1.5 text-[12px] font-medium text-gray-600 dark:text-gray-300">
-              Replace
               <input type="checkbox" checked={removeBg} disabled={bgBusy || !cutout} onChange={(e) => setRemoveBg(e.target.checked)} className="accent-purple-600" />
+              Remove &amp; replace
             </label>
           </div>
           <div className="flex flex-wrap gap-1.5">

@@ -20,18 +20,25 @@ export async function preloadBackgroundModel() {
  * Cut the background out of an image.
  * @param {Blob|string} source
  * @param {(fraction:number)=>void} [onProgress] 0..1
+ * @param {{ hq?: boolean, refine?: boolean }} [opts]
+ *   hq     — use the full `isnet` model (heavier download, sharper hair/edges)
+ *   refine — tighten + decontaminate the alpha edge afterwards (matte.js)
  * @returns {Promise<Blob>} transparent PNG
  */
-export async function cutoutBackground(source, onProgress) {
+export async function cutoutBackground(source, onProgress, opts = {}) {
   const { removeBackground } = await lib();
-  return removeBackground(source, {
-    // isnet_fp16 (the library default) — highest-accuracy general segmentation model.
-    model: 'isnet_fp16',
-    output: { format: 'image/png' },
+  const raw = await removeBackground(source, {
+    model: opts.hq ? 'isnet' : 'isnet_fp16',
+    output: { format: 'image/png', quality: 1 },
     progress: (_key, current, total) => {
-      if (onProgress && total) onProgress(Math.min(1, current / total));
+      if (onProgress && total) onProgress(Math.min(0.97, current / total) * (opts.refine ? 0.9 : 1));
     },
   });
+  if (!opts.refine) return raw;
+  const { refineCutout } = await import('./matte');
+  const clean = await refineCutout(raw);
+  onProgress?.(1);
+  return clean;
 }
 
 /** Load a transparent PNG blob into an <img>. */
