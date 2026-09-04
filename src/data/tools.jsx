@@ -168,15 +168,16 @@ const NEEDS_SERVER = new Set([
   'pdf-to-word', 'pdf-to-powerpoint', 'pdf-to-excel',
   'unlock-pdf', 'protect-pdf',
 ]);
-// Of those, these six only need Python + a few small libraries — no
-// LibreOffice (see server/requirements.txt) — so the desktop app bundles a
-// tiny local engine for them (electron/main.cjs spawns it on 127.0.0.1:5000,
-// matching lib/api.js's default — the tool components' existing health
-// check just finds it, no other code change needed). Word/PowerPoint/Excel
-// -> PDF genuinely need real LibreOffice and stay "coming soon" everywhere.
-const DESKTOP_ENGINE_TOOLS = new Set([
-  'pdf-compressor', 'pdf-to-word', 'pdf-to-powerpoint', 'pdf-to-excel', 'unlock-pdf', 'protect-pdf',
-]);
+// All nine attempt the desktop's bundled local engine (electron/main.cjs
+// spawns it on 127.0.0.1:5000, matching lib/api.js's default — each tool's
+// existing health check just finds it, no other code change needed). Six of
+// them only need Python + small libraries (see server/requirements.txt) and
+// always work. The other three — Word/PowerPoint/Excel -> PDF — additionally
+// need real LibreOffice on the machine; the engine detects it (find_soffice())
+// and each of those tool components already shows a clear message (or, for
+// Word -> PDF, falls back to an in-browser renderer) when it isn't found, so
+// it's a good "try it" rather than a blanket "coming soon" on desktop.
+const DESKTOP_ENGINE_TOOLS = NEEDS_SERVER;
 const onDesktop = typeof window !== 'undefined' && !!window.fq && window.fq.isDesktop === true;
 if (SERVER_TOOLS_COMING_SOON) {
   TOOLS.forEach((t) => {

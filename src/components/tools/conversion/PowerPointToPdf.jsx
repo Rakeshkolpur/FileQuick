@@ -4,6 +4,7 @@ import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
 import { formatBytes, stripExt } from '../../../lib/format';
 import { api } from '../../../lib/api';
+import { isDesktop } from '../../../lib/desktop';
 
 const PPT_RE = /\.(pptx|ppt|odp|pps|ppsx|fodp|key)$/i;
 const isPresentation = (f) => f && (
@@ -83,7 +84,9 @@ const PowerPointToPdf = () => {
     const map = {
       checking: ['bg-gray-100 dark:bg-gray-700 text-gray-500', 'Checking converter…'],
       ready: ['bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300', 'LibreOffice engine · connected'],
-      unavailable: ['bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300', 'Converter offline — start it with npm run server'],
+      unavailable: ['bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300', isDesktop()
+        ? 'Needs LibreOffice — install it free from libreoffice.org, then reopen FileQuick'
+        : 'Converter offline — start it with npm run server'],
     };
     const [cls, label] = map[server] || map.checking;
     return (

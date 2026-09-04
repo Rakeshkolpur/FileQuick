@@ -3,7 +3,6 @@ import ToolsGrid from '../ToolsGrid';
 import UploadZone from './UploadZone';
 import TrustStrip from './TrustStrip';
 import HowItWorks from './HowItWorks';
-import HomeDesignToggle from './HomeDesignToggle';
 import { getHomeSections } from '../../data/tools';
 import { usePageMeta } from '../../lib/seo';
 
@@ -60,7 +59,6 @@ const HomeClassic = ({ category = 'all' }) => {
       </div>
 
       <HowItWorks />
-      {category === 'all' && <HomeDesignToggle />}
     </div>
   );
 };

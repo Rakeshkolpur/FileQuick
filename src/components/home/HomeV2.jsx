@@ -9,7 +9,6 @@ import ToolsGrid from '../ToolsGrid';
 import UploadZone from './UploadZone';
 import HowItWorks from './HowItWorks';
 import FaqAccordion from '../FaqAccordion';
-import HomeDesignToggle from './HomeDesignToggle';
 import { getHomeSections } from '../../data/tools';
 import { usePageMeta } from '../../lib/seo';
 import pdfIcon from '../../assets/pdf.png';
@@ -230,8 +229,6 @@ const HomeV2 = () => {
           </div>
         ))}
       </section>
-
-      <HomeDesignToggle />
     </div>
   );
 };

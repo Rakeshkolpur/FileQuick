@@ -175,7 +175,7 @@ const WordToPdf = () => {
     const map = {
       checking: ['bg-gray-100 dark:bg-gray-700 text-gray-500', 'Checking converter…'],
       online: ['bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300', 'LibreOffice engine · connected'],
-      'no-lo': ['bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300', 'Server up · LibreOffice not installed'],
+      'no-lo': ['bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300', 'LibreOffice not found — using the in-browser renderer instead'],
       offline: ['bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300', 'Converter offline · using browser'],
     };
     const [cls, label] = map[server] || map.checking;
