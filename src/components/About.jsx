@@ -42,8 +42,8 @@ const About = () => {
       <p className="mt-4 text-[15px] leading-relaxed text-gray-600 dark:text-gray-300">
         FileQuick brings {toolCount}+ everyday file tools together in one place — resize and compress
         images, convert between formats, merge and split PDFs, sign documents, remove backgrounds,
-        build passport photos and more. The idea is simple: stop hopping between a dozen sketchy
-        websites for small jobs.
+        build passport photos and more. The idea is simple: stop hopping between a dozen different
+        websites for small, everyday jobs.
       </p>
       <p className="mt-3 text-[15px] leading-relaxed text-gray-600 dark:text-gray-300">
         What makes it different is where the work happens. Nearly every tool processes your file
