@@ -45,7 +45,7 @@ const Logo = ({ className = '', markClassName = 'h-9 w-9', wordClassName = 'text
         <span className="bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent">Quick</span>
       </span>
       {showTagline && (
-        <span className="block text-[0.58rem] font-semibold tracking-[0.14em] text-gray-500 dark:text-gray-400 mt-1">
+        <span className="block whitespace-nowrap text-[0.58rem] font-semibold tracking-[0.14em] text-gray-500 dark:text-gray-400 mt-1">
           ALL YOUR FILE TOOLS.{' '}
           <span className="bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent">ONE PLACE.</span>
         </span>

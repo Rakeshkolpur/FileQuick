@@ -138,10 +138,10 @@ const Navigation = () => {
             <Logo markClassName="h-10 w-10" wordClassName="text-xl" showTagline />
           </Link>
 
-          <div className="hidden md:flex items-center gap-0.5 rounded-full border border-black/[0.06] bg-white/50 px-1.5 py-1 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06]">
+          <div className="hidden lg:flex items-center gap-0.5 rounded-full border border-black/[0.06] bg-white/50 px-1.5 py-1 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06]">
             <Link
               to="/"
-              className="px-3 py-1.5 rounded-full text-sm font-medium text-gray-700 transition-colors hover:bg-black/[0.04] hover:text-purple-600 dark:text-gray-200 dark:hover:bg-white/10 dark:hover:text-purple-300"
+              className="whitespace-nowrap px-3 py-1.5 rounded-full text-sm font-medium text-gray-700 transition-colors hover:bg-black/[0.04] hover:text-purple-600 dark:text-gray-200 dark:hover:bg-white/10 dark:hover:text-purple-300"
             >
               Home
             </Link>
@@ -156,7 +156,7 @@ const Navigation = () => {
                 >
                   <Link
                     to={`/${cat.slug}`}
-                    className={`flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                    className={`flex items-center whitespace-nowrap px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
                       open
                         ? 'bg-black/[0.05] text-purple-600 dark:bg-white/10 dark:text-purple-300'
                         : 'text-gray-700 hover:bg-black/[0.04] hover:text-purple-600 dark:text-gray-200 dark:hover:bg-white/10 dark:hover:text-purple-300'
@@ -189,20 +189,20 @@ const Navigation = () => {
             <Link
               to="/login"
               onClick={closeAll}
-              className="hidden md:inline-flex items-center rounded-full border border-black/[0.08] bg-white/50 px-3.5 py-1.5 text-sm font-semibold text-gray-700 shadow-sm backdrop-blur-md transition-colors hover:border-purple-300 hover:text-purple-700 dark:border-white/10 dark:bg-white/[0.06] dark:text-gray-200 dark:hover:border-purple-600"
+              className="hidden lg:inline-flex items-center whitespace-nowrap rounded-full border border-black/[0.08] bg-white/50 px-3.5 py-1.5 text-sm font-semibold text-gray-700 shadow-sm backdrop-blur-md transition-colors hover:border-purple-300 hover:text-purple-700 dark:border-white/10 dark:bg-white/[0.06] dark:text-gray-200 dark:hover:border-purple-600"
             >
               Login
             </Link>
             <Link
               to="/signup"
               onClick={closeAll}
-              className="ml-0.5 hidden md:inline-flex items-center rounded-full bg-indigo-600 px-3.5 py-1.5 text-sm font-semibold text-white shadow-sm shadow-indigo-600/25 hover:bg-indigo-700"
+              className="ml-0.5 hidden lg:inline-flex items-center whitespace-nowrap rounded-full bg-indigo-600 px-3.5 py-1.5 text-sm font-semibold text-white shadow-sm shadow-indigo-600/25 hover:bg-indigo-700"
             >
               Sign Up Free
             </Link>
             <button
               onClick={() => setMenuOpen((v) => !v)}
-              className="md:hidden ml-1 p-2 rounded-md text-gray-500 dark:text-gray-400"
+              className="lg:hidden ml-1 p-2 rounded-md text-gray-500 dark:text-gray-400"
               aria-label="Menu"
             >
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -213,7 +213,7 @@ const Navigation = () => {
         </div>
 
         {menuOpen && (
-          <div className={`${styles.scaleIn} md:hidden pb-3 border-t border-gray-200 dark:border-gray-700`}>
+          <div className={`${styles.scaleIn} lg:hidden pb-3 border-t border-gray-200 dark:border-gray-700`}>
             <Link
               to="/"
               onClick={closeAll}

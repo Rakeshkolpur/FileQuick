@@ -1,6 +1,14 @@
 import React, { useContext, useEffect, useRef, useState } from 'react';
 // eslint-disable-next-line no-unused-vars -- `motion` is used only as <motion.*> JSX
 import { AnimatePresence, motion } from 'framer-motion';
+import {
+  DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext, useSortable, arrayMove, horizontalListSortingStrategy,
+  sortableKeyboardCoordinates,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import FileDropzone from '../../tool/FileDropzone';
 import Lightbox from '../../tool/Lightbox';
 import { downloadBlob } from '../../tool/DownloadButton';
@@ -107,24 +115,33 @@ function QuadEditor({ src, corners, nat, onChange }) {
 
 /* ---------------- filmstrip thumb ---------------- */
 
+const stopDrag = (e) => e.stopPropagation();
+
 function PageThumb({ page, active, index, onClick, onRemove, onDownload, onExpand }) {
   const scanning = ['detecting', 'ai', 'scanning'].includes(page.status);
   const thumb = page.result?.url || page.srcUrl;
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: page.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 40 : undefined,
+    opacity: isDragging ? 0.4 : 1,
+  };
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      transition={{ type: 'spring', stiffness: 500, damping: 34 }}
-      className={`group relative shrink-0 cursor-pointer overflow-hidden rounded-lg border-2 ${
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={`group relative shrink-0 cursor-grab touch-none select-none overflow-hidden rounded-lg border-2 active:cursor-grabbing ${
         active ? 'border-purple-600' : 'border-transparent hover:border-purple-300 dark:hover:border-purple-700'
       }`}
       onClick={onClick}
     >
-      <img src={thumb} alt="" className="h-24 w-20 bg-gray-100 object-cover dark:bg-gray-800" />
+      <img src={thumb} alt="" draggable={false} className="h-24 w-20 bg-gray-100 object-cover dark:bg-gray-800" />
       <button
         type="button"
+        onPointerDown={stopDrag}
         onClick={(e) => { e.stopPropagation(); onExpand(); }}
         className="absolute inset-0 hidden place-items-center bg-black/25 text-white group-hover:grid"
         aria-label="View larger"
@@ -145,6 +162,7 @@ function PageThumb({ page, active, index, onClick, onRemove, onDownload, onExpan
       )}
       <button
         type="button"
+        onPointerDown={stopDrag}
         onClick={(e) => { e.stopPropagation(); onRemove(); }}
         className="absolute bottom-1 right-1 hidden rounded bg-black/60 p-0.5 text-white group-hover:block"
         aria-label="Remove page"
@@ -154,6 +172,7 @@ function PageThumb({ page, active, index, onClick, onRemove, onDownload, onExpan
       {page.result && (
         <button
           type="button"
+          onPointerDown={stopDrag}
           onClick={(e) => { e.stopPropagation(); onDownload(); }}
           className="absolute bottom-1 left-1 hidden rounded bg-black/60 p-0.5 text-white group-hover:block"
           aria-label="Download page"
@@ -161,7 +180,7 @@ function PageThumb({ page, active, index, onClick, onRemove, onDownload, onExpan
           <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16" /></svg>
         </button>
       )}
-    </motion.div>
+    </div>
   );
 }
 
@@ -178,6 +197,20 @@ const DocumentScanner = () => {
   const [error, setError] = useState(null);
   const aiRef = useRef(false);
   useEffect(() => { aiRef.current = aiEdges; }, [aiEdges]);
+
+  // drag-to-reorder the filmstrip — the output PDF / ZIP follows this order
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const onDragEnd = ({ active, over }) => {
+    if (!over || active.id === over.id) return;
+    setPages((ps) => {
+      const from = ps.findIndex((p) => p.id === active.id);
+      const to = ps.findIndex((p) => p.id === over.id);
+      return from < 0 || to < 0 ? ps : arrayMove(ps, from, to);
+    });
+  };
 
   // re-run edge detection on every page that isn't finished (keeps scanned
   // results and in-flight pages). Called when AI edges is switched on, and by
@@ -488,26 +521,31 @@ const DocumentScanner = () => {
         </div>
       </div>
 
-      {/* filmstrip */}
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        <AnimatePresence initial={false}>
-          {pages.map((p, i) => (
-            <PageThumb
-              key={p.id}
-              page={p}
-              index={i}
-              active={p.id === selId}
-              onClick={() => setSelId(p.id)}
-              onExpand={() => setLightbox({ src: p.result?.url || p.srcUrl, caption: p.name })}
-              onDownload={() => downloadOne(p)}
-              onRemove={() => {
-                setPages((ps) => ps.filter((x) => x.id !== p.id));
-                setSelId((cur) => (cur === p.id ? (pages.find((x) => x.id !== p.id)?.id ?? null) : cur));
-              }}
-            />
-          ))}
-        </AnimatePresence>
-      </div>
+      {/* filmstrip — drag a page to reorder; the exported PDF / ZIP follows this order */}
+      {pages.length > 1 && (
+        <p className="text-[12px] text-gray-400 dark:text-gray-500">Drag a page to reorder it</p>
+      )}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+        <SortableContext items={pages.map((p) => p.id)} strategy={horizontalListSortingStrategy}>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {pages.map((p, i) => (
+              <PageThumb
+                key={p.id}
+                page={p}
+                index={i}
+                active={p.id === selId}
+                onClick={() => setSelId(p.id)}
+                onExpand={() => setLightbox({ src: p.result?.url || p.srcUrl, caption: p.name })}
+                onDownload={() => downloadOne(p)}
+                onRemove={() => {
+                  setPages((ps) => ps.filter((x) => x.id !== p.id));
+                  setSelId((cur) => (cur === p.id ? (pages.find((x) => x.id !== p.id)?.id ?? null) : cur));
+                }}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
 
       {/* editor */}
       {sel && (
