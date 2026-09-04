@@ -175,10 +175,10 @@ if (SERVER_TOOLS_COMING_SOON) {
 export const NAV_CATEGORIES = [
   { slug: 'pdf', label: 'PDF Tools' },
   { slug: 'image', label: 'Image Tools' },
-  { slug: 'convert', label: 'Convert' },
-  { slug: 'ai', label: 'AI Tools', badge: 'New' },
   { slug: 'all', label: 'All Tools' },
 ];
+// `convert` and `ai` are still real category pages (linked from the homepage
+// cards and reachable at /convert and /ai) — just not shown in the top nav.
 
 const CATEGORY_TITLES = {
   image: 'Image Tools',
