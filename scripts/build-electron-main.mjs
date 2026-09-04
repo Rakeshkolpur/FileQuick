@@ -2,6 +2,12 @@
  * This keeps `electron-updater` (and its tree) inline, so the packaged app
  * needs NO node_modules — the installer stays small and builds fast. */
 import esbuild from 'esbuild';
+import { copyFileSync, mkdirSync } from 'node:fs';
+
+mkdirSync('electron-dist', { recursive: true });
+// The app-window icon (Windows taskbar while running). The installer/exe
+// icon itself comes from electron-builder's `win.icon: build/icon.png`.
+copyFileSync('build/icon.png', 'electron-dist/icon.png');
 
 await esbuild.build({
   entryPoints: {

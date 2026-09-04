@@ -1084,7 +1084,8 @@ def pdf_compress():
     resp.headers["X-Original-Size"] = str(original)
     resp.headers["X-Compressed-Size"] = str(len(out))
     resp.headers["X-Reduction"] = str(reduction)
-    resp.headers["X-Compression-Note"] = note
+    # HTTP header values must be Latin-1 — the note text may contain an em dash.
+    resp.headers["X-Compression-Note"] = note.encode("ascii", "replace").decode("ascii")
     return resp
 
 

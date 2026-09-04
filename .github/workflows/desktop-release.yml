@@ -27,6 +27,21 @@ jobs:
       - run: node scripts/build-desktop.mjs
       - run: node scripts/build-electron-main.mjs
 
+      # Local conversion engine — Compress/Unlock/Protect PDF and PDF<->Word/
+      # PowerPoint/Excel need Python + a few small libraries, not LibreOffice
+      # (see server/requirements.txt). Frozen to a standalone exe so end users
+      # need nothing installed. Word/PowerPoint/Excel -> PDF still need real
+      # LibreOffice and stay "coming soon" — that engine is out of scope here.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build the local conversion engine (PyInstaller)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r server/requirements.txt pyinstaller
+          pyinstaller --name filequick-engine --onedir --noconsole --distpath engine-dist --workpath build/pyinstaller server/convert_server.py
+
       # Package + upload the installer + latest.yml to the GitHub Release
       - run: npx electron-builder --win --publish always
         env:

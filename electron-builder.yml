@@ -17,9 +17,19 @@ files:
 extraMetadata:
   main: electron-dist/main.cjs
 
+# The local conversion engine (Compress/Unlock/Protect PDF, PDF<->Word/PPT/Excel)
+# — a PyInstaller-frozen exe built by scripts in the release workflow, at
+# engine-dist/filequick-engine/. Lives in resources/engine/, not the asar,
+# since it's a native binary tree, not JS. Skipped if the folder is absent
+# (e.g. a local `electron:build` run without building the engine first).
+extraResources:
+  - from: engine-dist/filequick-engine
+    to: engine
+
 npmRebuild: false
 
 win:
+  icon: build/icon.png
   target:
     - nsis
   artifactName: FileQuick-Setup-${version}.${ext}
@@ -35,7 +45,10 @@ nsis:
   # (or a CI signing step) here once a cert is available.
 
 # Auto-update feed. `electron-updater` reads the latest release here.
+# releaseType "release" publishes it directly — electron-builder's default is
+# a hidden draft that needs a manual "Publish" click on GitHub.
 publish:
   provider: github
   owner: Rakeshkolpur
   repo: FileQuick
+  releaseType: release

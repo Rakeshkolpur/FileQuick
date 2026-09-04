@@ -168,8 +168,20 @@ const NEEDS_SERVER = new Set([
   'pdf-to-word', 'pdf-to-powerpoint', 'pdf-to-excel',
   'unlock-pdf', 'protect-pdf',
 ]);
+// Of those, these six only need Python + a few small libraries — no
+// LibreOffice (see server/requirements.txt) — so the desktop app bundles a
+// tiny local engine for them (electron/main.cjs spawns it on 127.0.0.1:5000,
+// matching lib/api.js's default — the tool components' existing health
+// check just finds it, no other code change needed). Word/PowerPoint/Excel
+// -> PDF genuinely need real LibreOffice and stay "coming soon" everywhere.
+const DESKTOP_ENGINE_TOOLS = new Set([
+  'pdf-compressor', 'pdf-to-word', 'pdf-to-powerpoint', 'pdf-to-excel', 'unlock-pdf', 'protect-pdf',
+]);
+const onDesktop = typeof window !== 'undefined' && !!window.fq && window.fq.isDesktop === true;
 if (SERVER_TOOLS_COMING_SOON) {
-  TOOLS.forEach((t) => { if (NEEDS_SERVER.has(t.id)) t.status = 'soon'; });
+  TOOLS.forEach((t) => {
+    if (NEEDS_SERVER.has(t.id) && !(onDesktop && DESKTOP_ENGINE_TOOLS.has(t.id))) t.status = 'soon';
+  });
 }
 
 export const NAV_CATEGORIES = [

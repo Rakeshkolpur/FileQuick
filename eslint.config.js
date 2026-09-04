@@ -5,7 +5,7 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 
 export default [
   // Build output and third-party blobs shipped as-is (tesseract, pdf.js worker).
-  { ignores: ['dist', 'public/**', 'server/**', 'backend/**'] },
+  { ignores: ['dist', 'public/**', 'server/**', 'backend/**', 'electron-dist/**', 'engine-dist/**', 'release/**', 'build/**'] },
   {
     files: ['**/*.{js,jsx}'],
     languageOptions: {

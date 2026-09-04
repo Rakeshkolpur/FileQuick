@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   LuHardDriveDownload, LuWifiOff, LuInfinity, LuRefreshCw, LuFolderClock, LuShieldCheck, LuMonitor,
 } from 'react-icons/lu';
 import { usePageMeta } from '../lib/seo';
-import { DESKTOP, hasAcceptedEula, setEulaAccepted } from '../lib/desktopApp';
+import { DESKTOP } from '../lib/desktopApp';
 import { isDesktop, openOutputFolder, checkForUpdates } from '../lib/desktop';
 
 const DownloadGlyph = ({ className = 'h-5 w-5' }) => (
@@ -28,14 +28,7 @@ const DownloadApp = () => {
     description: 'Install FileQuick on Windows for unlimited file sizes, fully offline tools, local file history and automatic updates. Free, no account.',
   });
 
-  const [agreed, setAgreed] = useState(hasAcceptedEula());
-  const canDownload = agreed && DESKTOP.available;
   const runningDesktop = isDesktop();
-
-  const onToggle = (e) => {
-    setAgreed(e.target.checked);
-    setEulaAccepted(e.target.checked);
-  };
 
   if (runningDesktop) {
     return (
@@ -95,7 +88,7 @@ const DownloadApp = () => {
             <p className="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">{DESKTOP.platform}</p>
           </div>
 
-          {canDownload ? (
+          {DESKTOP.available ? (
             <a
               href={DESKTOP.downloadUrl}
               className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-green-600/25 hover:bg-green-700"
@@ -114,23 +107,13 @@ const DownloadApp = () => {
           )}
         </div>
 
-        {/* terms gate */}
-        <label className="mt-5 flex items-start gap-3 text-[13px] text-gray-600 dark:text-gray-300">
-          <input
-            type="checkbox"
-            checked={agreed}
-            onChange={onToggle}
-            className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 dark:border-gray-600"
-          />
-          <span>
-            I agree to the{' '}
-            <Link to="/terms-of-service" className="font-medium text-indigo-600 hover:underline dark:text-indigo-400">
-              Terms of Service
-            </Link>{' '}
-            and the desktop app licence. FileQuick is provided free and as-is, processes files only on
-            this device, and checks GitHub for updates.
-          </span>
-        </label>
+        <p className="mt-4 text-[12.5px] text-gray-500 dark:text-gray-400">
+          By downloading you agree to the{' '}
+          <Link to="/terms-of-service" className="font-medium text-indigo-600 hover:underline dark:text-indigo-400">
+            Terms of Service
+          </Link>. FileQuick is free and as-is, processes files only on this device, and checks GitHub
+          for updates.
+        </p>
 
         {!DESKTOP.available && (
           <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-[13px] text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
@@ -141,15 +124,21 @@ const DownloadApp = () => {
             </a>.
           </p>
         )}
-        {DESKTOP.available && !agreed && (
-          <p className="mt-3 text-[12px] text-gray-400 dark:text-gray-500">Tick the box above to enable the download.</p>
+
+        {DESKTOP.available && (
+          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[13px] leading-relaxed text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
+            <p className="font-semibold">The installer isn’t code-signed yet — expect two safety prompts:</p>
+            <ol className="mt-1.5 list-decimal space-y-1 pl-4">
+              <li>Your browser may say the file <span className="italic">"isn't commonly downloaded"</span> — click <span className="font-semibold">Keep</span> (Chrome/Edge sometimes hide this under a <span className="font-semibold">⌄</span> arrow next to the download).</li>
+              <li>Windows may show a blue <span className="italic">"Windows protected your PC"</span> screen when you run it — click <span className="font-semibold">More info → Run anyway</span>.</li>
+            </ol>
+            <p className="mt-1.5">
+              Both happen because the app isn’t signed with a paid certificate yet, not because anything is wrong. It’s
+              open source — check every line on{' '}
+              <a href={DESKTOP.releasesUrl.replace('/releases', '')} className="underline" target="_blank" rel="noreferrer">GitHub</a>.
+            </p>
+          </div>
         )}
-        <p className="mt-3 text-[12px] leading-relaxed text-gray-400 dark:text-gray-500">
-          The installer isn’t code-signed yet, so Windows may show a blue “Windows protected your PC”
-          screen on first run — click <span className="font-medium">More info → Run anyway</span>. The
-          app is open source; you can check every line on{' '}
-          <a href={DESKTOP.releasesUrl.replace('/releases', '')} className="underline" target="_blank" rel="noreferrer">GitHub</a>.
-        </p>
       </div>
 
       {/* perks */}

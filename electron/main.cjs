@@ -10,6 +10,7 @@ const { app, BrowserWindow, ipcMain, shell, Menu, dialog } = require('electron')
 const path = require('node:path');
 const fs = require('node:fs');
 const fsp = require('node:fs/promises');
+const { spawn } = require('node:child_process');
 
 // electron:dev sets VITE_DEV_SERVER_URL; anything else loads the built files.
 const DEV_URL = process.env.VITE_DEV_SERVER_URL || '';
@@ -33,6 +34,7 @@ function createWindow() {
     minHeight: 600,
     backgroundColor: '#0b1020',
     show: false,
+    icon: path.join(__dirname, 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -129,6 +131,42 @@ function wireUpdater() {
   setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 6 * 60 * 60 * 1000);
 }
 
+/* ---------------- local conversion engine ---------------- */
+// Compress/Unlock/Protect PDF and PDF<->Word/PowerPoint/Excel don't need
+// LibreOffice — just Python + a few small libraries (see server/requirements.txt).
+// That engine is frozen with PyInstaller at build time (scripts + the
+// desktop-release workflow) into resources/engine/filequick-engine.exe and
+// shipped inside the installer, so it needs nothing installed on the user's
+// machine. It binds 127.0.0.1:5000 only — matching the web app's default API
+// URL — so the renderer's existing per-tool health checks pick it up with no
+// code changes. Word/PowerPoint/Excel -> PDF still need real LibreOffice and
+// stay "coming soon" everywhere.
+let engineProc = null;
+
+function startEngine() {
+  if (!app.isPackaged) return; // dev: `npm run server` yourself if you want these tools
+  const exePath = path.join(process.resourcesPath, 'engine', 'filequick-engine.exe');
+  if (!fs.existsSync(exePath)) return;
+  try {
+    engineProc = spawn(exePath, [], {
+      env: { ...process.env, PORT: '5000' },
+      windowsHide: true,
+      stdio: 'ignore',
+    });
+    engineProc.on('error', () => { engineProc = null; });
+    engineProc.on('exit', () => { engineProc = null; });
+  } catch {
+    engineProc = null; // the 6 lightweight PDF tools just stay unavailable
+  }
+}
+
+function stopEngine() {
+  if (engineProc && !engineProc.killed) {
+    try { engineProc.kill(); } catch { /* already gone */ }
+  }
+  engineProc = null;
+}
+
 /* ---------------- menu ---------------- */
 
 function buildMenu() {
@@ -174,8 +212,10 @@ if (!app.requestSingleInstanceLock()) {
     buildMenu();
     createWindow();
     wireUpdater();
+    startEngine();
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
   });
 
   app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+  app.on('before-quit', stopEngine);
 }
