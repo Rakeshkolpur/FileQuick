@@ -26,7 +26,7 @@ for (const chunk of src.split(/\{\s*id:\s*'/).slice(1)) {
   if (idm && /status:\s*'soon'/.test(chunk.slice(0, 320))) comingSoon.add(idm[1]);
 }
 
-const routes = new Set(['/', '/image', '/pdf', '/about', '/faq', '/contact', '/privacy-policy', '/terms-of-service']);
+const routes = new Set(['/', '/image', '/pdf', '/about', '/download', '/faq', '/contact', '/privacy-policy', '/terms-of-service']);
 const toolIds = new Set();
 let m;
 while ((m = re.exec(src))) {

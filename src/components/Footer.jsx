@@ -51,6 +51,9 @@ const Footer = () => (
           <Link to="/about" className="text-sm text-gray-500 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400">
             About
           </Link>
+          <Link to="/download" className="text-sm text-gray-500 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400">
+            Download
+          </Link>
           <Link to="/faq" className="text-sm text-gray-500 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400">
             FAQ
           </Link>

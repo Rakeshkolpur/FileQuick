@@ -7,6 +7,7 @@ import TermsOfService from './components/TermsOfService';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import About from './components/About';
 import FaqPage from './components/FaqPage';
+import DownloadApp from './components/DownloadApp';
 import AccountsSoon from './components/AccountsSoon';
 import { getToolById } from './data/tools';
 
@@ -79,6 +80,7 @@ const AppRoutes = () => (
     {/* Static pages */}
     <Route path="/about" element={<About />} />
     <Route path="/faq" element={<FaqPage />} />
+    <Route path="/download" element={<DownloadApp />} />
     <Route path="/contact" element={<Contact />} />
     <Route path="/terms-of-service" element={<TermsOfService />} />
     <Route path="/privacy-policy" element={<PrivacyPolicy />} />
