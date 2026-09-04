@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { screenFiles, rejectionMessage } from '../../lib/fileValidation';
 
 const UploadGlyph = () => (
   <svg className="w-full h-full text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -13,6 +14,7 @@ const UploadGlyph = () => (
 const FileDropzone = ({
   accept = 'image/*',
   multiple = false,
+  maxMB,
   onFiles,
   title = 'Drop your file here',
   hint = 'or click to browse',
@@ -22,13 +24,17 @@ const FileDropzone = ({
 }) => {
   const inputRef = useRef(null);
   const [dragging, setDragging] = useState(false);
+  const [error, setError] = useState('');
 
   const emit = useCallback(
     (list) => {
-      const files = [...(list || [])].filter(Boolean);
-      if (files.length) onFiles(multiple ? files : [files[0]]);
+      const { accepted, rejected } = screenFiles(list, { accept, maxMB });
+      setError(rejectionMessage(rejected));
+      // pass `rejected` too — a multi-file tool can keep warning about the
+      // dropped files after this upload area unmounts
+      if (accepted.length) onFiles(multiple ? accepted : [accepted[0]], rejected);
     },
-    [multiple, onFiles],
+    [accept, maxMB, multiple, onFiles],
   );
 
   useEffect(() => {
@@ -100,6 +106,9 @@ const FileDropzone = ({
         {paste ? ' · or paste from clipboard' : ''}
       </p>
       {formats && <p className="mt-4 text-xs text-gray-400 dark:text-gray-500">{formats}</p>}
+      {error && (
+        <p className="mt-3 text-xs font-medium text-red-600 dark:text-red-400" role="alert">{error}</p>
+      )}
     </div>
   );
 };

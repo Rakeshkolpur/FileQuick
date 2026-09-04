@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LuFolderOpen } from 'react-icons/lu';
+import { screenFiles, rejectionMessage } from '../../lib/fileValidation';
 
 // filled gradient upload cloud
 const CloudMark = () => (
@@ -32,6 +33,7 @@ const UploadZone = ({ v2 = false }) => {
   const inputRef = useRef(null);
   const [dragging, setDragging] = useState(false);
   const [pdfName, setPdfName] = useState(null);
+  const [error, setError] = useState('');
 
   const handleImage = useCallback(
     (file) => {
@@ -48,12 +50,15 @@ const UploadZone = ({ v2 = false }) => {
   const handleFile = useCallback(
     (file) => {
       if (!file) return;
-      if (file.type.startsWith('image/')) return handleImage(file);
-      if (file.type === 'application/pdf' || file.name?.toLowerCase().endsWith('.pdf')) {
-        setPdfName(file.name || 'document.pdf');
+      const { accepted, rejected } = screenFiles([file], { accept: 'image/*,application/pdf' });
+      if (!accepted.length) {
+        setError(rejectionMessage(rejected) || 'Please choose an image or a PDF file.');
         return;
       }
-      alert('Please choose an image or a PDF file.');
+      setError('');
+      const ok = accepted[0];
+      if (ok.type.startsWith('image/')) return handleImage(ok);
+      setPdfName(ok.name || 'document.pdf');
     },
     [handleImage],
   );
@@ -110,7 +115,8 @@ const UploadZone = ({ v2 = false }) => {
             Choose File
           </button>
           <p className="mt-4 text-xs text-gray-400 dark:text-gray-500">You can also paste an image from your clipboard</p>
-          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">PDF, JPG, PNG, WEBP, DOCX and more</p>
+          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">PDF up to 50 MB · JPG, PNG, WEBP and more</p>
+          {error && <p className="mt-3 text-xs font-medium text-red-600 dark:text-red-400" role="alert">{error}</p>}
         </>
       ) : !pdfName ? (
         <>
@@ -129,7 +135,8 @@ const UploadZone = ({ v2 = false }) => {
           >
             Select File
           </button>
-          <p className="mt-4 text-xs text-gray-400 dark:text-gray-500">JPG · PNG · WebP · GIF · PDF</p>
+          <p className="mt-4 text-xs text-gray-400 dark:text-gray-500">JPG · PNG · WebP · GIF · PDF (up to 50 MB)</p>
+          {error && <p className="mt-3 text-xs font-medium text-red-600 dark:text-red-400" role="alert">{error}</p>}
         </>
       ) : (
         <div>

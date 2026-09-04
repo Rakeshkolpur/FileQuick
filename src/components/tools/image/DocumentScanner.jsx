@@ -18,6 +18,9 @@ import { zipFiles } from '../../../lib/zip';
 import { imagesToPdf } from '../../../lib/imagesToPdf';
 import { preloadCv } from '../../../lib/opencvLoader';
 import { detectDocument, detectDocumentAI, defaultCorners, scanPage } from '../../../lib/scan';
+import { screenFiles, rejectionMessage } from '../../../lib/fileValidation';
+
+const MAX_PDF_PAGES = 300;
 
 const MODES = [
   { key: 'auto', label: 'Auto', hint: 'Flatten lighting, keep colour' },
@@ -264,11 +267,16 @@ const DocumentScanner = () => {
     return { id: ++_seq, name, origUrl: url, srcUrl: url, rotate: 0, nat: null, corners: null, mode: 'auto', status: 'pending', result: null };
   };
 
-  const addFiles = async (files) => {
-    const imgs = files.filter((f) => f.type.startsWith('image/'));
-    const pdfs = files.filter((f) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name));
-    if (!imgs.length && !pdfs.length) { setError('Add photos or a PDF.'); return; }
-    setError(null);
+  const addFiles = async (files, preRejected = []) => {
+    const { accepted, rejected } = screenFiles(files, { accept: 'image/*,application/pdf' });
+    const msg = rejectionMessage([...preRejected, ...rejected]);
+    const imgs = accepted.filter((f) => f.type.startsWith('image/'));
+    const pdfs = accepted.filter((f) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name));
+    if (!imgs.length && !pdfs.length) {
+      setError(msg || 'Add photos or a PDF.');
+      return;
+    }
+    setError(msg || null);
 
     if (imgs.length) {
       const next = imgs.map((f) => makePage(f, f.name));
@@ -283,8 +291,12 @@ const DocumentScanner = () => {
         // eslint-disable-next-line no-await-in-loop
         const doc = await openPdf(await file.arrayBuffer());
         const base = stripExt(file.name) || 'pdf';
-        setImporting({ name: file.name, done: 0, total: doc.numPages });
-        for (let n = 1; n <= doc.numPages; n += 1) {
+        const total = Math.min(doc.numPages, MAX_PDF_PAGES);
+        if (doc.numPages > MAX_PDF_PAGES) {
+          setError(`"${file.name}" has ${doc.numPages} pages — only the first ${MAX_PDF_PAGES} were loaded.`);
+        }
+        setImporting({ name: file.name, done: 0, total });
+        for (let n = 1; n <= total; n += 1) {
           // eslint-disable-next-line no-await-in-loop
           const pg = await doc.getPage(n);
           const vp = pg.getViewport({ scale: 1 });
@@ -451,7 +463,7 @@ const DocumentScanner = () => {
           onFiles={addFiles}
           title="Drop photos or a PDF"
           hint="one or many — receipts, IDs, forms, notes, or a whole PDF to re-scan"
-          formats="JPG · PNG · WebP · PDF — straightened and cleaned up right here in your browser"
+          formats="JPG · PNG · WebP · PDF up to 50 MB — straightened and cleaned up right here in your browser"
         />
         {importing && (
           <p className="mt-3 text-center text-sm text-gray-500 dark:text-gray-400">
