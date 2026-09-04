@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { getToolTint } from '../data/tools';
 
 const CATEGORY_SLUGS = new Set(['image', 'pdf']);
 
@@ -8,7 +9,7 @@ const ToolCard = ({ tool }) => (
     to={`/${tool.id}`}
     className="group relative flex items-start gap-4 rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-800 p-5 pr-8 transition-all duration-200 hover:border-purple-300 dark:hover:border-purple-700 hover:shadow-lg hover:shadow-purple-500/5 hover:-translate-y-0.5"
   >
-    <span className="shrink-0 w-11 h-11 rounded-xl bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-300 flex items-center justify-center p-2.5 ring-1 ring-purple-200/60 dark:ring-purple-800/40">
+    <span className={`shrink-0 w-11 h-11 rounded-xl flex items-center justify-center p-2.5 ${getToolTint(tool)}`}>
       {tool.icon}
     </span>
     <span className="min-w-0">

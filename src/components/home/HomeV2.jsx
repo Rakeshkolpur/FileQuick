@@ -77,7 +77,7 @@ const HomeV2 = () => {
 
   return (
     <div className="relative space-y-14 pb-6">
-      <div className="pointer-events-none absolute left-1/2 top-[-2rem] -z-10 h-[560px] w-screen -translate-x-1/2 bg-gradient-to-b from-indigo-50 via-violet-50/50 to-transparent dark:from-indigo-500/[0.06] dark:via-transparent" />
+      <div className="pointer-events-none absolute left-1/2 top-[-2rem] -z-10 h-[560px] w-[100vw] max-w-[calc(100%+8rem)] -translate-x-1/2 bg-gradient-to-b from-indigo-50 via-violet-50/50 to-transparent dark:from-indigo-500/[0.06] dark:via-transparent" />
 
       {/* ---------- hero ---------- */}
       <section className="grid items-center gap-10 pt-4 lg:grid-cols-2">
