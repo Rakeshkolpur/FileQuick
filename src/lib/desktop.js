@@ -22,5 +22,6 @@ export const desktopInfo = () => (isDesktop() ? window.fq.getInfo() : Promise.re
 
 /** Subscribe to auto-update events. Returns an unsubscribe fn (no-op on web). */
 export const onUpdate = (cb) => (isDesktop() ? window.fq.onUpdate(cb) : () => {});
+export const downloadUpdate = () => isDesktop() && window.fq.downloadUpdate();
 export const installUpdate = () => isDesktop() && window.fq.installUpdate();
 export const checkForUpdates = () => isDesktop() && window.fq.checkForUpdates();

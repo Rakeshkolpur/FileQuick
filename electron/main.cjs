@@ -112,7 +112,10 @@ function wireUpdater() {
   let autoUpdater;
   try { ({ autoUpdater } = require('electron-updater')); } catch { return; }
 
-  autoUpdater.autoDownload = true;
+  // Manual flow: detect -> show the user a popup -> they click Download ->
+  // progress bar -> Restart Now. (autoDownload would skip straight to a
+  // progress bar with no "do you want this" moment.)
+  autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
 
   const send = (channel, payload) => win && !win.isDestroyed() && win.webContents.send(channel, payload);
@@ -124,6 +127,7 @@ function wireUpdater() {
   autoUpdater.on('error', (err) => send('fq:update', { state: 'error', message: String(err?.message || err) }));
 
   ipcMain.handle('fq:check-updates', () => autoUpdater.checkForUpdates().catch(() => {}));
+  ipcMain.handle('fq:download-update', () => autoUpdater.downloadUpdate().catch((err) => send('fq:update', { state: 'error', message: String(err?.message || err) })));
   ipcMain.handle('fq:install-update', () => autoUpdater.quitAndInstall());
 
   // one automatic check shortly after launch, then every 6 h

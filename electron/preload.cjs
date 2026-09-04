@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('fq', {
   history: () => ipcRenderer.invoke('fq:history'),
 
   checkForUpdates: () => ipcRenderer.invoke('fq:check-updates'),
+  downloadUpdate: () => ipcRenderer.invoke('fq:download-update'),
   installUpdate: () => ipcRenderer.invoke('fq:install-update'),
   onUpdate: (cb) => {
     const listener = (_e, payload) => cb(payload);

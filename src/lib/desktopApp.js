@@ -9,15 +9,13 @@
  */
 const OWNER = 'Rakeshkolpur';
 const REPO = 'FileQuick';
-const VERSION = '1.0.1';
+const VERSION = '1.0.2';
 
 export const DESKTOP = {
   available: true,
   version: VERSION,
   platform: 'Windows 10 & 11 · 64-bit',
-  // Grew once the bundled PDF/Office conversion engine was added — check the
-  // real installer size after a build and adjust.
-  sizeLabel: '~350 MB',
+  sizeLabel: '~260 MB', // confirmed from the v1.0.1 release asset
   // Direct link to the .exe asset — clicking it starts the download immediately
   // instead of opening a GitHub page. Must match electron-builder.yml's
   // `artifactName: FileQuick-Setup-${version}.${ext}`.

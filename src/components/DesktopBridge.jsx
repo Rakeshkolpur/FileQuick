@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { isDesktop, onUpdate, installUpdate, openOutputFolder } from '../lib/desktop';
+import { isDesktop, onUpdate, downloadUpdate, installUpdate, openOutputFolder } from '../lib/desktop';
 
 /**
- * Desktop-only chrome: a toast when a file is saved into the FileQuick folder,
- * and a banner when an auto-update is downloading / ready. Renders nothing on
- * the web.
+ * Desktop-only chrome: a centred "update available" popup (Download -> progress
+ * bar -> Restart Now) and a toast when a file is saved into the FileQuick
+ * folder. Renders nothing on the web.
  */
 const DesktopBridge = () => {
-  const [toast, setToast] = useState(null); // { text, path } | { error }
-  const [update, setUpdate] = useState(null); // { state, version, percent }
+  const [toast, setToast] = useState(null); // { path } | { error } | null
+  const [update, setUpdate] = useState(null); // { state, version, percent } | null
+  const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
     if (!isDesktop()) return undefined;
@@ -20,7 +21,10 @@ const DesktopBridge = () => {
       onSaved._t = window.setTimeout(() => setToast(null), 6000);
     };
     window.addEventListener('fq:saved', onSaved);
-    const off = onUpdate((p) => setUpdate(p));
+    const off = onUpdate((p) => {
+      setUpdate(p);
+      if (p.state === 'available') setDismissed(false);
+    });
 
     return () => {
       window.removeEventListener('fq:saved', onSaved);
@@ -30,25 +34,79 @@ const DesktopBridge = () => {
 
   if (!isDesktop()) return null;
 
+  const showPopup = update && !dismissed && ['available', 'downloading', 'ready'].includes(update.state);
+
   return (
     <>
-      {/* update banner */}
-      {update && (update.state === 'downloading' || update.state === 'ready') && (
-        <div className="fixed inset-x-0 top-0 z-50 flex items-center justify-center gap-3 bg-indigo-600 px-4 py-2 text-[13px] font-medium text-white">
-          {update.state === 'downloading' ? (
-            <span>Downloading update{typeof update.percent === 'number' ? ` — ${update.percent}%` : '…'}</span>
-          ) : (
-            <>
-              <span>Update {update.version ? `${update.version} ` : ''}ready.</span>
-              <button
-                type="button"
-                onClick={installUpdate}
-                className="rounded-md bg-white/15 px-2.5 py-1 font-semibold hover:bg-white/25"
-              >
-                Restart &amp; install
-              </button>
-            </>
-          )}
+      {/* update popup — centred, like the user asked for */}
+      {showPopup && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl dark:bg-gray-800">
+            {update.state === 'available' && (
+              <>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white">Update available</h2>
+                <p className="mt-1.5 text-sm text-gray-600 dark:text-gray-300">
+                  FileQuick {update.version ? `v${update.version}` : ''} is ready to download.
+                </p>
+                <div className="mt-5 flex justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDismissed(true)}
+                    className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:border-gray-300 dark:border-gray-600 dark:text-gray-200"
+                  >
+                    Later
+                  </button>
+                  <button
+                    type="button"
+                    onClick={downloadUpdate}
+                    className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+                  >
+                    Download update
+                  </button>
+                </div>
+              </>
+            )}
+
+            {update.state === 'downloading' && (
+              <>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white">Downloading update…</h2>
+                <p className="mt-1.5 text-sm text-gray-600 dark:text-gray-300">
+                  {typeof update.percent === 'number' ? `${update.percent}%` : 'Starting…'}
+                </p>
+                <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700">
+                  <div
+                    className="h-full rounded-full bg-indigo-600 transition-[width] duration-300"
+                    style={{ width: `${Math.max(4, update.percent || 0)}%` }}
+                  />
+                </div>
+              </>
+            )}
+
+            {update.state === 'ready' && (
+              <>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white">Update ready</h2>
+                <p className="mt-1.5 text-sm text-gray-600 dark:text-gray-300">
+                  FileQuick {update.version ? `v${update.version}` : ''} downloaded. Restart to finish installing.
+                </p>
+                <div className="mt-5 flex justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDismissed(true)}
+                    className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:border-gray-300 dark:border-gray-600 dark:text-gray-200"
+                  >
+                    Later
+                  </button>
+                  <button
+                    type="button"
+                    onClick={installUpdate}
+                    className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700"
+                  >
+                    Restart now
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
 
