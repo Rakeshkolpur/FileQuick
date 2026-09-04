@@ -35,9 +35,15 @@ win:
   artifactName: FileQuick-Setup-${version}.${ext}
 
 nsis:
-  oneClick: false
+  # oneClick is what makes auto-updates seamless: electron-updater's "Restart
+  # now" re-runs this SAME installer silently. With oneClick:false (the old
+  # setting) that installer is the multi-page "assisted" wizard — so restart
+  # would open the full "Choose Installation Options" page again instead of
+  # just relaunching the app. oneClick:true + perMachine:false installs to
+  # the user's own AppData (no UAC prompt, ever) with a plain progress bar,
+  # and every update after that is invisible: quit -> reinstall -> reopen.
+  oneClick: true
   perMachine: false
-  allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
   # No code-signing certificate yet — Windows shows a one-time SmartScreen

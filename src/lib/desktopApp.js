@@ -9,7 +9,7 @@
  */
 const OWNER = 'Rakeshkolpur';
 const REPO = 'FileQuick';
-const VERSION = '1.0.2';
+const VERSION = '1.0.3';
 
 export const DESKTOP = {
   available: true,
