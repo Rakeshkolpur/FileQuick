@@ -13,17 +13,17 @@ import { getHomeSections } from '../../data/tools';
 import { usePageMeta } from '../../lib/seo';
 
 /* colour → [icon tile classes, soft card bg, arrow colour] */
-// per colour: [solid icon tile, tinted icon square, soft card bg, arrow colour]
+// per colour: [solid icon tile, tinted icon square, soft card bg, accent text]
 const TINT = {
-  rose: ['bg-rose-500 text-white shadow-sm shadow-rose-500/30', 'bg-rose-100 text-rose-600 dark:bg-rose-500/20 dark:text-rose-300', 'bg-rose-50 dark:bg-rose-500/10', 'text-rose-400'],
-  emerald: ['bg-emerald-500 text-white shadow-sm shadow-emerald-500/30', 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-300', 'bg-emerald-50 dark:bg-emerald-500/10', 'text-emerald-400'],
-  sky: ['bg-sky-500 text-white shadow-sm shadow-sky-500/30', 'bg-sky-100 text-sky-600 dark:bg-sky-500/20 dark:text-sky-300', 'bg-sky-50 dark:bg-sky-500/10', 'text-sky-400'],
-  blue: ['bg-blue-600 text-white shadow-sm shadow-blue-600/30', 'bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-300', 'bg-blue-50 dark:bg-blue-500/10', 'text-blue-400'],
-  violet: ['bg-violet-600 text-white shadow-sm shadow-violet-600/30', 'bg-violet-100 text-violet-600 dark:bg-violet-500/20 dark:text-violet-300', 'bg-violet-50 dark:bg-violet-500/10', 'text-violet-400'],
-  indigo: ['bg-indigo-600 text-white shadow-sm shadow-indigo-600/30', 'bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300', 'bg-indigo-50 dark:bg-indigo-500/10', 'text-indigo-400'],
-  amber: ['bg-amber-500 text-white shadow-sm shadow-amber-500/30', 'bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-300', 'bg-amber-50 dark:bg-amber-500/10', 'text-amber-400'],
-  teal: ['bg-teal-500 text-white shadow-sm shadow-teal-500/30', 'bg-teal-100 text-teal-600 dark:bg-teal-500/20 dark:text-teal-300', 'bg-teal-50 dark:bg-teal-500/10', 'text-teal-400'],
-  pink: ['bg-pink-500 text-white shadow-sm shadow-pink-500/30', 'bg-pink-100 text-pink-500 dark:bg-pink-500/20 dark:text-pink-300', 'bg-pink-50 dark:bg-pink-500/10', 'text-pink-400'],
+  rose: ['bg-rose-500 text-white shadow-sm shadow-rose-500/30', 'bg-rose-100 text-rose-600 dark:bg-rose-500/20 dark:text-rose-300', 'bg-rose-50 dark:bg-rose-500/10', 'text-rose-500 dark:text-rose-400'],
+  emerald: ['bg-emerald-500 text-white shadow-sm shadow-emerald-500/30', 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-300', 'bg-emerald-50 dark:bg-emerald-500/10', 'text-emerald-500 dark:text-emerald-400'],
+  sky: ['bg-sky-500 text-white shadow-sm shadow-sky-500/30', 'bg-sky-100 text-sky-600 dark:bg-sky-500/20 dark:text-sky-300', 'bg-sky-50 dark:bg-sky-500/10', 'text-sky-500 dark:text-sky-400'],
+  blue: ['bg-blue-600 text-white shadow-sm shadow-blue-600/30', 'bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-300', 'bg-blue-50 dark:bg-blue-500/10', 'text-blue-500 dark:text-blue-400'],
+  violet: ['bg-violet-600 text-white shadow-sm shadow-violet-600/30', 'bg-violet-100 text-violet-600 dark:bg-violet-500/20 dark:text-violet-300', 'bg-violet-50 dark:bg-violet-500/10', 'text-violet-500 dark:text-violet-400'],
+  indigo: ['bg-indigo-600 text-white shadow-sm shadow-indigo-600/30', 'bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300', 'bg-indigo-50 dark:bg-indigo-500/10', 'text-indigo-500 dark:text-indigo-400'],
+  amber: ['bg-amber-500 text-white shadow-sm shadow-amber-500/30', 'bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-300', 'bg-amber-50 dark:bg-amber-500/10', 'text-amber-500 dark:text-amber-400'],
+  teal: ['bg-teal-500 text-white shadow-sm shadow-teal-500/30', 'bg-teal-100 text-teal-600 dark:bg-teal-500/20 dark:text-teal-300', 'bg-teal-50 dark:bg-teal-500/10', 'text-teal-500 dark:text-teal-400'],
+  pink: ['bg-pink-500 text-white shadow-sm shadow-pink-500/30', 'bg-pink-100 text-pink-500 dark:bg-pink-500/20 dark:text-pink-300', 'bg-pink-50 dark:bg-pink-500/10', 'text-pink-500 dark:text-pink-400'],
 };
 
 const BADGES = [
@@ -144,21 +144,27 @@ const HomeV2 = () => {
       {/* ---------- categories ---------- */}
       <section>
         <h2 className="mb-4 text-xl font-bold text-gray-900 dark:text-white">Explore Tools by Category</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
           {CATS.map((c) => {
-            const [, tile, soft, arrow] = TINT[c.color];
+            const [, , soft, accent] = TINT[c.color];
             const body = (
               <>
-                <span className={`grid h-11 w-11 place-items-center rounded-xl ${tile}`}><c.Icon className="h-5 w-5" strokeWidth={1.9} /></span>
-                <span className="mt-3 flex items-center gap-1.5 text-[14px] font-bold text-gray-900 dark:text-white">
-                  {c.label}
-                  {c.badge && <span className="rounded bg-violet-600 px-1 py-px text-[9px] font-bold uppercase leading-none text-white">{c.badge}</span>}
-                </span>
-                <span className="mt-0.5 text-[12px] text-gray-500 dark:text-gray-400">{c.count}</span>
-                <LuArrowRight className={`mt-3 h-4 w-4 ${arrow}`} />
+                <div className="flex items-start gap-3">
+                  <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white shadow-sm ring-1 ring-black/[0.04] dark:bg-gray-800 dark:ring-white/10 ${accent}`}>
+                    <c.Icon className="h-5 w-5" strokeWidth={1.9} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="flex items-center gap-1.5 text-[14px] font-bold text-gray-900 dark:text-white">
+                      {c.label}
+                      {c.badge && <span className="rounded bg-violet-600 px-1 py-px text-[9px] font-bold uppercase leading-none text-white">{c.badge}</span>}
+                    </span>
+                    <span className="mt-0.5 block text-[12px] text-gray-500 dark:text-gray-400">{c.count}</span>
+                  </span>
+                </div>
+                <LuArrowRight className={`mt-3 self-end h-4 w-4 ${accent} transition-transform group-hover:translate-x-0.5`} />
               </>
             );
-            const cls = `flex flex-col rounded-2xl border border-transparent p-4 transition-all hover:-translate-y-0.5 hover:border-gray-200 hover:shadow-sm dark:hover:border-gray-700 ${soft}`;
+            const cls = `group flex flex-col rounded-2xl border border-black/[0.04] p-4 transition-all hover:-translate-y-0.5 hover:shadow-md hover:shadow-black/5 dark:border-white/[0.06] ${soft}`;
             return c.to.startsWith('#')
               ? <a key={c.label} href={c.to} className={cls}>{body}</a>
               : <Link key={c.label} to={c.to} className={cls}>{body}</Link>;
