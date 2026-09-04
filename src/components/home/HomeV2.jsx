@@ -13,16 +13,17 @@ import { getHomeSections } from '../../data/tools';
 import { usePageMeta } from '../../lib/seo';
 
 /* colour → [icon tile classes, soft card bg, arrow colour] */
+// per colour: [solid icon tile, tinted icon square, soft card bg, arrow colour]
 const TINT = {
-  rose: ['bg-rose-100 text-rose-600 dark:bg-rose-500/20 dark:text-rose-300', 'bg-rose-50 dark:bg-rose-500/10', 'text-rose-400'],
-  emerald: ['bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-300', 'bg-emerald-50 dark:bg-emerald-500/10', 'text-emerald-400'],
-  sky: ['bg-sky-100 text-sky-600 dark:bg-sky-500/20 dark:text-sky-300', 'bg-sky-50 dark:bg-sky-500/10', 'text-sky-400'],
-  blue: ['bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-300', 'bg-blue-50 dark:bg-blue-500/10', 'text-blue-400'],
-  violet: ['bg-violet-100 text-violet-600 dark:bg-violet-500/20 dark:text-violet-300', 'bg-violet-50 dark:bg-violet-500/10', 'text-violet-400'],
-  indigo: ['bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300', 'bg-indigo-50 dark:bg-indigo-500/10', 'text-indigo-400'],
-  amber: ['bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-300', 'bg-amber-50 dark:bg-amber-500/10', 'text-amber-400'],
-  teal: ['bg-teal-100 text-teal-600 dark:bg-teal-500/20 dark:text-teal-300', 'bg-teal-50 dark:bg-teal-500/10', 'text-teal-400'],
-  pink: ['bg-pink-100 text-pink-500 dark:bg-pink-500/20 dark:text-pink-300', 'bg-pink-50 dark:bg-pink-500/10', 'text-pink-400'],
+  rose: ['bg-rose-500 text-white shadow-sm shadow-rose-500/30', 'bg-rose-100 text-rose-600 dark:bg-rose-500/20 dark:text-rose-300', 'bg-rose-50 dark:bg-rose-500/10', 'text-rose-400'],
+  emerald: ['bg-emerald-500 text-white shadow-sm shadow-emerald-500/30', 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-300', 'bg-emerald-50 dark:bg-emerald-500/10', 'text-emerald-400'],
+  sky: ['bg-sky-500 text-white shadow-sm shadow-sky-500/30', 'bg-sky-100 text-sky-600 dark:bg-sky-500/20 dark:text-sky-300', 'bg-sky-50 dark:bg-sky-500/10', 'text-sky-400'],
+  blue: ['bg-blue-600 text-white shadow-sm shadow-blue-600/30', 'bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-300', 'bg-blue-50 dark:bg-blue-500/10', 'text-blue-400'],
+  violet: ['bg-violet-600 text-white shadow-sm shadow-violet-600/30', 'bg-violet-100 text-violet-600 dark:bg-violet-500/20 dark:text-violet-300', 'bg-violet-50 dark:bg-violet-500/10', 'text-violet-400'],
+  indigo: ['bg-indigo-600 text-white shadow-sm shadow-indigo-600/30', 'bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300', 'bg-indigo-50 dark:bg-indigo-500/10', 'text-indigo-400'],
+  amber: ['bg-amber-500 text-white shadow-sm shadow-amber-500/30', 'bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-300', 'bg-amber-50 dark:bg-amber-500/10', 'text-amber-400'],
+  teal: ['bg-teal-500 text-white shadow-sm shadow-teal-500/30', 'bg-teal-100 text-teal-600 dark:bg-teal-500/20 dark:text-teal-300', 'bg-teal-50 dark:bg-teal-500/10', 'text-teal-400'],
+  pink: ['bg-pink-500 text-white shadow-sm shadow-pink-500/30', 'bg-pink-100 text-pink-500 dark:bg-pink-500/20 dark:text-pink-300', 'bg-pink-50 dark:bg-pink-500/10', 'text-pink-400'],
 };
 
 const BADGES = [
@@ -90,7 +91,7 @@ const HomeV2 = () => {
           <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2.5">
             {BADGES.map((b) => (
               <span key={b.label} className="inline-flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
-                <span className={`grid h-6 w-6 place-items-center rounded-full ${TINT[b.color][0]}`}><b.Icon className="h-3.5 w-3.5" /></span>
+                <span className={`grid h-6 w-6 place-items-center rounded-full ${TINT[b.color][1]}`}><b.Icon className="h-3.5 w-3.5" strokeWidth={2} /></span>
                 {b.label}
               </span>
             ))}
@@ -133,7 +134,7 @@ const HomeV2 = () => {
               to={`/${t.id}`}
               className="flex items-center gap-2.5 rounded-xl border border-gray-200 bg-white px-3 py-3 text-[13px] font-semibold text-gray-800 transition-colors hover:border-indigo-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:hover:border-indigo-700"
             >
-              <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${TINT[t.color][0]}`}><t.Icon className="h-4 w-4" /></span>
+              <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${TINT[t.color][0]}`}><t.Icon className="h-[18px] w-[18px]" strokeWidth={1.9} /></span>
               <span className="truncate">{t.label}</span>
             </Link>
           ))}
@@ -145,10 +146,10 @@ const HomeV2 = () => {
         <h2 className="mb-4 text-xl font-bold text-gray-900 dark:text-white">Explore Tools by Category</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {CATS.map((c) => {
-            const [tile, soft, arrow] = TINT[c.color];
+            const [, tile, soft, arrow] = TINT[c.color];
             const body = (
               <>
-                <span className={`grid h-11 w-11 place-items-center rounded-xl ${tile}`}><c.Icon className="h-5 w-5" /></span>
+                <span className={`grid h-11 w-11 place-items-center rounded-xl ${tile}`}><c.Icon className="h-5 w-5" strokeWidth={1.9} /></span>
                 <span className="mt-3 flex items-center gap-1.5 text-[14px] font-bold text-gray-900 dark:text-white">
                   {c.label}
                   {c.badge && <span className="rounded bg-violet-600 px-1 py-px text-[9px] font-bold uppercase leading-none text-white">{c.badge}</span>}
@@ -169,7 +170,7 @@ const HomeV2 = () => {
       <section className="grid grid-cols-1 gap-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm sm:grid-cols-2 lg:grid-cols-4 lg:divide-x lg:divide-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:lg:divide-gray-700">
         {TRUST.map((it) => (
           <div key={it.title} className="flex items-start gap-3 lg:px-5 lg:first:pl-0">
-            <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${TINT[it.color][0]}`}><it.Icon className="h-5 w-5" /></span>
+            <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${TINT[it.color][1]}`}><it.Icon className="h-5 w-5" strokeWidth={1.9} /></span>
             <div>
               <p className="text-[13.5px] font-bold text-gray-900 dark:text-white">{it.title}</p>
               <p className="mt-0.5 text-[12px] leading-snug text-gray-500 dark:text-gray-400">{it.lines[0]}<br />{it.lines[1]}</p>
