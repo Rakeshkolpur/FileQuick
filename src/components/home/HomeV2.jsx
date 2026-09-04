@@ -77,7 +77,7 @@ const HomeV2 = () => {
 
   return (
     <div className="relative space-y-14 pb-6">
-      <div className="pointer-events-none absolute left-1/2 top-[-2rem] -z-10 h-[560px] w-[100vw] max-w-[calc(100%+8rem)] -translate-x-1/2 bg-gradient-to-b from-indigo-50 via-violet-50/50 to-transparent dark:from-indigo-500/[0.06] dark:via-transparent" />
+      <div className="pointer-events-none absolute left-1/2 top-[-2rem] -z-10 hidden h-[560px] w-[100vw] max-w-[calc(100%+8rem)] -translate-x-1/2 bg-gradient-to-b from-indigo-50 via-violet-50/50 to-transparent lg:block dark:from-indigo-500/[0.06] dark:via-transparent" />
 
       {/* ---------- hero ---------- */}
       <section className="grid items-center gap-10 pt-4 lg:grid-cols-2">
@@ -104,8 +104,8 @@ const HomeV2 = () => {
 
         <div className="relative lg:pr-28">
           {/* soft colour blobs behind the card */}
-          <div className="pointer-events-none absolute -left-10 bottom-0 -z-10 h-44 w-44 rounded-full bg-sky-200/40 blur-3xl dark:bg-sky-500/10" />
-          <div className="pointer-events-none absolute right-0 top-6 -z-10 h-56 w-56 rounded-full bg-violet-200/40 blur-3xl dark:bg-violet-500/10" />
+          <div className="pointer-events-none absolute -left-10 bottom-0 -z-10 hidden h-44 w-44 rounded-full bg-sky-200/40 blur-3xl lg:block dark:bg-sky-500/10" />
+          <div className="pointer-events-none absolute right-0 top-6 -z-10 hidden h-56 w-56 rounded-full bg-violet-200/40 blur-3xl lg:block dark:bg-violet-500/10" />
 
           {/* file-type icons on an even ")" arc down the right lane */}
           <FileFloat src={pdfIcon} className="right-14 top-[2%] -rotate-[10deg]" />
