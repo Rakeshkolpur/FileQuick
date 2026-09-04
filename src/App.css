@@ -1,5 +1,24 @@
 /* Custom animations and styling */
 
+/* Interactive elements always show a pointer cursor */
+button:not(:disabled),
+[role='button']:not([aria-disabled='true']),
+a[href],
+label[for],
+summary,
+select,
+input[type='checkbox'],
+input[type='radio'],
+input[type='range'],
+input[type='file'],
+input[type='color'] {
+  cursor: pointer;
+}
+button:disabled,
+[aria-disabled='true'] {
+  cursor: not-allowed;
+}
+
 /* Glowing effect for upload area */
 @keyframes glow {
   0% {

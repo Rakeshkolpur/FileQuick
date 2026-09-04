@@ -159,6 +159,11 @@ const Navigation = () => {
                     }`}
                   >
                     {cat.label}
+                    {cat.badge && (
+                      <span className="ml-1.5 rounded bg-purple-600 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-white">
+                        {cat.badge}
+                      </span>
+                    )}
                     <Chevron open={open} />
                   </Link>
                   {open && (
@@ -169,7 +174,7 @@ const Navigation = () => {
             })}
           </div>
 
-          <div className="flex items-center">
+          <div className="flex items-center gap-1">
             <button
               onClick={toggle}
               aria-label="Toggle dark mode"
@@ -177,9 +182,23 @@ const Navigation = () => {
             >
               {dark ? <SunIcon /> : <MoonIcon />}
             </button>
+            <Link
+              to="/login"
+              onClick={closeAll}
+              className="hidden md:inline-flex items-center rounded-lg border border-gray-200 px-3.5 py-1.5 text-sm font-semibold text-gray-700 hover:border-purple-300 hover:text-purple-700 dark:border-gray-600 dark:text-gray-200 dark:hover:border-purple-600"
+            >
+              Login
+            </Link>
+            <Link
+              to="/signup"
+              onClick={closeAll}
+              className="hidden md:inline-flex items-center rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 px-3.5 py-1.5 text-sm font-semibold text-white shadow-sm shadow-purple-600/25 hover:brightness-110"
+            >
+              Sign Up Free
+            </Link>
             <button
               onClick={() => setMenuOpen((v) => !v)}
-              className="md:hidden ml-2 p-2 rounded-md text-gray-500 dark:text-gray-400"
+              className="md:hidden ml-1 p-2 rounded-md text-gray-500 dark:text-gray-400"
               aria-label="Menu"
             >
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -206,7 +225,12 @@ const Navigation = () => {
                     onClick={() => setMobileGroup(expanded ? null : cat.slug)}
                     className="w-full flex items-center justify-between px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
-                    {cat.label}
+                    <span className="flex items-center gap-1.5">
+                      {cat.label}
+                      {cat.badge && (
+                        <span className="rounded bg-purple-600 px-1 py-px text-[9px] font-bold uppercase text-white">{cat.badge}</span>
+                      )}
+                    </span>
                     <Chevron open={expanded} />
                   </button>
                   {expanded && (
@@ -239,6 +263,22 @@ const Navigation = () => {
                 </div>
               );
             })}
+            <div className="mt-3 flex gap-2 px-3">
+              <Link
+                to="/login"
+                onClick={closeAll}
+                className="flex-1 rounded-lg border border-gray-200 py-2 text-center text-sm font-semibold text-gray-700 dark:border-gray-600 dark:text-gray-200"
+              >
+                Login
+              </Link>
+              <Link
+                to="/signup"
+                onClick={closeAll}
+                className="flex-1 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 py-2 text-center text-sm font-semibold text-white"
+              >
+                Sign Up Free
+              </Link>
+            </div>
           </div>
         )}
       </div>

@@ -5,6 +5,7 @@ import ToolWrapper from './components/ToolWrapper';
 import Contact from './components/Contact';
 import TermsOfService from './components/TermsOfService';
 import PrivacyPolicy from './components/PrivacyPolicy';
+import AccountsSoon from './components/AccountsSoon';
 import { getToolById } from './data/tools';
 
 // Old / alternate tool slugs people may have bookmarked or that show up in
@@ -54,10 +55,11 @@ const LegacyToolRoute = () => {
   return <Navigate to={id ? toolPath(id) : '/'} replace />;
 };
 
-// /category/:categoryId — only image / pdf are real; everything else -> home.
+// /category/:categoryId — image / pdf / convert / ai are real; else -> home.
+const CATEGORY_SLUGS = ['image', 'pdf', 'convert', 'ai'];
 const CategoryRoute = () => {
   const { categoryId } = useParams();
-  if (categoryId === 'image' || categoryId === 'pdf') return <HomePage />;
+  if (CATEGORY_SLUGS.includes(categoryId)) return <HomePage />;
   return <Navigate to="/" replace />;
 };
 
@@ -68,12 +70,16 @@ const AppRoutes = () => (
     {/* Category landing pages */}
     <Route path="/image" element={<HomePage />} />
     <Route path="/pdf" element={<HomePage />} />
+    <Route path="/convert" element={<HomePage />} />
+    <Route path="/ai" element={<HomePage />} />
     <Route path="/category/:categoryId" element={<CategoryRoute />} />
 
     {/* Static pages */}
     <Route path="/contact" element={<Contact />} />
     <Route path="/terms-of-service" element={<TermsOfService />} />
     <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+    <Route path="/login" element={<AccountsSoon mode="login" />} />
+    <Route path="/signup" element={<AccountsSoon mode="signup" />} />
 
     {/* Old tool URLs -> new short URLs */}
     <Route path="/tool" element={<Navigate to="/" replace />} />

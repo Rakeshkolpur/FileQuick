@@ -172,12 +172,32 @@ if (SERVER_TOOLS_COMING_SOON) {
 }
 
 export const NAV_CATEGORIES = [
-  { slug: 'image', label: 'Image Tools' },
   { slug: 'pdf', label: 'PDF Tools' },
+  { slug: 'image', label: 'Image Tools' },
+  { slug: 'convert', label: 'Convert' },
+  { slug: 'ai', label: 'AI Tools', badge: 'New' },
   { slug: 'all', label: 'All Tools' },
 ];
 
-const CATEGORY_TITLES = { image: 'Image Tools', pdf: 'PDF Tools' };
+const CATEGORY_TITLES = {
+  image: 'Image Tools',
+  pdf: 'PDF Tools',
+  convert: 'Convert Tools',
+  ai: 'AI Tools',
+};
+
+// Virtual categories — a curated slice of the real tools, not a `category` field.
+const AI_TOOL_IDS = new Set([
+  'upscale-image', 'remove-background', 'document-scanner', 'passport-photo',
+  'profile-picture', 'pdf-to-word', 'pdf-to-text', 'extract-text',
+]);
+const isConvertTool = (t) => t.id === 'convert-image' || /convert/i.test(t.group || '');
+
+export const getVirtualCategory = (key) => {
+  if (key === 'ai') return TOOLS.filter((t) => AI_TOOL_IDS.has(t.id));
+  if (key === 'convert') return TOOLS.filter(isConvertTool);
+  return [];
+};
 
 const GROUP_ORDER = {
   image: ['Resize & Crop', 'Optimize', 'Enhance', 'Convert'],
@@ -186,8 +206,11 @@ const GROUP_ORDER = {
 
 export const getAllTools = () => TOOLS;
 export const getToolById = (id) => TOOLS.find((t) => t.id === id) || null;
-export const getToolsByCategory = (slug) =>
-  !slug || slug === 'all' ? TOOLS : TOOLS.filter((t) => t.category === slug);
+export const getToolsByCategory = (slug) => {
+  if (!slug || slug === 'all') return TOOLS;
+  if (slug === 'ai' || slug === 'convert') return getVirtualCategory(slug);
+  return TOOLS.filter((t) => t.category === slug);
+};
 export const getPopularTools = () => TOOLS.filter((t) => t.popular);
 
 export const getMenuColumns = (slug) => {
@@ -197,6 +220,9 @@ export const getMenuColumns = (slug) => {
       { title: 'Image Tools', to: '/image', tools: getToolsByCategory('image') },
       { title: 'PDF Tools', to: '/pdf', tools: pdf.filter((t) => t.popular), more: '/pdf' },
     ];
+  }
+  if (slug === 'ai' || slug === 'convert') {
+    return [{ title: CATEGORY_TITLES[slug], tools: getToolsByCategory(slug) }];
   }
   const order = GROUP_ORDER[slug] || [];
   const bucket = {};
