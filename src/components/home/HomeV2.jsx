@@ -102,22 +102,22 @@ const HomeV2 = () => {
           </div>
         </div>
 
-        <div className="relative lg:pr-10">
+        <div className="relative lg:pr-28">
           {/* soft colour blobs behind the card */}
           <div className="pointer-events-none absolute -left-10 bottom-0 -z-10 h-44 w-44 rounded-full bg-sky-200/40 blur-3xl dark:bg-sky-500/10" />
-          <div className="pointer-events-none absolute -right-6 top-4 -z-10 h-52 w-52 rounded-full bg-violet-200/40 blur-3xl dark:bg-violet-500/10" />
+          <div className="pointer-events-none absolute right-0 top-6 -z-10 h-56 w-56 rounded-full bg-violet-200/40 blur-3xl dark:bg-violet-500/10" />
 
-          {/* file-type icons following an arc down the right edge */}
-          <FileFloat src={pdfIcon} className="right-1 -top-6 rotate-[12deg]" />
-          <FileFloat src={wordIcon} className="-right-9 top-[26%] rotate-[5deg]" />
-          <FileFloat src={excelIcon} className="-right-9 top-[60%] -rotate-[5deg]" />
-          <FileFloat src={jpgIcon} className="right-2 -bottom-7 -rotate-[12deg]" />
+          {/* file-type icons on an even ")" arc down the right lane */}
+          <FileFloat src={pdfIcon} className="right-14 top-[2%] -rotate-[10deg]" />
+          <FileFloat src={wordIcon} className="right-0 top-[35%] -rotate-[3deg]" />
+          <FileFloat src={excelIcon} className="right-0 top-[63%] rotate-[3deg]" />
+          <FileFloat src={jpgIcon} className="right-14 top-[93%] rotate-[10deg]" />
 
-          {/* accent bubbles along the same arc */}
-          <span className="pointer-events-none absolute -right-3 top-[10%] hidden h-3.5 w-3.5 rounded-full border-2 border-teal-400/70 lg:block" />
-          <span className="pointer-events-none absolute -right-12 top-[44%] hidden h-2.5 w-2.5 rounded-full bg-teal-400/80 lg:block" />
-          <span className="pointer-events-none absolute -right-4 -bottom-2 hidden h-2 w-2 rounded-full bg-indigo-500 lg:block" />
-          <span className="pointer-events-none absolute right-4 -top-2 hidden h-2 w-2 rotate-45 bg-orange-400/80 lg:block" />
+          {/* accent bubbles between the icons, on the same arc */}
+          <span className="pointer-events-none absolute right-10 top-[19%] hidden h-3.5 w-3.5 rounded-full border-2 border-teal-400/70 lg:block" />
+          <span className="pointer-events-none absolute -right-2 top-[49%] hidden h-2.5 w-2.5 rounded-full bg-teal-400/80 lg:block" />
+          <span className="pointer-events-none absolute right-8 top-[80%] hidden h-2 w-2 rounded-full bg-indigo-500 lg:block" />
+          <span className="pointer-events-none absolute right-16 -top-1 hidden h-2 w-2 rotate-45 bg-orange-400/80 lg:block" />
 
           <div className="rounded-3xl border border-indigo-100/80 bg-gradient-to-br from-violet-50 via-indigo-50/50 to-sky-50/40 p-3 shadow-xl shadow-indigo-500/[0.08] dark:border-gray-700 dark:from-gray-800/70 dark:via-gray-800/50 dark:to-gray-800/60">
             <UploadZone v2 />
