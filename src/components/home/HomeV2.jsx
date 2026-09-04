@@ -61,14 +61,13 @@ const TRUST = [
   { title: 'Made with ❤️', lines: ['Built to make your file', 'work effortless.'], color: 'pink', Icon: LuHeart },
 ];
 
-/* floating file-type icons that cascade down the right of the upload card */
-const FileFloat = ({ src, className, spin }) => (
+/* file-type icons arranged in an arc down the right of the upload card */
+const FileFloat = ({ src, className }) => (
   <img
     src={src}
     alt=""
     aria-hidden
-    className={`pointer-events-none absolute hidden h-12 w-12 drop-shadow-[0_10px_20px_rgba(79,70,229,0.18)] motion-safe:animate-[float_6s_ease-in-out_infinite] lg:block ${className}`}
-    style={{ animationDelay: `${spin || 0}s` }}
+    className={`pointer-events-none absolute hidden h-12 w-12 drop-shadow-[0_10px_20px_rgba(79,70,229,0.18)] lg:block ${className}`}
   />
 );
 
@@ -108,18 +107,17 @@ const HomeV2 = () => {
           <div className="pointer-events-none absolute -left-10 bottom-0 -z-10 h-44 w-44 rounded-full bg-sky-200/40 blur-3xl dark:bg-sky-500/10" />
           <div className="pointer-events-none absolute -right-6 top-4 -z-10 h-52 w-52 rounded-full bg-violet-200/40 blur-3xl dark:bg-violet-500/10" />
 
-          {/* cascading file-type icons */}
-          <FileFloat src={pdfIcon} className="-right-2 -top-6 rotate-[8deg]" spin={0} />
-          <FileFloat src={wordIcon} className="right-1 top-[30%] -rotate-[6deg]" spin={1.4} />
-          <FileFloat src={excelIcon} className="-right-3 bottom-4 rotate-[6deg]" spin={0.7} />
-          <FileFloat src={jpgIcon} className="-left-7 bottom-6 -rotate-[10deg]" spin={2.1} />
+          {/* file-type icons following an arc down the right edge */}
+          <FileFloat src={pdfIcon} className="right-1 -top-6 rotate-[12deg]" />
+          <FileFloat src={wordIcon} className="-right-9 top-[26%] rotate-[5deg]" />
+          <FileFloat src={excelIcon} className="-right-9 top-[60%] -rotate-[5deg]" />
+          <FileFloat src={jpgIcon} className="right-2 -bottom-7 -rotate-[12deg]" />
 
-          {/* little bubbles */}
-          <span className="pointer-events-none absolute right-[18%] top-[14%] hidden h-3.5 w-3.5 rounded-full border-2 border-teal-400/70 lg:block" />
-          <span className="pointer-events-none absolute -right-4 top-[52%] hidden h-2.5 w-2.5 rounded-full bg-teal-400/80 lg:block" />
-          <span className="pointer-events-none absolute right-[8%] -bottom-3 hidden h-2 w-2 rounded-full bg-indigo-500 lg:block" />
-          <span className="pointer-events-none absolute -right-1 top-[6%] hidden h-2 w-2 rotate-45 bg-orange-400/80 lg:block" />
-          <span className="pointer-events-none absolute -left-2 top-[38%] hidden h-2.5 w-2.5 rotate-45 bg-violet-400/70 lg:block" />
+          {/* accent bubbles along the same arc */}
+          <span className="pointer-events-none absolute -right-3 top-[10%] hidden h-3.5 w-3.5 rounded-full border-2 border-teal-400/70 lg:block" />
+          <span className="pointer-events-none absolute -right-12 top-[44%] hidden h-2.5 w-2.5 rounded-full bg-teal-400/80 lg:block" />
+          <span className="pointer-events-none absolute -right-4 -bottom-2 hidden h-2 w-2 rounded-full bg-indigo-500 lg:block" />
+          <span className="pointer-events-none absolute right-4 -top-2 hidden h-2 w-2 rotate-45 bg-orange-400/80 lg:block" />
 
           <div className="rounded-3xl border border-indigo-100/80 bg-gradient-to-br from-violet-50 via-indigo-50/50 to-sky-50/40 p-3 shadow-xl shadow-indigo-500/[0.08] dark:border-gray-700 dark:from-gray-800/70 dark:via-gray-800/50 dark:to-gray-800/60">
             <UploadZone v2 />
