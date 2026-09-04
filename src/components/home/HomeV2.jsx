@@ -184,7 +184,16 @@ const HomeV2 = () => {
         </div>
       </section>
 
-      {/* ---------- trust bar ---------- */}
+      {/* ---------- every tool, grouped (scroll target) ---------- */}
+      <div id="tools" className="scroll-mt-24 space-y-14 pt-2">
+        {sections.map((s) => (
+          <ToolsGrid key={s.id} id={s.id} title={s.title} tools={s.tools} />
+        ))}
+      </div>
+
+      <HowItWorks />
+
+      {/* ---------- trust bar (last row before the footer) ---------- */}
       <section className="grid grid-cols-1 gap-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm sm:grid-cols-2 lg:grid-cols-4 lg:divide-x lg:divide-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:lg:divide-gray-700">
         {TRUST.map((it) => (
           <div key={it.title} className="flex items-start gap-3 lg:px-5 lg:first:pl-0">
@@ -197,14 +206,6 @@ const HomeV2 = () => {
         ))}
       </section>
 
-      {/* ---------- every tool, grouped (scroll target) ---------- */}
-      <div id="tools" className="scroll-mt-24 space-y-14 pt-2">
-        {sections.map((s) => (
-          <ToolsGrid key={s.id} id={s.id} title={s.title} tools={s.tools} />
-        ))}
-      </div>
-
-      <HowItWorks />
       <HomeDesignToggle />
     </div>
   );
