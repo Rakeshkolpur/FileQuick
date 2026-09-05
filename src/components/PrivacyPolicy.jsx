@@ -40,14 +40,17 @@ const PrivacyPolicy = () => {
         
         <h2 className="text-xl font-semibold text-gray-800 dark:text-white mt-8 mb-4">4. Cookies</h2>
         <p className="mb-6">
-          We use cookies and similar tracking technologies to track activity on our Service and hold certain information. 
-          Cookies are files with a small amount of data which may include an anonymous unique identifier.
+          FileQuick itself does not need cookies to work — every tool runs without one. If you see a cookie banner, it is
+          asking permission for the analytics described below; nothing is set until you click "Accept", and declining
+          doesn&apos;t limit anything on the site.
         </p>
-        
+
         <h2 className="text-xl font-semibold text-gray-800 dark:text-white mt-8 mb-4">5. Analytics</h2>
         <p className="mb-6">
-          We may use third-party Service Providers to monitor and analyze the use of our Service. These services may collect 
-          information sent by your browser as part of a web page request, including your IP address or other identifiers.
+          With your consent, we use Google Analytics to see which tools are used and roughly how many people visit —
+          never anything about the files you process. Google Analytics may set cookies and receive your IP address and
+          browser/device information. You can decline this in the cookie banner at any time, and browser extensions
+          like uBlock Origin or Privacy Badger block it automatically.
         </p>
         
         <h2 className="text-xl font-semibold text-gray-800 dark:text-white mt-8 mb-4">6. Third-Party Services</h2>
