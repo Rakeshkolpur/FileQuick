@@ -3,6 +3,8 @@ import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { getToolById } from '../data/tools';
 import RelatedTools from './tool/RelatedTools';
 import TrustStrip from './home/TrustStrip';
+import ToolSeoContent from './tool/ToolSeoContent';
+import { getToolSeo } from '../data/toolSeo';
 import { usePageMeta } from '../lib/seo';
 
 const CATEGORY_LABEL = { image: 'Image Tools', pdf: 'PDF Tools' };
@@ -167,10 +169,11 @@ const ToolWrapper = () => {
         )}
       </ErrorBoundary>
 
-      {isReady && !minimal && (
+      {isReady && (minimal ? getToolSeo(tool.id) : true) && (
         <div className="mt-16 space-y-14">
-          <RelatedTools category={tool.category} currentId={tool.id} />
-          <TrustStrip />
+          <ToolSeoContent tool={tool} />
+          {!minimal && <RelatedTools category={tool.category} currentId={tool.id} />}
+          {!minimal && <TrustStrip />}
         </div>
       )}
     </div>

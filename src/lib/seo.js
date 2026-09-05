@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 const SITE = 'FileQuick';
-const DEFAULT_DESC = 'Free browser-based tools to resize, compress, convert, merge, sign and edit images and PDFs. Nothing is uploaded — everything runs on your device.';
+const DEFAULT_DESC = 'Compress, convert, merge, resize and edit PDFs and images — 100% free, no sign-up, no watermark. Most tools run right in your browser, nothing uploaded.';
 
 // Canonical public origin (no trailing slash). Set VITE_SITE_URL on the host so
 // canonical/OG URLs always point at ONE domain, whichever host the visitor hit.
@@ -35,7 +35,9 @@ function upsertLink(rel, href) {
  * shared links and browser history.
  */
 export function setPageMeta({ title, description, path } = {}) {
-  const fullTitle = title ? `${title} — ${SITE}` : `${SITE} — All Your File Tools. One Place.`;
+  const fullTitle = title
+    ? `${title} — ${SITE}`
+    : `Free PDF & Image Tools — Compress, Convert, Merge | ${SITE}`;
   const desc = description || DEFAULT_DESC;
   document.title = fullTitle;
   upsertMeta('name', 'description', desc);

@@ -1,18 +1,16 @@
-<svg viewBox="0 0 48 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="fq" x1="12" y1="2" x2="46" y2="42" gradientUnits="userSpaceOnUse">
+    <linearGradient id="fq" x1="70" y1="30" x2="470" y2="490" gradientUnits="userSpaceOnUse">
       <stop stop-color="#2563EB"/>
       <stop offset="0.55" stop-color="#4F46E5"/>
       <stop offset="1" stop-color="#7C3AED"/>
     </linearGradient>
   </defs>
-  <rect x="0" y="12" width="8" height="3" rx="1.5" fill="#EF4444"/>
-  <rect x="0" y="18.5" width="10.5" height="3" rx="1.5" fill="#22C55E"/>
-  <rect x="1.6" y="25" width="7" height="3" rx="1.5" fill="#F59E0B"/>
-  <rect x="12" y="2" width="34" height="40" rx="11" fill="url(#fq)"/>
-  <path d="M38 2a8 8 0 0 1 8 8h-6a2 2 0 0 1-2-2V2Z" fill="#fff" fill-opacity="0.32"/>
-  <rect x="20" y="9" width="5.4" height="26" rx="1.4" fill="#fff"/>
-  <rect x="20" y="9" width="15" height="5.2" rx="1.4" fill="#fff"/>
-  <rect x="20" y="18" width="10.6" height="4.6" rx="1.4" fill="#fff"/>
-  <path d="M23 33.4c3-4.6 7.3-6.7 12.9-6.4l-2.5-2.6a1.15 1.15 0 0 1 1.63-1.63l4.9 4.9a1.15 1.15 0 0 1 0 1.63l-4.9 4.9a1.15 1.15 0 0 1-1.63-1.63l2.6-2.6c-4.4-.25-7.8 1.4-10.2 5.1a1.35 1.35 0 0 1-2.4-1.24Z" fill="#BFDBFE"/>
+  <rect width="512" height="512" rx="116" fill="url(#fq)"/>
+  <path d="M360 20a8 8 0 0 1 8 8" fill="none"/>
+  <path d="M392 20a100 100 0 0 1 100 100h-72a28 28 0 0 1-28-28Z" fill="#ffffff" fill-opacity="0.14"/>
+  <rect x="150" y="120" width="60" height="286" rx="16" fill="#fff"/>
+  <rect x="150" y="120" width="176" height="58" rx="16" fill="#fff"/>
+  <rect x="150" y="220" width="122" height="52" rx="16" fill="#fff"/>
+  <path d="M188 372c34-52 84-76 148-72l-30-31a14 14 0 0 1 20-20l58 58a14 14 0 0 1 0 20l-58 58a14 14 0 0 1-20-20l32-32c-52-3-92 16-120 60a16 16 0 0 1-30-13.5z" fill="#BFDBFE"/>
 </svg>

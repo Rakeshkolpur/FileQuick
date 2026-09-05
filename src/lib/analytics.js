@@ -3,7 +3,9 @@
  * banner, and only when VITE_GA_MEASUREMENT_ID is set (unset = feature is
  * simply off, no banner shown either). Never runs in the desktop app.
  */
-const GA_ID = import.meta.env.VITE_GA_MEASUREMENT_ID || '';
+// GA4 Measurement IDs are public (they appear in every page's HTML), so the
+// live ID is fine to keep here; VITE_GA_MEASUREMENT_ID can override it.
+const GA_ID = import.meta.env.VITE_GA_MEASUREMENT_ID || 'G-HDEYX0C77W';
 
 export const analyticsConfigured = () => !!GA_ID;
 

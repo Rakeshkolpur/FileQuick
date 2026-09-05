@@ -2,37 +2,57 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FileQuick — All Your File Tools. One Place.</title>
+
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <title>Free PDF &amp; Image Tools — Compress, Convert, Merge | FileQuick</title>
     <meta
       name="description"
-      content="FileQuick — all your file tools in one place. Free browser-based tools to resize, compress, convert, merge, sign and edit images and PDFs. Nothing is uploaded."
+      content="Compress, convert, merge, resize and edit PDFs and images — 100% free, no sign-up, no watermark. Most tools run right in your browser, nothing uploaded."
     />
-    <meta name="theme-color" content="#2563eb" />
+    <meta name="theme-color" content="#4F46E5" />
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="__SITE_URL__/" />
 
     <meta property="og:site_name" content="FileQuick" />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="FileQuick — All Your File Tools. One Place." />
+    <meta property="og:title" content="Free PDF &amp; Image Tools — FileQuick" />
     <meta
       property="og:description"
-      content="Free browser-based tools to resize, compress, convert, merge, sign and edit images and PDFs. Nothing is uploaded."
+      content="Compress, convert, merge, resize and edit PDFs and images — 100% free, no sign-up, no watermark. Nothing is uploaded."
     />
     <meta property="og:url" content="__SITE_URL__/" />
+    <meta property="og:image" content="__SITE_URL__/og-image.png" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="__SITE_URL__/og-image.png" />
 
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
-        "@type": "WebApplication",
-        "name": "FileQuick",
-        "url": "__SITE_URL__/",
-        "applicationCategory": "UtilitiesApplication",
-        "operatingSystem": "Any (web browser)",
-        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-        "description": "Free browser-based tools to resize, compress, convert, merge, sign and edit images and PDFs. Files are processed on your device."
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "__SITE_URL__/#website",
+            "url": "__SITE_URL__/",
+            "name": "FileQuick",
+            "description": "Free browser-based tools to compress, convert, merge, resize, sign and edit PDFs and images."
+          },
+          {
+            "@type": "WebApplication",
+            "name": "FileQuick",
+            "url": "__SITE_URL__/",
+            "applicationCategory": "UtilitiesApplication",
+            "operatingSystem": "Any (web browser)",
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+            "description": "Free browser-based tools to resize, compress, convert, merge, sign and edit images and PDFs. Files are processed on your device."
+          }
+        ]
       }
     </script>
   </head>
