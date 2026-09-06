@@ -1,8 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { LuShieldCheck, LuZap, LuGift, LuMonitorSmartphone } from 'react-icons/lu';
-import { usePageMeta } from '../lib/seo';
+import { usePageMeta, useJsonLd } from '../lib/seo';
 import { getAllTools } from '../data/tools';
+
+const SITE_ORIGIN = (import.meta.env.VITE_SITE_URL || 'https://filequik.in').replace(/\/+$/, '');
 
 const POINTS = [
   {
@@ -35,6 +37,33 @@ const About = () => {
 
   const toolCount = getAllTools().length;
 
+  useJsonLd('about-founder', {
+    '@context': 'https://schema.org',
+    '@type': 'AboutPage',
+    url: `${SITE_ORIGIN}/about`,
+    mainEntity: {
+      '@type': 'Organization',
+      name: 'FileQuick',
+      url: `${SITE_ORIGIN}/`,
+      logo: `${SITE_ORIGIN}/icon-512.png`,
+      foundingDate: '2025',
+      founder: {
+        '@type': 'Person',
+        name: 'K Rakesh',
+        jobTitle: 'Founder',
+        homeLocation: {
+          '@type': 'Place',
+          address: {
+            '@type': 'PostalAddress',
+            addressLocality: 'Hyderabad',
+            addressRegion: 'Telangana',
+            addressCountry: 'IN',
+          },
+        },
+      },
+    },
+  });
+
   return (
     <div className="mx-auto max-w-3xl">
       <h1 className="text-3xl font-bold text-gray-900 dark:text-white">About FileQuick</h1>
@@ -49,6 +78,13 @@ const About = () => {
         What makes it different is where the work happens. Nearly every tool processes your file
         directly in your browser, so nothing is uploaded to a server and nothing is kept. It is fast,
         it is free, and it works without an account.
+      </p>
+
+      <h2 className="mt-8 text-xl font-bold text-gray-900 dark:text-white">Who&apos;s behind FileQuick</h2>
+      <p className="mt-3 text-[15px] leading-relaxed text-gray-600 dark:text-gray-300">
+        FileQuick was founded and is built by <strong>K Rakesh</strong>, a developer from Hyderabad, India.
+        It started as a personal project to replace the pile of ad-heavy file-converter sites with one
+        fast, private, genuinely free alternative — and it is still independently run.
       </p>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2">

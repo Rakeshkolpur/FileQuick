@@ -37,10 +37,45 @@
         "@context": "https://schema.org",
         "@graph": [
           {
+            "@type": "Person",
+            "@id": "__SITE_URL__/#founder",
+            "name": "K Rakesh",
+            "jobTitle": "Founder",
+            "worksFor": { "@id": "__SITE_URL__/#organization" },
+            "homeLocation": {
+              "@type": "Place",
+              "address": {
+                "@type": "PostalAddress",
+                "addressLocality": "Hyderabad",
+                "addressRegion": "Telangana",
+                "addressCountry": "IN"
+              }
+            }
+          },
+          {
+            "@type": "Organization",
+            "@id": "__SITE_URL__/#organization",
+            "name": "FileQuick",
+            "url": "__SITE_URL__/",
+            "logo": "__SITE_URL__/icon-512.png",
+            "founder": { "@id": "__SITE_URL__/#founder" },
+            "foundingDate": "2025",
+            "foundingLocation": {
+              "@type": "Place",
+              "address": {
+                "@type": "PostalAddress",
+                "addressLocality": "Hyderabad",
+                "addressRegion": "Telangana",
+                "addressCountry": "IN"
+              }
+            }
+          },
+          {
             "@type": "WebSite",
             "@id": "__SITE_URL__/#website",
             "url": "__SITE_URL__/",
             "name": "FileQuick",
+            "publisher": { "@id": "__SITE_URL__/#organization" },
             "description": "Free browser-based tools to compress, convert, merge, resize, sign and edit PDFs and images."
           },
           {
@@ -49,6 +84,8 @@
             "url": "__SITE_URL__/",
             "applicationCategory": "UtilitiesApplication",
             "operatingSystem": "Any (web browser)",
+            "publisher": { "@id": "__SITE_URL__/#organization" },
+            "author": { "@id": "__SITE_URL__/#founder" },
             "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
             "description": "Free browser-based tools to resize, compress, convert, merge, sign and edit images and PDFs. Files are processed on your device."
           }
