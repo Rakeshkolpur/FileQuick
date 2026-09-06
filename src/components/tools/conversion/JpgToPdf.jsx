@@ -38,12 +38,59 @@ const PAGE_SIZES = [
 
 const stop = (e) => e.stopPropagation();
 
+const FIT_LABEL = { contain: 'Fit', cover: 'Fill', actual: 'Actual size' };
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** Human summary of the current PDF options, e.g. "A4 · Portrait · 10 mm margin · Fill". */
+const optsSummary = (opts) => {
+  const size = PAGE_SIZES.find((s) => s.value === opts.pageSize)?.label || opts.pageSize;
+  const bits = [size];
+  if (opts.pageSize !== 'fit') bits.push(cap(opts.orientation));
+  bits.push(`${opts.marginMm} mm margin`);
+  bits.push(FIT_LABEL[opts.fit]);
+  return bits.join(' · ');
+};
+
 /**
- * A true-to-output preview of one page: the sheet is drawn at the real page
- * aspect ratio, the dashed guide marks the margin, and the photo sits exactly
- * where it will land in the PDF for the current Fit / size / orientation.
- * Uses the same computePageLayout() the PDF writer uses.
+ * The white sheet itself, drawn at the real page aspect ratio with a dashed
+ * margin guide and the photo placed exactly where computePageLayout() (the
+ * same function the PDF writer uses) says it will land. Anything spilling past
+ * the page edge is clipped, just like in the PDF.
  */
+const PageSheet = ({ item, opts }) => {
+  const { pw, ph, dw, dh, margin } = computePageLayout(item.w, item.h, opts);
+  const portrait = ph >= pw;
+
+  return (
+    <div
+      className="relative bg-white shadow-[0_1px_6px_rgba(0,0,0,0.18)] overflow-hidden max-w-full max-h-full"
+      style={{
+        aspectRatio: `${pw} / ${ph}`,
+        width: portrait ? 'auto' : '100%',
+        height: portrait ? '100%' : 'auto',
+      }}
+    >
+      <img
+        src={item.url}
+        alt={item.name}
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 object-fill pointer-events-none"
+        style={{ width: `${(dw / pw) * 100}%`, height: `${(dh / ph) * 100}%` }}
+      />
+      {margin > 0 && (
+        <span
+          className="absolute border border-dashed border-purple-400/60"
+          style={{
+            left: `${(margin / pw) * 100}%`,
+            right: `${(margin / pw) * 100}%`,
+            top: `${(margin / ph) * 100}%`,
+            bottom: `${(margin / ph) * 100}%`,
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
 const PagePreview = ({ item, opts }) => {
   if (!item.url) {
     return (
@@ -52,43 +99,92 @@ const PagePreview = ({ item, opts }) => {
       </div>
     );
   }
-
-  const { pw, ph, dw, dh, margin } = computePageLayout(item.w, item.h, opts);
-  const portrait = ph >= pw;
-
   return (
     <div className="relative aspect-square rounded-lg bg-gray-100 dark:bg-gray-700/60 flex items-center justify-center p-2 overflow-hidden">
-      <div
-        className="relative bg-white shadow-[0_1px_6px_rgba(0,0,0,0.18)] overflow-hidden"
-        style={{
-          aspectRatio: `${pw} / ${ph}`,
-          width: portrait ? 'auto' : '100%',
-          height: portrait ? '100%' : 'auto',
-        }}
+      <PageSheet item={item} opts={opts} />
+    </div>
+  );
+};
+
+/**
+ * Centred popup that blows one page up large so you can check how the image
+ * meets the page edges. Backdrop / ✕ / Esc closes; ← → step between pages.
+ */
+const PagePreviewModal = ({ items, index, opts, onClose, onStep }) => {
+  const item = items[index];
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose();
+      else if (e.key === 'ArrowRight') onStep(1);
+      else if (e.key === 'ArrowLeft') onStep(-1);
+    };
+    document.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [onClose, onStep]);
+
+  if (!item) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close"
+        className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-white/10 text-white hover:bg-white/20"
       >
-        <img
-          src={item.url}
-          alt={item.name}
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 object-fill pointer-events-none"
-          style={{ width: `${(dw / pw) * 100}%`, height: `${(dh / ph) * 100}%` }}
-        />
-        {margin > 0 && (
-          <span
-            className="absolute border border-dashed border-purple-400/60"
-            style={{
-              left: `${(margin / pw) * 100}%`,
-              right: `${(margin / pw) * 100}%`,
-              top: `${(margin / ph) * 100}%`,
-              bottom: `${(margin / ph) * 100}%`,
-            }}
-          />
+        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" /></svg>
+      </button>
+
+      <div className="flex items-center gap-3 sm:gap-5" onClick={stop}>
+        {items.length > 1 && (
+          <button
+            type="button"
+            onClick={() => onStep(-1)}
+            aria-label="Previous page"
+            className="hidden sm:grid h-10 w-10 flex-none place-items-center rounded-full bg-white/10 text-white hover:bg-white/20"
+          >
+            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 18l-6-6 6-6" /></svg>
+          </button>
         )}
+
+        <div className="flex h-[70vh] max-h-[560px] w-[min(88vw,460px)] items-center justify-center">
+          <PageSheet item={item} opts={opts} />
+        </div>
+
+        {items.length > 1 && (
+          <button
+            type="button"
+            onClick={() => onStep(1)}
+            aria-label="Next page"
+            className="hidden sm:grid h-10 w-10 flex-none place-items-center rounded-full bg-white/10 text-white hover:bg-white/20"
+          >
+            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 18l6-6-6-6" /></svg>
+          </button>
+        )}
+      </div>
+
+      <div className="mt-4 max-w-[90vw] text-center" onClick={stop}>
+        <p className="text-sm font-medium text-white truncate">
+          Page {index + 1} of {items.length} · {item.name}
+        </p>
+        <p className="mt-0.5 text-[12px] text-white/70">
+          {item.w ? `${item.w}×${item.h}px · ` : ''}{optsSummary(opts)}
+        </p>
       </div>
     </div>
   );
 };
 
-const ImageCard = ({ item, index, opts, onRemove }) => {
+const ImageCard = ({ item, index, opts, onRemove, onZoom }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -108,9 +204,21 @@ const ImageCard = ({ item, index, opts, onRemove }) => {
       }`}
     >
       <div className="relative">
-        <PagePreview item={item} opts={opts} />
-        <span className="absolute bottom-1 left-1 rounded bg-purple-600 text-white text-[10px] px-1.5 py-0.5 font-medium">
+        <button
+          type="button"
+          onClick={item.url ? onZoom : undefined}
+          className="block w-full cursor-zoom-in rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+          aria-label={`Preview page ${index + 1} larger`}
+        >
+          <PagePreview item={item} opts={opts} />
+        </button>
+        <span className="pointer-events-none absolute bottom-1 left-1 rounded bg-purple-600 text-white text-[10px] px-1.5 py-0.5 font-medium">
           Page {index + 1}
+        </span>
+        <span className="pointer-events-none absolute bottom-1 right-1 rounded bg-black/50 text-white p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M11 18a7 7 0 100-14 7 7 0 000 14zM11 8v6M8 11h6" />
+          </svg>
         </span>
         <button
           type="button"
@@ -162,6 +270,7 @@ const JpgToPdf = () => {
   const [progress, setProgress] = useState(null); // {done,total}
   const [result, setResult] = useState(null); // {blob,size,pages}
   const [error, setError] = useState(null);
+  const [zoomIndex, setZoomIndex] = useState(null); // which page the popup shows
 
   const addRef = useRef(null);
   const itemsRef = useRef(items);
@@ -236,6 +345,17 @@ const JpgToPdf = () => {
 
   // Passed to every page preview so the tiles mirror the current settings live.
   const layoutOpts = { pageSize, orientation, marginMm: margin, fit };
+
+  const stepZoom = useCallback((d) => {
+    setZoomIndex((n) => {
+      if (n == null) return n;
+      const len = itemsRef.current.length;
+      return len ? (n + d + len) % len : null;
+    });
+  }, []);
+  const closeZoom = useCallback(() => setZoomIndex(null), []);
+  // Popup index can fall out of range if a page is removed while it's open.
+  const zoomOpen = zoomIndex != null && zoomIndex < items.length;
 
   const run = async () => {
     const usable = items.filter((it) => it.img);
@@ -416,12 +536,29 @@ const JpgToPdf = () => {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
           <SortableContext items={items.map((it) => it.id)} strategy={rectSortingStrategy}>
             {items.map((it, i) => (
-              <ImageCard key={it.id} item={it} index={i} opts={layoutOpts} onRemove={() => removeItem(it.id)} />
+              <ImageCard
+                key={it.id}
+                item={it}
+                index={i}
+                opts={layoutOpts}
+                onRemove={() => removeItem(it.id)}
+                onZoom={() => setZoomIndex(i)}
+              />
             ))}
           </SortableContext>
           <AddTile onClick={() => addRef.current?.click()} />
         </div>
       </DndContext>
+
+      {zoomOpen && (
+        <PagePreviewModal
+          items={items}
+          index={zoomIndex}
+          opts={layoutOpts}
+          onClose={closeZoom}
+          onStep={stepZoom}
+        />
+      )}
     </ToolWorkspace>
   );
 };
