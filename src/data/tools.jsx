@@ -52,7 +52,7 @@ const TOOLS = [
     description: 'Make an image file smaller by quality or a target size — same dimensions.',
     load: () => import('../components/tools/image/ImageCompress.jsx') },
   { id: 'exam-photo-resizer', title: 'Exam Photo & Signature Resizer', category: 'image', group: 'Optimize', icon: I.examphoto, popular: true, chrome: 'min',
-    description: 'Resize a photo and signature to the exact pixels and KB size that Indian exam / job forms need — SSC, UPSC, IBPS, RRB, NTA and custom.',
+    description: 'Crop, set a white or blue background, and resize a photo and signature to the exact pixels and KB size Indian exam / job forms need — SSC, UPSC, IBPS, RRB, NTA and custom.',
     load: () => import('../components/tools/image/ExamPhotoResizer.jsx') },
   { id: 'remove-background', title: 'Remove Background', category: 'image', group: 'Enhance', icon: I.bg,
     description: 'Cut out the background and export a transparent PNG.',

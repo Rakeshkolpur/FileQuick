@@ -85,7 +85,7 @@ const toolSeo = {
   'exam-photo-resizer': {
     h1: 'How to resize a photo and signature for an exam form',
     intro:
-      'Online forms for SSC, UPSC, IBPS bank exams, RRB railway, NTA (JEE / NEET) and most government jobs demand a photo and signature at an exact pixel size and under a strict KB limit — usually a 20–50 KB photo and a 10–20 KB signature. This tool crops, resizes and compresses both to spec in your browser, with nothing uploaded.',
+      'Online forms for SSC, UPSC, IBPS bank exams, RRB railway, NTA (JEE / NEET) and most government jobs demand a photo and signature at an exact pixel size and under a strict KB limit — usually a 20–50 KB photo and a 10–20 KB signature. This tool lets you crop the photo and the signature, put the photo on a plain white or blue background, then resizes and compresses both to spec — all in your browser, with nothing uploaded.',
     steps: [
       'Pick your exam (SSC, UPSC, IBPS, RRB, NTA…) or choose Custom size and type the numbers from the notification.',
       'Upload your photo, and a photo of your signature on white paper.',

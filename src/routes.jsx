@@ -47,6 +47,9 @@ const TOOL_ALIASES = {
   'ssc-photo-resizer': 'exam-photo-resizer',
   'photo-resizer-in-kb': 'exam-photo-resizer',
   'resize-image-in-kb': 'exam-photo-resizer',
+  'upsc-photo-resizer': 'exam-photo-resizer',
+  'exam-photo-signature': 'exam-photo-resizer',
+  'photo-background-changer': 'exam-photo-resizer',
 };
 
 // Canonical tool URL is now the short form: /resize-image  (not /tool/resize-image)
