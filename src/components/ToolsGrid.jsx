@@ -39,20 +39,22 @@ const ToolsGrid = ({ id, title, tools }) => {
   if (!tools?.length) return null;
   return (
     <section>
-      <div className="flex items-end justify-between mb-6">
-        <h2 className="flex items-center gap-3 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
-          <span className="h-5 w-1.5 rounded-full bg-gradient-to-b from-purple-500 to-pink-500" />
-          {title}
-        </h2>
-        {CATEGORY_SLUGS.has(id) && (
-          <Link
-            to={`/${id}`}
-            className="text-sm font-medium text-purple-600 dark:text-purple-400 hover:underline"
-          >
-            View all →
-          </Link>
-        )}
-      </div>
+      {title && (
+        <div className="flex items-end justify-between mb-6">
+          <h2 className="flex items-center gap-3 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
+            <span className="h-5 w-1.5 rounded-full bg-gradient-to-b from-purple-500 to-pink-500" />
+            {title}
+          </h2>
+          {CATEGORY_SLUGS.has(id) && (
+            <Link
+              to={`/${id}`}
+              className="text-sm font-medium text-purple-600 dark:text-purple-400 hover:underline"
+            >
+              View all →
+            </Link>
+          )}
+        </div>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {tools.map((tool) => (
           <ToolCard key={tool.id} tool={tool} />

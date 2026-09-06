@@ -3,6 +3,7 @@ import { useLocation, useParams } from 'react-router-dom';
 import HomeV2 from './home/HomeV2';
 import HomeClassic from './home/HomeClassic';
 import DesktopHome from './desktop/DesktopHome';
+import DesktopCategory from './desktop/DesktopCategory';
 import { isDesktop } from '../lib/desktop';
 
 const VIRTUAL = ['image', 'pdf', 'convert', 'ai'];
@@ -14,6 +15,7 @@ const HomePage = () => {
   const category = categoryId || (VIRTUAL.includes(seg) ? seg : 'all');
 
   if (category === 'all') return isDesktop() ? <DesktopHome /> : <HomeV2 />;
+  if (isDesktop()) return <DesktopCategory category={category} />;
   return <HomeClassic category={category} />;
 };
 
