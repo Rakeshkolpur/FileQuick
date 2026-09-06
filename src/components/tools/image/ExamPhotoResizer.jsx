@@ -1,10 +1,22 @@
-import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import FileDropzone from '../../tool/FileDropzone';
 import { downloadBlob } from '../../tool/DownloadButton';
 import { ToolBackContext } from '../../ToolWrapper';
 import { formatBytes } from '../../../lib/format';
 import { zipFiles } from '../../../lib/zip';
 import { loadImageFromFile, encodeToTargetBytes } from '../../../lib/imageResize';
+import { cutoutBackground, compositeOnColor } from '../../../lib/backgroundRemoval';
+
+const CropDialog = React.lazy(() => import('../../tool/CropDialog'));
+
+// Plain backgrounds accepted by most official photo specs.
+const BG_COLORS = [
+  { name: 'White', value: '#ffffff' },
+  { name: 'Off-white', value: '#f4f4f5' },
+  { name: 'Light blue', value: '#dbeafe' },
+  { name: 'Blue', value: '#2f6fb3' },
+  { name: 'Grey', value: '#e5e7eb' },
+];
 
 /**
  * Photo + signature resizer for Indian exam / job application forms. Auto
@@ -67,8 +79,8 @@ function centerCropRect(iw, ih, arW, arH) {
 }
 
 async function fit(img, spec) {
-  const iw = img.naturalWidth;
-  const ih = img.naturalHeight;
+  const iw = img.naturalWidth || img.width;
+  const ih = img.naturalHeight || img.height;
   const cropRect = centerCropRect(iw, ih, spec.w, spec.h);
   const r = await encodeToTargetBytes(img, {
     cropRect,
@@ -91,7 +103,7 @@ async function fit(img, spec) {
   };
 }
 
-const Slot = ({ label, hint, item, onPick, onClear }) => (
+const Slot = ({ label, hint, item, previewUrl, onPick, onCrop, onClear, children }) => (
   <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
     <div className="flex items-center justify-between">
       <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{label}</h3>
@@ -102,18 +114,26 @@ const Slot = ({ label, hint, item, onPick, onClear }) => (
       )}
     </div>
     {item ? (
-      <div className="mt-3 flex items-center gap-3">
-        <div className="h-24 w-24 shrink-0 grid place-items-center rounded-lg bg-gray-100 dark:bg-gray-900 overflow-hidden">
-          <img src={item.url} alt={label} className="max-h-full max-w-full object-contain" />
+      <>
+        <div className="mt-3 flex items-center gap-3">
+          <div className="h-24 w-24 shrink-0 grid place-items-center rounded-lg bg-gray-100 dark:bg-gray-900 overflow-hidden">
+            <img src={previewUrl || item.url} alt={label} className="max-h-full max-w-full object-contain" />
+          </div>
+          <div className="min-w-0 text-xs text-gray-500 dark:text-gray-400">
+            <p className="truncate text-gray-700 dark:text-gray-200 font-medium">{item.file.name}</p>
+            <p>{item.w}×{item.h}px · {formatBytes(item.file.size)}</p>
+            <div className="mt-1.5 flex flex-wrap gap-2">
+              <button type="button" onClick={onCrop} className="rounded-lg bg-gray-100 dark:bg-gray-700 px-2 py-1 font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600">
+                Crop
+              </button>
+              <button type="button" onClick={onPick} className="rounded-lg px-2 py-1 font-medium text-purple-600 dark:text-purple-400 hover:underline">
+                Change file
+              </button>
+            </div>
+          </div>
         </div>
-        <div className="min-w-0 text-xs text-gray-500 dark:text-gray-400">
-          <p className="truncate text-gray-700 dark:text-gray-200 font-medium">{item.file.name}</p>
-          <p>{item.w}×{item.h}px · {formatBytes(item.file.size)}</p>
-          <button type="button" onClick={onPick} className="mt-1 text-purple-600 dark:text-purple-400 hover:underline">
-            Choose a different file
-          </button>
-        </div>
-      </div>
+        {children}
+      </>
     ) : (
       <div className="mt-3">
         <FileDropzone
@@ -185,6 +205,15 @@ const ExamPhotoResizer = () => {
   const [out, setOut] = useState(null); // {photo?, sign?}
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [cropFor, setCropFor] = useState(null); // 'photo' | 'sign'
+
+  // photo background replacement
+  const [bgOn, setBgOn] = useState(false);
+  const [bgColor, setBgColor] = useState('#ffffff');
+  const [cutout, setCutout] = useState(null); // {img,url} transparent PNG of the photo
+  const [bgBusy, setBgBusy] = useState(false);
+  const [bgPct, setBgPct] = useState(0);
+  const [bgPreview, setBgPreview] = useState(null); // data URL of photo on the chosen colour
 
   const photoInput = useRef(null);
   const signInput = useRef(null);
@@ -198,12 +227,24 @@ const ExamPhotoResizer = () => {
     return null;
   });
 
+  // Revoke every object URL we made when the tool unmounts.
+  const urls = useRef(new Set());
+  const track = (u) => { if (u) urls.current.add(u); return u; };
+  useEffect(() => () => { urls.current.forEach((u) => URL.revokeObjectURL(u)); }, []);
+
+  const dropCutout = useCallback(() => {
+    setCutout((c) => { if (c?.url) URL.revokeObjectURL(c.url); return null; });
+    setBgPreview((u) => { if (u) URL.revokeObjectURL(u); return null; });
+  }, []);
+
   const reset = useCallback(() => {
     setPhoto((p) => { if (p?.url) URL.revokeObjectURL(p.url); return null; });
     setSign((s) => { if (s?.url) URL.revokeObjectURL(s.url); return null; });
+    dropCutout();
+    setBgOn(false);
     clearOut();
     setError(null);
-  }, []);
+  }, [dropCutout]);
 
   useEffect(() => {
     if (!registerBack) return undefined;
@@ -211,20 +252,89 @@ const ExamPhotoResizer = () => {
     return () => registerBack(null);
   }, [photo, sign, reset, registerBack]);
 
-  useEffect(() => clearOut(), [presetKey, custom, photo, sign]);
+  useEffect(() => clearOut(), [presetKey, custom, photo, sign, bgOn, bgColor]);
+
+  const setImage = (which, file, img) => {
+    const entry = { file, img, url: track(URL.createObjectURL(file)), w: img.naturalWidth, h: img.naturalHeight };
+    if (which === 'photo') {
+      setPhoto((p) => { if (p?.url) URL.revokeObjectURL(p.url); return entry; });
+      dropCutout(); // a new/cropped photo invalidates the old cutout
+    } else {
+      setSign((s) => { if (s?.url) URL.revokeObjectURL(s.url); return entry; });
+    }
+  };
 
   const pick = (which) => async (file) => {
     if (!file) return;
     try {
       const img = await loadImageFromFile(file);
-      const entry = { file, img, url: URL.createObjectURL(file), w: img.naturalWidth, h: img.naturalHeight };
-      if (which === 'photo') setPhoto((p) => { if (p?.url) URL.revokeObjectURL(p.url); return entry; });
-      else setSign((s) => { if (s?.url) URL.revokeObjectURL(s.url); return entry; });
+      setImage(which, file, img);
       setError(null);
     } catch (e) {
       setError(e.message || 'That image could not be read.');
     }
   };
+
+  // Apply a crop (PNG blob from CropDialog) back onto the photo or signature.
+  const applyCrop = async (blob) => {
+    const which = cropFor;
+    setCropFor(null);
+    try {
+      const img = await loadImageFromFile(blob);
+      const file = new File([blob], `${which === 'photo' ? 'photo' : 'signature'}-cropped.png`, { type: 'image/png' });
+      setImage(which, file, img);
+    } catch (e) {
+      setError(e.message || 'Could not apply the crop.');
+    }
+  };
+
+  // Run @imgly background removal once for the current photo; cache the cutout.
+  const ensureCutout = useCallback(async () => {
+    if (!photo || cutout) return cutout;
+    setBgBusy(true);
+    setBgPct(0);
+    try {
+      const png = await cutoutBackground(photo.file, (f) => setBgPct(Math.round(f * 100)), { hq: true, refine: true });
+      const img = await loadImageFromFile(png);
+      const entry = { img, url: track(URL.createObjectURL(png)) };
+      setCutout(entry);
+      return entry;
+    } finally {
+      setBgBusy(false);
+    }
+  }, [photo, cutout]);
+
+  const toggleBg = async () => {
+    if (bgOn) { setBgOn(false); return; }
+    setError(null);
+    try {
+      await ensureCutout();
+      setBgOn(true);
+    } catch (e) {
+      setError(e.message || 'Background removal failed — try again or skip it.');
+    }
+  };
+
+  // If the photo is swapped or cropped while "replace background" is on, redo
+  // the cutout for the new image.
+  useEffect(() => {
+    if (!bgOn || !photo || cutout || bgBusy) return;
+    ensureCutout().catch((e) => {
+      setBgOn(false);
+      setError(e.message || 'Background removal failed — try again or skip it.');
+    });
+  }, [bgOn, photo, cutout, bgBusy, ensureCutout]);
+
+  // Keep the little photo-slot preview showing the chosen background.
+  useEffect(() => {
+    if (!bgOn || !cutout) { setBgPreview(null); return undefined; }
+    let dead = false;
+    compositeOnColor(cutout.img, bgColor).toBlob((b) => {
+      if (dead || !b) return;
+      setBgPreview((u) => { if (u) URL.revokeObjectURL(u); return track(URL.createObjectURL(b)); });
+    }, 'image/jpeg', 0.9);
+    return () => { dead = true; };
+  }, [bgOn, bgColor, cutout]);
 
   const run = async () => {
     if (!photo) return;
@@ -232,8 +342,9 @@ const ExamPhotoResizer = () => {
     setError(null);
     clearOut();
     try {
+      const photoSrc = bgOn && cutout ? compositeOnColor(cutout.img, bgColor) : photo.img;
       const result = {};
-      result.photo = await fit(photo.img, preset.photo);
+      result.photo = await fit(photoSrc, preset.photo);
       if (sign) result.sign = await fit(sign.img, preset.sign);
       setOut(result);
     } catch (e) {
@@ -319,16 +430,54 @@ const ExamPhotoResizer = () => {
           label="Photo"
           hint="a clear, front-facing photo"
           item={photo}
+          previewUrl={bgOn ? bgPreview : null}
+          onCrop={() => setCropFor('photo')}
           onPick={photo ? () => photoInput.current?.click() : pick('photo')}
-          onClear={() => setPhoto((p) => { if (p?.url) URL.revokeObjectURL(p.url); return null; })}
-        />
+          onClear={() => { setPhoto((p) => { if (p?.url) URL.revokeObjectURL(p.url); return null; }); dropCutout(); setBgOn(false); }}
+        >
+          <div className="mt-3 rounded-xl bg-gray-50 dark:bg-gray-900/40 p-3">
+            <label className="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-200">
+              <input type="checkbox" checked={bgOn} onChange={toggleBg} disabled={bgBusy} className="accent-purple-600" />
+              Remove &amp; replace the background
+            </label>
+            {bgBusy && (
+              <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">Cutting out the background… {bgPct}%</p>
+            )}
+            {bgOn && !bgBusy && (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                {BG_COLORS.map((c) => (
+                  <button
+                    key={c.value}
+                    type="button"
+                    title={c.name}
+                    onClick={() => setBgColor(c.value)}
+                    className={`h-6 w-6 rounded-full border ${bgColor === c.value ? 'ring-2 ring-purple-500 ring-offset-1 dark:ring-offset-gray-900' : 'border-gray-300 dark:border-gray-600'}`}
+                    style={{ backgroundColor: c.value }}
+                  />
+                ))}
+                <label className="relative h-6 w-6 overflow-hidden rounded-full border border-gray-300 dark:border-gray-600" title="Custom colour">
+                  <span className="pointer-events-none absolute inset-0" style={{ background: 'conic-gradient(red,yellow,lime,cyan,blue,magenta,red)' }} />
+                  <input type="color" value={bgColor} onChange={(e) => setBgColor(e.target.value)} className="absolute -inset-2 cursor-pointer opacity-0" />
+                </label>
+              </div>
+            )}
+            {bgOn && !bgBusy && (
+              <p className="mt-2 text-[11px] text-gray-400 dark:text-gray-500">White or light blue is what most official forms accept.</p>
+            )}
+          </div>
+        </Slot>
         <Slot
           label="Signature"
           hint="sign on white paper, then photograph it"
           item={sign}
+          onCrop={() => setCropFor('sign')}
           onPick={sign ? () => signInput.current?.click() : pick('sign')}
           onClear={() => setSign((s) => { if (s?.url) URL.revokeObjectURL(s.url); return null; })}
-        />
+        >
+          <p className="mt-3 text-[11px] text-gray-400 dark:text-gray-500">
+            Tip: crop tight around the signature so it isn&apos;t tiny after resizing.
+          </p>
+        </Slot>
       </div>
 
       {error && (
@@ -370,6 +519,16 @@ const ExamPhotoResizer = () => {
             </p>
           )}
         </div>
+      )}
+
+      {cropFor && (
+        <Suspense fallback={null}>
+          <CropDialog
+            src={cropFor === 'photo' ? photo?.url : sign?.url}
+            onApply={applyCrop}
+            onClose={() => setCropFor(null)}
+          />
+        </Suspense>
       )}
     </div>
   );

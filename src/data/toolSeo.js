@@ -89,6 +89,7 @@ const toolSeo = {
     steps: [
       'Pick your exam (SSC, UPSC, IBPS, RRB, NTA…) or choose Custom size and type the numbers from the notification.',
       'Upload your photo, and a photo of your signature on white paper.',
+      'Crop each one if needed, and for the photo you can remove the background and set a plain white or blue.',
       'Click "Prepare for the form" — each image is centre-cropped, resized and squeezed under the KB limit.',
       'Check the green "Within limits" badge and download the photo and signature.',
     ],
@@ -96,6 +97,7 @@ const toolSeo = {
       { q: 'What size should the photo and signature be for SSC / bank exams?', a: 'Most SSC and IBPS forms want a JPG photo around 200×230px at 20–50 KB and a signature around 140×60px at 10–20 KB. Pick the preset and the tool hits those numbers; always cross-check the current notification.' },
       { q: 'The form says my photo is too large / too small — what do I do?', a: 'Use the preset for your exam, or Custom size with the exact KB range from the notification. The badge turns amber if the result is under the minimum KB and red if it cannot get under the maximum at the required pixel size.' },
       { q: 'Can I resize the signature separately?', a: 'Yes — the photo is required but the signature is optional. Add only the signature if that is all you need to fix.' },
+      { q: 'Can I crop the photo or change its background?', a: 'Yes. Each upload has a Crop button, and the photo has a "Remove & replace the background" option that cuts you out and puts you on a plain white or light-blue background — the colours official forms expect.' },
       { q: 'Is my photo uploaded anywhere?', a: 'No. The cropping, resizing and compression all run on your device, so your documents never leave your phone or computer.' },
     ],
   },
