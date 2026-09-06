@@ -45,9 +45,13 @@ const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const optsSummary = (opts) => {
   const size = PAGE_SIZES.find((s) => s.value === opts.pageSize)?.label || opts.pageSize;
   const bits = [size];
-  if (opts.pageSize !== 'fit') bits.push(cap(opts.orientation));
-  bits.push(`${opts.marginMm} mm margin`);
-  bits.push(FIT_LABEL[opts.fit]);
+  if (opts.pageSize !== 'fit') {
+    bits.push(cap(opts.orientation));
+    if (opts.marginMm > 0) bits.push(`${opts.marginMm} mm margin`);
+    bits.push(FIT_LABEL[opts.fit]);
+  } else if (opts.marginMm > 0) {
+    bits.push(`${opts.marginMm} mm border`);
+  }
   return bits.join(' · ');
 };
 
@@ -57,18 +61,19 @@ const optsSummary = (opts) => {
  * same function the PDF writer uses) says it will land. Anything spilling past
  * the page edge is clipped, just like in the PDF.
  */
-const PageSheet = ({ item, opts }) => {
+const PageSheet = ({ item, opts, fill }) => {
   const { pw, ph, dw, dh, margin } = computePageLayout(item.w, item.h, opts);
   const portrait = ph >= pw;
+  // `fill` = the parent is already sized to the page ratio (the popup), so just
+  // fill it. Otherwise keep the ratio and fit inside the parent (the tiles).
+  const sizeStyle = fill
+    ? { width: '100%', height: '100%' }
+    : { aspectRatio: `${pw} / ${ph}`, width: portrait ? 'auto' : '100%', height: portrait ? '100%' : 'auto' };
 
   return (
     <div
       className="relative bg-white shadow-[0_1px_6px_rgba(0,0,0,0.18)] overflow-hidden max-w-full max-h-full"
-      style={{
-        aspectRatio: `${pw} / ${ph}`,
-        width: portrait ? 'auto' : '100%',
-        height: portrait ? '100%' : 'auto',
-      }}
+      style={sizeStyle}
     >
       <img
         src={item.url}
@@ -112,6 +117,10 @@ const PagePreview = ({ item, opts }) => {
  */
 const PagePreviewModal = ({ items, index, opts, onClose, onStep }) => {
   const item = items[index];
+  const [vp, setVp] = useState(() => ({
+    w: typeof window === 'undefined' ? 1024 : window.innerWidth,
+    h: typeof window === 'undefined' ? 768 : window.innerHeight,
+  }));
 
   useEffect(() => {
     const onKey = (e) => {
@@ -119,45 +128,60 @@ const PagePreviewModal = ({ items, index, opts, onClose, onStep }) => {
       else if (e.key === 'ArrowRight') onStep(1);
       else if (e.key === 'ArrowLeft') onStep(-1);
     };
+    const onResize = () => setVp({ w: window.innerWidth, h: window.innerHeight });
     document.addEventListener('keydown', onKey);
+    window.addEventListener('resize', onResize);
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', onResize);
       document.body.style.overflow = prev;
     };
   }, [onClose, onStep]);
 
   if (!item) return null;
 
+  // Size a box to the real page ratio so the ✕ can sit exactly on the sheet's
+  // top-right corner (not floating in dead space).
+  const { pw, ph } = computePageLayout(item.w, item.h, opts);
+  const availW = Math.min(vp.w * 0.86, 460);
+  const availH = Math.min(Math.max(vp.h * 0.7, 250), 560); // never shorter than 250px
+  const pageAR = pw / ph;
+  let boxW;
+  let boxH;
+  if (availW / availH > pageAR) { boxH = availH; boxW = availH * pageAR; }
+  else { boxW = availW; boxH = availW / pageAR; }
+  // Keep a wide page from getting too short to read.
+  if (boxH < 250) { boxH = 250; boxW = Math.min(250 * pageAR, availW); }
+
   return (
     <div
-      className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/35 p-4"
       onClick={onClose}
     >
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label="Close"
-        className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-white/10 text-white hover:bg-white/20"
-      >
-        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" /></svg>
-      </button>
-
-      <div className="flex items-center gap-3 sm:gap-5" onClick={stop}>
+      <div className="flex items-center gap-2 sm:gap-4" onClick={stop}>
         {items.length > 1 && (
           <button
             type="button"
             onClick={() => onStep(-1)}
             aria-label="Previous page"
-            className="hidden sm:grid h-10 w-10 flex-none place-items-center rounded-full bg-white/10 text-white hover:bg-white/20"
+            className="hidden sm:grid h-10 w-10 flex-none place-items-center rounded-full bg-black/50 text-white hover:bg-black/70"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 18l-6-6 6-6" /></svg>
           </button>
         )}
 
-        <div className="flex h-[70vh] max-h-[560px] w-[min(88vw,460px)] items-center justify-center">
-          <PageSheet item={item} opts={opts} />
+        <div className="relative flex-none" style={{ width: boxW, height: boxH }}>
+          <PageSheet item={item} opts={opts} fill />
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close preview"
+            className="absolute -right-3 -top-3 grid h-8 w-8 place-items-center rounded-full bg-red-500 text-white shadow-md ring-2 ring-white hover:bg-red-600"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4}><path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
         </div>
 
         {items.length > 1 && (
@@ -165,18 +189,18 @@ const PagePreviewModal = ({ items, index, opts, onClose, onStep }) => {
             type="button"
             onClick={() => onStep(1)}
             aria-label="Next page"
-            className="hidden sm:grid h-10 w-10 flex-none place-items-center rounded-full bg-white/10 text-white hover:bg-white/20"
+            className="hidden sm:grid h-10 w-10 flex-none place-items-center rounded-full bg-black/50 text-white hover:bg-black/70"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 18l6-6-6-6" /></svg>
           </button>
         )}
       </div>
 
-      <div className="mt-4 max-w-[90vw] text-center" onClick={stop}>
+      <div className="mt-5 max-w-[90vw] rounded-lg bg-black/50 px-3 py-1.5 text-center" onClick={stop}>
         <p className="text-sm font-medium text-white truncate">
           Page {index + 1} of {items.length} · {item.name}
         </p>
-        <p className="mt-0.5 text-[12px] text-white/70">
+        <p className="mt-0.5 text-[12px] text-white/75">
           {item.w ? `${item.w}×${item.h}px · ` : ''}{optsSummary(opts)}
         </p>
       </div>
@@ -260,9 +284,11 @@ const AddTile = ({ onClick }) => (
 
 const JpgToPdf = () => {
   const [items, setItems] = useState([]); // {id,file,name,size,url,img,w,h}
-  const [pageSize, setPageSize] = useState('a4');
+  // Default to a no-surprises result: page = the image itself, no border.
+  // Everything is one control away if they want A4 / margins / Fill.
+  const [pageSize, setPageSize] = useState('fit');
   const [orientation, setOrientation] = useState('auto');
-  const [margin, setMargin] = useState(10);
+  const [margin, setMargin] = useState(0);
   const [fit, setFit] = useState('contain');
   const [quality, setQuality] = useState(92);
 
