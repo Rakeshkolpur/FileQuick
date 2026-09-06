@@ -299,7 +299,8 @@ const PDFFillAndSign = () => {
   const [pages, setPages] = useState([]); // {index, url, wPt, hPt}
   const [items, setItems] = useState([]); // {id, page, type, xf, yf, wf, hf, text, fontPt, color}
   const [tool, setTool] = useState('select');
-  const [signature, setSignature] = useState(null);
+  const [signatures, setSignatures] = useState([]); // dataUrl[] — the saved library
+  const [activeSig, setActiveSig] = useState(null); // which one the Signature tool places
   const [signOpen, setSignOpen] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [editingId, setEditingId] = useState(null);
@@ -310,6 +311,7 @@ const PDFFillAndSign = () => {
   const wrapRefs = useRef({});
   const dragRef = useRef(null);
   const pendingSignPlace = useRef(null);
+  const signEditId = useRef(null); // when the modal should replace one placed signature
 
   const onFiles = useCallback(async (list) => {
     const f = [...list].find(isPdf);
@@ -349,7 +351,7 @@ const PDFFillAndSign = () => {
 
   const reset = () => {
     setPhase('idle'); setFile(null); setBytes(null); setFileName(''); setPages([]);
-    setItems([]); setSignature(null); setSelectedId(null); setEditingId(null); setResult(null); setError(null);
+    setItems([]); setSignatures([]); setActiveSig(null); setSelectedId(null); setEditingId(null); setResult(null); setError(null);
   };
   const backFromResult = () => setResult(null);
 
@@ -377,12 +379,40 @@ const PDFFillAndSign = () => {
       return;
     }
     if (type === 'sign') {
-      if (!signature) { pendingSignPlace.current = { page, xf, yf }; setSignOpen(true); return; }
-      const it = { ...base, type: 'sign', img: signature, wf: 0.26, hf: 0.09 };
+      if (!activeSig) { pendingSignPlace.current = { page, xf, yf }; signEditId.current = null; setSignOpen(true); return; }
+      const it = { ...base, type: 'sign', img: activeSig, wf: 0.26, hf: 0.09 };
       setItems((p) => [...p, it]);
       setSelectedId(it.id);
       setTool('select');
     }
+  };
+
+  /* ---- signatures ---- */
+  const duplicateItem = (id) => {
+    const src = items.find((it) => it.id === id);
+    if (!src) return;
+    const copy = { ...src, id: uid(), xf: clamp01(src.xf + 0.03), yf: clamp01(src.yf + 0.03) };
+    setItems((p) => [...p, copy]);
+    setSelectedId(copy.id);
+  };
+
+  // Stamp this signature onto every page that doesn't already have the same one.
+  const stampOnAllPages = (id) => {
+    const src = items.find((it) => it.id === id);
+    if (!src) return;
+    const have = new Set(items.filter((it) => it.type === 'sign' && it.img === src.img).map((it) => it.page));
+    const adds = pages.filter((pg) => !have.has(pg.index)).map((pg) => ({ ...src, id: uid(), page: pg.index }));
+    if (adds.length) setItems((p) => [...p, ...adds]);
+  };
+
+  const scaleSign = (id, f) => setItems((p) => p.map((it) => (
+    it.id === id ? { ...it, wf: Math.max(0.05, Math.min(0.7, it.wf * f)) } : it
+  )));
+
+  const removeSignature = (url) => {
+    const next = signatures.filter((s) => s !== url);
+    setSignatures(next);
+    if (activeSig === url) setActiveSig(next[next.length - 1] || null);
   };
 
   const onPageClick = (e, page) => {
@@ -398,16 +428,28 @@ const PDFFillAndSign = () => {
   };
 
   const onSignatureReady = (dataUrl) => {
-    setSignature(dataUrl);
     setSignOpen(false);
+    setSignatures((p) => (p.includes(dataUrl) ? p : [...p, dataUrl]));
+    setActiveSig(dataUrl);
+
+    // Replacing one already on the page?
+    const editId = signEditId.current;
+    signEditId.current = null;
+    if (editId) { updateItem(editId, { img: dataUrl }); setSelectedId(editId); return; }
+
+    // Placing one where the user just clicked?
     const pend = pendingSignPlace.current;
     pendingSignPlace.current = null;
-    const at = pend || { page: pages[0]?.index || 1, xf: 0.2, yf: 0.2 };
-    setItems((p) => [...p, {
-      id: uid(), type: 'sign', page: at.page, xf: clamp01(at.xf), yf: clamp01(at.yf),
-      wf: 0.26, hf: 0.09, img: dataUrl, color: '#111827',
-    }]);
-    setTool('select');
+    if (pend) {
+      const it = {
+        id: uid(), type: 'sign', page: pend.page, xf: clamp01(pend.xf), yf: clamp01(pend.yf),
+        wf: 0.26, hf: 0.09, img: dataUrl, color: '#111827',
+      };
+      setItems((p) => [...p, it]);
+      setSelectedId(it.id);
+      setTool('select');
+    }
+    // else: just added to the library — user picks the tool and clicks the page.
   };
 
   const updateItem = (id, patch) => setItems((p) => p.map((it) => (it.id === id ? { ...it, ...patch } : it)));
@@ -492,7 +534,9 @@ const PDFFillAndSign = () => {
             pngCache.set(it.img, img);
           }
           const w = it.wf * W;
-          const h = it.hf * H;
+          // Height follows the image's own aspect ratio, so the saved PDF
+          // matches the on-screen preview exactly (which is width + h-auto).
+          const h = w * (img.height / img.width);
           pg.drawImage(img, { x, y: H - yTop - h, width: w, height: h });
         } else if (it.type === 'check' || it.type === 'x') {
           const s = Math.max(8, it.wf * W);
@@ -546,16 +590,18 @@ const PDFFillAndSign = () => {
     { id: 'x', label: 'X mark' },
   ];
   const HINTS = {
-    select: 'Drag any field to reposition. Double-click a text or date to edit it.',
+    select: 'Drag any field to reposition. Click a signature for copy / all-pages / edit. Double-click a text or date to edit.',
     text: 'Click on the page to drop a text field, then type.',
-    sign: signature ? 'Click on the page to place your signature.' : 'Make your signature first.',
+    sign: activeSig ? 'Click on the page to place the selected signature.' : 'Make your signature first.',
     date: 'Click to stamp today’s date. Drag it; double-click to change it.',
     check: 'Click to place a checkmark — the tool stays on for several.',
     x: 'Click to place an X — the tool stays on for several.',
   };
 
+  const openSignModal = () => { signEditId.current = null; pendingSignPlace.current = null; setSignOpen(true); };
+
   const pickTool = (id) => {
-    if (id === 'sign' && !signature) { setSignOpen(true); setTool('sign'); return; }
+    if (id === 'sign' && !activeSig) { openSignModal(); setTool('sign'); return; }
     setTool(id);
     setSelectedId(null);
     setEditingId(null);
@@ -593,17 +639,49 @@ const PDFFillAndSign = () => {
         <p className="text-[11px] text-gray-400 dark:text-gray-500 leading-snug pt-0.5">{HINTS[tool]}</p>
       </section>
 
-      {signature && (
-        <section className="space-y-2 pt-3 border-t border-gray-200 dark:border-gray-700">
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Your signature</h3>
-          <div className="rounded-lg border border-gray-200 dark:border-gray-600 bg-white p-2 flex items-center justify-center">
-            <img src={signature} alt="signature" className="max-h-12 max-w-full object-contain" />
-          </div>
-          <button type="button" onClick={() => setSignOpen(true)} className="w-full text-xs font-medium py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600">
-            Change signature
+      <section className="space-y-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Your signatures</h3>
+          <button type="button" onClick={openSignModal} className="text-xs font-medium text-purple-600 dark:text-purple-400 hover:underline">
+            + Add
           </button>
-        </section>
-      )}
+        </div>
+        {signatures.length === 0 ? (
+          <button type="button" onClick={openSignModal} className="w-full text-xs font-medium py-3 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-purple-400 hover:text-purple-600">
+            Draw, type or upload a signature
+          </button>
+        ) : (
+          <>
+            <div className="grid grid-cols-3 gap-1.5">
+              {signatures.map((s) => (
+                <div key={s} className="relative group">
+                  <button
+                    type="button"
+                    onClick={() => setActiveSig(s)}
+                    title="Use this signature"
+                    className={`h-12 w-full rounded-lg border bg-white p-1 flex items-center justify-center ${
+                      s === activeSig ? 'border-purple-500 ring-2 ring-purple-500' : 'border-gray-200 dark:border-gray-600'
+                    }`}
+                  >
+                    <img src={s} alt="signature" className="max-h-full max-w-full object-contain" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeSignature(s)}
+                    title="Remove"
+                    className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-gray-700 text-white text-[9px] grid place-items-center opacity-0 group-hover:opacity-100"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+            <p className="text-[11px] text-gray-400 dark:text-gray-500 leading-snug">
+              Tap one to select it, then use the <strong>Signature</strong> tool. Add more for a second signer.
+            </p>
+          </>
+        )}
+      </section>
 
       <section className="pt-3 border-t border-gray-200 dark:border-gray-700">
         <p className="text-[11px] text-gray-400 dark:text-gray-500 leading-snug">
@@ -695,7 +773,34 @@ const PDFFillAndSign = () => {
                         <img src={it.img} alt="signature" draggable={false} className="w-full h-auto pointer-events-none" />
                         {sel && (
                           <>
-                            <button type="button" onClick={() => removeItem(it.id)} className="absolute -top-2.5 -right-2.5 h-5 w-5 rounded-full bg-red-600 text-white grid place-items-center text-[10px] shadow">✕</button>
+                            <div className="absolute -top-9 left-0 flex items-center gap-1 rounded-lg bg-gray-900 text-white px-1.5 py-1 shadow whitespace-nowrap">
+                              <button type="button" onClick={() => { signEditId.current = it.id; pendingSignPlace.current = null; setSignOpen(true); }} className="h-6 px-1.5 grid place-items-center text-xs hover:bg-white/20 rounded">Edit</button>
+                              <button type="button" onClick={() => duplicateItem(it.id)} className="h-6 px-1.5 grid place-items-center text-xs hover:bg-white/20 rounded">Copy</button>
+                              {pages.length > 1 && (
+                                <button type="button" onClick={() => stampOnAllPages(it.id)} className="h-6 px-1.5 grid place-items-center text-xs hover:bg-white/20 rounded">All pages</button>
+                              )}
+                              {signatures.length > 1 && (
+                                <>
+                                  <span className="w-px h-4 bg-white/30 mx-0.5" />
+                                  {signatures.map((s) => (
+                                    <button
+                                      key={s}
+                                      type="button"
+                                      title="Swap to this signature"
+                                      onClick={() => updateItem(it.id, { img: s })}
+                                      className={`h-6 w-8 rounded bg-white p-0.5 ${it.img === s ? 'ring-2 ring-white' : ''}`}
+                                    >
+                                      <img src={s} alt="" className="h-full w-full object-contain" />
+                                    </button>
+                                  ))}
+                                </>
+                              )}
+                              <span className="w-px h-4 bg-white/30 mx-0.5" />
+                              <button type="button" onClick={() => scaleSign(it.id, 0.85)} className="h-6 px-1.5 grid place-items-center text-xs hover:bg-white/20 rounded">−</button>
+                              <button type="button" onClick={() => scaleSign(it.id, 1.18)} className="h-6 px-1.5 grid place-items-center text-sm font-semibold hover:bg-white/20 rounded">+</button>
+                              <span className="w-px h-4 bg-white/30 mx-0.5" />
+                              <button type="button" onClick={() => removeItem(it.id)} className="h-6 w-6 grid place-items-center hover:bg-white/20 rounded"><I d={ICON.trash} cls="h-3.5 w-3.5" /></button>
+                            </div>
                             <span
                               onPointerDown={(e) => startDrag(e, it, 'resize')}
                               className="absolute -bottom-2 -right-2 h-4 w-4 rounded-full bg-purple-600 border-2 border-white cursor-nwse-resize"
@@ -803,7 +908,7 @@ const PDFFillAndSign = () => {
 
       {signOpen && (
         <SignatureModal
-          onClose={() => { setSignOpen(false); pendingSignPlace.current = null; }}
+          onClose={() => { setSignOpen(false); pendingSignPlace.current = null; signEditId.current = null; }}
           onDone={onSignatureReady}
         />
       )}
