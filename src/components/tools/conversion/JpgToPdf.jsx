@@ -22,7 +22,7 @@ import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
 import { formatBytes, stripExt } from '../../../lib/format';
 import { loadImageFromFile } from '../../../lib/imageResize';
-import { imagesToPdf } from '../../../lib/imagesToPdf';
+import { imagesToPdf, computePageLayout } from '../../../lib/imagesToPdf';
 
 let uid = 0;
 const isImg = (f) => f.type?.startsWith('image/') || /\.(jpe?g|png|webp|gif|bmp)$/i.test(f.name || '');
@@ -38,7 +38,57 @@ const PAGE_SIZES = [
 
 const stop = (e) => e.stopPropagation();
 
-const ImageCard = ({ item, index, onRemove }) => {
+/**
+ * A true-to-output preview of one page: the sheet is drawn at the real page
+ * aspect ratio, the dashed guide marks the margin, and the photo sits exactly
+ * where it will land in the PDF for the current Fit / size / orientation.
+ * Uses the same computePageLayout() the PDF writer uses.
+ */
+const PagePreview = ({ item, opts }) => {
+  if (!item.url) {
+    return (
+      <div className="relative aspect-square rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+        <div className="h-5 w-5 border-2 border-gray-300 border-t-purple-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  const { pw, ph, dw, dh, margin } = computePageLayout(item.w, item.h, opts);
+  const portrait = ph >= pw;
+
+  return (
+    <div className="relative aspect-square rounded-lg bg-gray-100 dark:bg-gray-700/60 flex items-center justify-center p-2 overflow-hidden">
+      <div
+        className="relative bg-white shadow-[0_1px_6px_rgba(0,0,0,0.18)] overflow-hidden"
+        style={{
+          aspectRatio: `${pw} / ${ph}`,
+          width: portrait ? 'auto' : '100%',
+          height: portrait ? '100%' : 'auto',
+        }}
+      >
+        <img
+          src={item.url}
+          alt={item.name}
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 object-fill pointer-events-none"
+          style={{ width: `${(dw / pw) * 100}%`, height: `${(dh / ph) * 100}%` }}
+        />
+        {margin > 0 && (
+          <span
+            className="absolute border border-dashed border-purple-400/60"
+            style={{
+              left: `${(margin / pw) * 100}%`,
+              right: `${(margin / pw) * 100}%`,
+              top: `${(margin / ph) * 100}%`,
+              bottom: `${(margin / ph) * 100}%`,
+            }}
+          />
+        )}
+      </div>
+    </div>
+  );
+};
+
+const ImageCard = ({ item, index, opts, onRemove }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -57,10 +107,8 @@ const ImageCard = ({ item, index, onRemove }) => {
         isDragging ? 'border-purple-400 shadow-lg' : 'border-gray-200/70 dark:border-gray-700/60'
       }`}
     >
-      <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-        {item.url
-          ? <img src={item.url} alt={item.name} className="max-w-full max-h-full object-contain pointer-events-none" />
-          : <div className="h-5 w-5 border-2 border-gray-300 border-t-purple-500 rounded-full animate-spin" />}
+      <div className="relative">
+        <PagePreview item={item} opts={opts} />
         <span className="absolute bottom-1 left-1 rounded bg-purple-600 text-white text-[10px] px-1.5 py-0.5 font-medium">
           Page {index + 1}
         </span>
@@ -185,6 +233,9 @@ const JpgToPdf = () => {
   };
 
   const ready = items.length > 0 && items.every((it) => it.img || it.broken) && !busy;
+
+  // Passed to every page preview so the tiles mirror the current settings live.
+  const layoutOpts = { pageSize, orientation, marginMm: margin, fit };
 
   const run = async () => {
     const usable = items.filter((it) => it.img);
@@ -348,9 +399,9 @@ const JpgToPdf = () => {
           <p className="text-sm font-medium text-gray-900 dark:text-white">
             {items.length} image{items.length === 1 ? '' : 's'} → 1 PDF
           </p>
-          {items.length > 1 && (
-            <p className="text-xs text-gray-400 dark:text-gray-500">Drag the tiles to reorder the pages.</p>
-          )}
+          <p className="text-xs text-gray-400 dark:text-gray-500">
+            Live preview of each page — {items.length > 1 ? 'drag to reorder. ' : ''}Dashed line = margin.
+          </p>
         </div>
         <button
           type="button"
@@ -365,7 +416,7 @@ const JpgToPdf = () => {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
           <SortableContext items={items.map((it) => it.id)} strategy={rectSortingStrategy}>
             {items.map((it, i) => (
-              <ImageCard key={it.id} item={it} index={i} onRemove={() => removeItem(it.id)} />
+              <ImageCard key={it.id} item={it} index={i} opts={layoutOpts} onRemove={() => removeItem(it.id)} />
             ))}
           </SortableContext>
           <AddTile onClick={() => addRef.current?.click()} />
