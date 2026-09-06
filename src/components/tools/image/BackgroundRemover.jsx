@@ -3,6 +3,7 @@ import ToolWorkspace from '../../tool/ToolWorkspace';
 import Segmented from '../../tool/Segmented';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
+import OpenInTool from '../../tool/OpenInTool';
 import { formatBytes, stripExt } from '../../../lib/format';
 import { consumeHandoff } from '../../../lib/imageHandoff';
 import { encodeImage, webpSupported } from '../../../lib/imageResize';
@@ -173,6 +174,13 @@ const BackgroundRemover = () => {
       onBack={backFromResult}
       backLabel="Back to editing"
       note="Transparent or coloured background baked in. The file stays on your device."
+      extra={result ? (
+        <OpenInTool
+          getImage={() => result.blob}
+          exclude={['remove-background']}
+          heading="Keep going with this cut-out — send it to"
+        />
+      ) : null}
     />
   ) : null;
 

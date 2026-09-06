@@ -21,6 +21,7 @@ import RangeSlider from '../../tool/RangeSlider';
 import CropModal from '../../tool/CropModal';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
+import OpenInTool from '../../tool/OpenInTool';
 import { formatBytes, stripExt } from '../../../lib/format';
 import { consumeHandoff } from '../../../lib/imageHandoff';
 import { zipFiles } from '../../../lib/zip';
@@ -310,7 +311,9 @@ const ImageConvert = () => {
             </div>
           ))}
         </div>
-      ) : null}
+      ) : (results?.kind === 'images' && results.blobs.length === 1 ? (
+        <OpenInTool getImage={() => results.blobs[0]} exclude={['convert-image']} />
+      ) : null)}
     />
   ) : null;
 

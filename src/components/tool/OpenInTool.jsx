@@ -8,9 +8,13 @@ const ORDER = [
   'crop-image',
   'resize-image',
   'profile-picture',
+  'passport-photo',
   'remove-background',
   'compress-image',
+  'increase-image-size',
+  'exam-photo-resizer',
   'convert-image',
+  'image-to-pdf',
 ];
 
 const SHORT = {
@@ -18,9 +22,13 @@ const SHORT = {
   'crop-image': 'Crop',
   'resize-image': 'Resize',
   'profile-picture': 'Profile picture',
+  'passport-photo': 'Passport photo',
   'remove-background': 'Remove background',
   'compress-image': 'Compress',
+  'increase-image-size': 'Increase size',
+  'exam-photo-resizer': 'Exam photo',
   'convert-image': 'Convert',
+  'image-to-pdf': 'Make a PDF',
 };
 
 /**

@@ -101,6 +101,23 @@ const toolSeo = {
       { q: 'Is my photo uploaded anywhere?', a: 'No. The cropping, resizing and compression all run on your device, so your documents never leave your phone or computer.' },
     ],
   },
+  'increase-image-size': {
+    h1: 'How to increase the file size of a photo',
+    intro:
+      'Some upload forms reject a photo for being too small — "image must be at least 20 KB", say. This tool makes a JPG bigger to clear that minimum: it raises the quality to the maximum, then enlarges the picture, then adds a faint grain if it still needs more KB. It cannot add detail that was lost when the photo was first compressed, but it will get the file over the size a form demands.',
+    steps: [
+      'Upload the photo that is under the required size.',
+      'Type the minimum size the form wants (for example 20 KB or 50 KB).',
+      'Leave "allow enlarging" on unless the form also caps the pixel dimensions.',
+      'Click "Increase file size" and download the bigger JPG.',
+    ],
+    faqs: [
+      { q: 'Can you really increase a photo’s size and quality?', a: 'You can reliably increase the file size (KB). You cannot restore detail that was thrown away by earlier compression — no tool can. This maxes out quality and enlarges the image so the file clears a minimum-size upload check.' },
+      { q: 'The form says "photo must be more than 20 KB" — will this fix it?', a: 'Yes. Set the target to just above the minimum (say 22 KB) and download the result.' },
+      { q: 'Why did it enlarge my photo?', a: 'Raising quality alone often is not enough to reach the target. Enlarging adds pixels, which adds data. Turn off "allow enlarging" if the form also limits the dimensions, and it will use quality and grain only.' },
+      { q: 'Is the photo uploaded to a server?', a: 'No — it is all processed in your browser.' },
+    ],
+  },
   'remove-background': {
     h1: 'How to remove an image background',
     intro:

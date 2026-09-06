@@ -6,6 +6,7 @@ import Segmented from '../../tool/Segmented';
 import RangeSlider from '../../tool/RangeSlider';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
+import OpenInTool from '../../tool/OpenInTool';
 import { formatBytes, stripExt } from '../../../lib/format';
 import { consumeHandoff } from '../../../lib/imageHandoff';
 import { encodeImage, outExt } from '../../../lib/imageResize';
@@ -257,6 +258,9 @@ const ImageCrop = () => {
       onDownload={() => downloadBlob(result.blob, downloadName)}
       onBack={backFromResult}
       backLabel="Back to cropping"
+      extra={result ? (
+        <OpenInTool getImage={() => result.blob} exclude={['crop-image']} />
+      ) : null}
     />
   ) : null;
 

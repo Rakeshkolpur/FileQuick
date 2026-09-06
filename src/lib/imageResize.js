@@ -138,6 +138,98 @@ export async function encodeImage(img, {
 // Back-compat alias
 export const resizeImage = (img, opts) => encodeImage(img, opts);
 
+/** Draw `img` at w×h onto a white JPEG, optionally with ± `grain` luma noise. */
+async function encodeJpegGrainy(img, w, h, quality, grain = 0) {
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(w));
+  c.height = Math.max(1, Math.round(h));
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, c.width, c.height);
+  ctx.drawImage(img, 0, 0, c.width, c.height);
+  if (grain > 0) {
+    const id = ctx.getImageData(0, 0, c.width, c.height);
+    const d = id.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const n = (Math.random() - 0.5) * 2 * grain;
+      d[i] += n; d[i + 1] += n; d[i + 2] += n;
+    }
+    ctx.putImageData(id, 0, 0);
+  }
+  const blob = await canvasToBlob(c, 'image/jpeg', quality);
+  return { blob, size: blob.size };
+}
+
+/**
+ * Encode a JPEG that is AT OR ABOVE `targetBytes` — for forms that reject a
+ * file for being *under* a minimum size. It cannot add real detail: it maxes
+ * out quality, then (opt-in) enlarges the picture, then adds fine grain as a
+ * last resort.
+ *
+ * @returns {Promise<{ blob, size, width, height, enlarged, grain, fits }>}
+ */
+export async function encodeAtLeastBytes(img, { targetBytes, allowEnlarge = true, maxEdge = 4000 }) {
+  const W0 = img.naturalWidth || img.width;
+  const H0 = img.naturalHeight || img.height;
+  const mk = (w, h, enlarged, grain) => (r) => ({ ...r, width: w, height: h, enlarged, grain, fits: r.size >= targetBytes });
+
+  // 1) native size, tune quality up to just clear the target
+  const top = await encodeJpegGrainy(img, W0, H0, 0.985);
+  if (top.size >= targetBytes) {
+    let lo = 0.5;
+    let hi = 0.985;
+    let pick = top;
+    for (let i = 0; i < 12; i += 1) {
+      const q = (lo + hi) / 2;
+      // eslint-disable-next-line no-await-in-loop
+      const b = await encodeJpegGrainy(img, W0, H0, q);
+      if (b.size >= targetBytes) { pick = b; hi = q; } else { lo = q; }
+    }
+    return mk(W0, H0, false, false)(pick);
+  }
+
+  // 2) enlarge in 1.25× steps at high quality until it clears the target,
+  //    then trim the quality back down so we land just above it, not far over.
+  let biggest = { ...top, width: W0, height: H0 };
+  if (allowEnlarge) {
+    let scale = 1;
+    for (let i = 0; i < 9; i += 1) {
+      scale *= 1.25;
+      const w = Math.round(W0 * scale);
+      const h = Math.round(H0 * scale);
+      if (Math.max(w, h) > maxEdge) break;
+      // eslint-disable-next-line no-await-in-loop
+      const b = await encodeJpegGrainy(img, w, h, 0.95);
+      biggest = { ...b, width: w, height: h };
+      if (b.size >= targetBytes) {
+        let lo = 0.35;
+        let hi = 0.95;
+        let pick = b;
+        for (let k = 0; k < 12; k += 1) {
+          const q = (lo + hi) / 2;
+          // eslint-disable-next-line no-await-in-loop
+          const t = await encodeJpegGrainy(img, w, h, q);
+          if (t.size >= targetBytes) { pick = t; hi = q; } else { lo = q; }
+        }
+        return mk(w, h, true, false)(pick);
+      }
+    }
+  }
+
+  // 3) grain on the largest render we have
+  const { width: gw, height: gh } = biggest;
+  let pick = biggest;
+  for (const amt of [4, 8, 14, 22, 32, 48]) {
+    // eslint-disable-next-line no-await-in-loop
+    const b = await encodeJpegGrainy(img, gw, gh, 0.95, amt);
+    pick = { ...b, appliedGrain: amt };
+    if (b.size >= targetBytes) break;
+  }
+  return mk(gw, gh, gw !== W0, true)(pick);
+}
+
 // Lowest quality we'll ever use just to hit a size while keeping full resolution.
 const Q_FLOOR = 0.4;
 // When we're allowed to shrink, keep quality here so the smaller image stays sharp.

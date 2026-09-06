@@ -3,7 +3,7 @@ import {
   LuImage, LuFileArchive, LuCrop, LuRepeat, LuScissors, LuCombine, LuFileText,
   LuTrash2, LuListOrdered, LuUnlock, LuLock, LuFileSignature, LuAlignLeft,
   LuEraser, LuRotateCw, LuFileOutput, LuHash, LuDroplet, LuPresentation,
-  LuTable, LuFileType2, LuUser, LuContact, LuExpand, LuScanLine, LuScaling,
+  LuTable, LuFileType2, LuUser, LuContact, LuExpand, LuScanLine, LuScaling, LuImagePlus,
 } from 'react-icons/lu';
 
 const C = 'h-full w-full';
@@ -34,6 +34,7 @@ const I = {
   upscale: <LuExpand className={C} />,
   scan: <LuScanLine className={C} />,
   examphoto: <LuScaling className={C} />,
+  grow: <LuImagePlus className={C} />,
 };
 
 // category: 'image' | 'pdf'
@@ -54,6 +55,9 @@ const TOOLS = [
   { id: 'exam-photo-resizer', title: 'Exam Photo & Signature Resizer', category: 'image', group: 'Optimize', icon: I.examphoto, popular: true, chrome: 'min',
     description: 'Crop, set a white or blue background, and resize a photo and signature to the exact pixels and KB size Indian exam / job forms need — SSC, UPSC, IBPS, RRB, NTA and custom.',
     load: () => import('../components/tools/image/ExamPhotoResizer.jsx') },
+  { id: 'increase-image-size', title: 'Increase Image Size (KB)', category: 'image', group: 'Optimize', icon: I.grow,
+    description: 'Make an image file bigger to meet a minimum upload size — raises quality, enlarges the photo and adds fine grain to reach the target KB.',
+    load: () => import('../components/tools/image/IncreaseImageSize.jsx') },
   { id: 'remove-background', title: 'Remove Background', category: 'image', group: 'Enhance', icon: I.bg,
     description: 'Cut out the background and export a transparent PNG.',
     load: () => import('../components/tools/image/BackgroundRemover.jsx') },

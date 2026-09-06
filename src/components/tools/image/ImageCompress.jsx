@@ -4,6 +4,7 @@ import Segmented from '../../tool/Segmented';
 import RangeSlider from '../../tool/RangeSlider';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
+import OpenInTool from '../../tool/OpenInTool';
 import { formatBytes, stripExt } from '../../../lib/format';
 import { zipFiles } from '../../../lib/zip';
 import {
@@ -242,7 +243,9 @@ const ImageCompress = () => {
             </div>
           ))}
         </div>
-      ) : null}
+      ) : (results && results.length === 1 ? (
+        <OpenInTool getImage={() => results[0].blob} exclude={['compress-image']} />
+      ) : null)}
     />
   ) : null;
 

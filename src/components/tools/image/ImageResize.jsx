@@ -6,6 +6,7 @@ import Segmented from '../../tool/Segmented';
 import RangeSlider from '../../tool/RangeSlider';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
+import OpenInTool from '../../tool/OpenInTool';
 import useObjectUrl from '../../../hooks/useObjectUrl';
 import { formatBytes, pct, stripExt } from '../../../lib/format';
 import { consumeHandoff } from '../../../lib/imageHandoff';
@@ -908,7 +909,9 @@ const ImageResize = () => {
             </div>
           ) : null))}
         </div>
-      ) : null}
+      ) : (r0 ? (
+        <OpenInTool getImage={() => results[0].blob} exclude={['resize-image']} />
+      ) : null)}
     />
   ) : null;
 

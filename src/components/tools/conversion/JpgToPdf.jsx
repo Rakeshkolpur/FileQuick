@@ -23,6 +23,7 @@ import ResultScreen from '../../tool/ResultScreen';
 import { formatBytes, stripExt } from '../../../lib/format';
 import { loadImageFromFile } from '../../../lib/imageResize';
 import { imagesToPdf, computePageLayout } from '../../../lib/imagesToPdf';
+import { consumeHandoff } from '../../../lib/imageHandoff';
 
 let uid = 0;
 const isImg = (f) => f.type?.startsWith('image/') || /\.(jpe?g|png|webp|gif|bmp)$/i.test(f.name || '');
@@ -345,6 +346,9 @@ const JpgToPdf = () => {
     setItems((p) => [...p, ...fresh]);
     fresh.forEach((it) => hydrate(it.id, it.file));
   }, [hydrate]);
+
+  // An image handed over from another tool (e.g. Remove Background) lands here.
+  useEffect(() => consumeHandoff((f) => addFiles([f]), 'image'), [addFiles]);
 
   const removeItem = (id) => setItems((p) => {
     const gone = p.find((it) => it.id === id);

@@ -1,6 +1,7 @@
 import React, { Suspense, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import FileDropzone from '../../tool/FileDropzone';
 import { downloadBlob } from '../../tool/DownloadButton';
+import OpenInTool from '../../tool/OpenInTool';
 import { ToolBackContext } from '../../ToolWrapper';
 import { formatBytes } from '../../../lib/format';
 import { zipFiles } from '../../../lib/zip';
@@ -518,6 +519,13 @@ const ExamPhotoResizer = () => {
               detailed. Try a plainer background or a slightly smaller custom size.
             </p>
           )}
+          <div className="mt-5">
+            <OpenInTool
+              getImage={() => out.photo.blob}
+              exclude={['exam-photo-resizer']}
+              heading="Do more with the photo — send it to"
+            />
+          </div>
         </div>
       )}
 
