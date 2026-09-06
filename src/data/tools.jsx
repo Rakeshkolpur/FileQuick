@@ -77,7 +77,7 @@ const TOOLS = [
   // ============ PDF ============
   // -- Optimize --
   { id: 'pdf-compressor', title: 'Compress PDF', category: 'pdf', group: 'Optimize', icon: I.compress, popular: true,
-    description: 'Shrink a PDF while keeping its text selectable (needs the conversion server).',
+    description: 'Shrink a PDF while keeping its text selectable.',
     load: () => import('../components/tools/pdf/PDFCompressor.jsx') },
 
   // -- Merge & Split --
@@ -131,10 +131,10 @@ const TOOLS = [
     description: 'Convert a .docx to PDF keeping fonts, styles, tables and layout.',
     load: () => import('../components/tools/conversion/WordToPdf.jsx') },
   { id: 'powerpoint-to-pdf', title: 'PowerPoint to PDF', category: 'pdf', group: 'Convert to PDF', icon: I.present,
-    description: 'Convert a PPT/PPTX presentation to PDF, keeping slide layout (needs the conversion server).',
+    description: 'Convert a PPT/PPTX presentation to PDF, keeping slide layout.',
     load: () => import('../components/tools/conversion/PowerPointToPdf.jsx') },
   { id: 'excel-to-pdf', title: 'Excel to PDF', category: 'pdf', group: 'Convert to PDF', icon: I.grid,
-    description: 'Convert an XLS/XLSX/CSV spreadsheet to PDF, keeping sheet layout (needs the conversion server).',
+    description: 'Convert an XLS/XLSX/CSV spreadsheet to PDF, keeping sheet layout.',
     load: () => import('../components/tools/conversion/ExcelToPdf.jsx') },
   { id: 'text-to-pdf', title: 'Text to PDF', category: 'pdf', group: 'Convert to PDF', icon: I.text,
     description: 'Turn a plain-text file — or text you paste — into a clean PDF, all in your browser.',
@@ -145,13 +145,13 @@ const TOOLS = [
     description: 'Export PDF pages as JPG images.',
     load: () => import('../components/tools/conversion/PdfToJpg.jsx') },
   { id: 'pdf-to-word', title: 'PDF to Word', category: 'pdf', group: 'Convert from PDF', icon: I.doc, popular: true,
-    description: 'Rebuild a PDF into an editable Word .docx — text, tables and images (needs the conversion server).',
+    description: 'Rebuild a PDF into an editable Word .docx — text, tables and images.',
     load: () => import('../components/tools/conversion/PdfToWord.jsx') },
   { id: 'pdf-to-powerpoint', title: 'PDF to PowerPoint', category: 'pdf', group: 'Convert from PDF', icon: I.present,
-    description: 'Turn each PDF page into a slide in a .pptx deck (needs the conversion server).',
+    description: 'Turn each PDF page into a slide in a .pptx deck.',
     load: () => import('../components/tools/conversion/PdfToPowerPoint.jsx') },
   { id: 'pdf-to-excel', title: 'PDF to Excel', category: 'pdf', group: 'Convert from PDF', icon: I.grid,
-    description: 'Pull tables from a PDF into an .xlsx workbook (needs the conversion server).',
+    description: 'Pull tables from a PDF into an .xlsx workbook.',
     load: () => import('../components/tools/conversion/PdfToExcel.jsx') },
   { id: 'pdf-to-text', title: 'PDF to Text', category: 'pdf', group: 'Convert from PDF', icon: I.text,
     description: 'Save a PDF as a plain-text file — with OCR for scanned pages, all in your browser.',
@@ -159,17 +159,17 @@ const TOOLS = [
 
   // -- Security --
   { id: 'unlock-pdf', title: 'Unlock PDF', category: 'pdf', group: 'Security', icon: I.unlock,
-    description: 'Remove a PDF password and print / copy / edit restrictions (needs the conversion server).',
+    description: 'Remove a PDF password and print / copy / edit restrictions.',
     load: () => import('../components/tools/pdf/PDFUnlock.jsx') },
   { id: 'protect-pdf', title: 'Protect PDF', category: 'pdf', group: 'Security', icon: I.lock,
-    description: 'Add a password to a PDF so it asks for it on open (needs the conversion server).',
+    description: 'Add a password to a PDF so it asks for it on open.',
     load: () => import('../components/tools/pdf/PDFProtect.jsx') },
 ];
 
-// These tools need the conversion server (server/ + LibreOffice). Until it's
-// deployed and VITE_API_URL is set, show them as "coming soon" instead of a
-// tool that can't work. Flip SERVER_TOOLS_COMING_SOON to false once it's live.
-const SERVER_TOOLS_COMING_SOON = true;
+// These tools need the conversion server (server/ + LibreOffice). It's now
+// deployed at https://api.filequik.in — flip this back to true if the server
+// ever goes down so they show "coming soon" instead of failing.
+const SERVER_TOOLS_COMING_SOON = false;
 const NEEDS_SERVER = new Set([
   'pdf-compressor',
   'word-to-pdf', 'powerpoint-to-pdf', 'excel-to-pdf',
