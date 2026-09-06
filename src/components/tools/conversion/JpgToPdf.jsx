@@ -72,7 +72,11 @@ const PageSheet = ({ item, opts, fill }) => {
 
   return (
     <div
-      className="relative bg-white shadow-[0_1px_6px_rgba(0,0,0,0.18)] overflow-hidden max-w-full max-h-full"
+      className={`relative bg-white overflow-hidden max-w-full max-h-full ${
+        fill
+          ? 'rounded-lg ring-1 ring-black/10 shadow-[0_24px_70px_-12px_rgba(0,0,0,0.45),0_0_0_6px_rgba(255,255,255,0.55)]'
+          : 'shadow-[0_1px_6px_rgba(0,0,0,0.18)]'
+      }`}
       style={sizeStyle}
     >
       <img
@@ -145,8 +149,8 @@ const PagePreviewModal = ({ items, index, opts, onClose, onStep }) => {
   // Size a box to the real page ratio so the ✕ can sit exactly on the sheet's
   // top-right corner (not floating in dead space).
   const { pw, ph } = computePageLayout(item.w, item.h, opts);
-  const availW = Math.min(vp.w * 0.86, 460);
-  const availH = Math.min(Math.max(vp.h * 0.7, 250), 560); // never shorter than 250px
+  const availW = Math.min(vp.w * 0.86, 400);
+  const availH = Math.min(Math.max(vp.h * 0.7, 250), 400); // 250–400px tall
   const pageAR = pw / ph;
   let boxW;
   let boxH;
@@ -157,7 +161,7 @@ const PagePreviewModal = ({ items, index, opts, onClose, onStep }) => {
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/35 p-4"
+      className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/35 p-4 backdrop-blur-[2px]"
       onClick={onClose}
     >
       <div className="flex items-center gap-2 sm:gap-4" onClick={stop}>
