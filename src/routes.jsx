@@ -41,6 +41,12 @@ const TOOL_ALIASES = {
   'txt-to-pdf': 'text-to-pdf',
   'background-remover': 'remove-background',
   'remove-bg': 'remove-background',
+  'photo-signature-resizer': 'exam-photo-resizer',
+  'signature-resizer': 'exam-photo-resizer',
+  'exam-photo': 'exam-photo-resizer',
+  'ssc-photo-resizer': 'exam-photo-resizer',
+  'photo-resizer-in-kb': 'exam-photo-resizer',
+  'resize-image-in-kb': 'exam-photo-resizer',
 };
 
 // Canonical tool URL is now the short form: /resize-image  (not /tool/resize-image)

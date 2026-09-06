@@ -3,7 +3,7 @@ import {
   LuImage, LuFileArchive, LuCrop, LuRepeat, LuScissors, LuCombine, LuFileText,
   LuTrash2, LuListOrdered, LuUnlock, LuLock, LuFileSignature, LuAlignLeft,
   LuEraser, LuRotateCw, LuFileOutput, LuHash, LuDroplet, LuPresentation,
-  LuTable, LuFileType2, LuUser, LuContact, LuExpand, LuScanLine,
+  LuTable, LuFileType2, LuUser, LuContact, LuExpand, LuScanLine, LuScaling,
 } from 'react-icons/lu';
 
 const C = 'h-full w-full';
@@ -33,6 +33,7 @@ const I = {
   idcard: <LuContact className={C} />,
   upscale: <LuExpand className={C} />,
   scan: <LuScanLine className={C} />,
+  examphoto: <LuScaling className={C} />,
 };
 
 // category: 'image' | 'pdf'
@@ -50,6 +51,9 @@ const TOOLS = [
   { id: 'compress-image', title: 'Compress Image', category: 'image', group: 'Optimize', icon: I.compress, popular: true,
     description: 'Make an image file smaller by quality or a target size — same dimensions.',
     load: () => import('../components/tools/image/ImageCompress.jsx') },
+  { id: 'exam-photo-resizer', title: 'Exam Photo & Signature Resizer', category: 'image', group: 'Optimize', icon: I.examphoto, popular: true, chrome: 'min',
+    description: 'Resize a photo and signature to the exact pixels and KB size that Indian exam / job forms need — SSC, UPSC, IBPS, RRB, NTA and custom.',
+    load: () => import('../components/tools/image/ExamPhotoResizer.jsx') },
   { id: 'remove-background', title: 'Remove Background', category: 'image', group: 'Enhance', icon: I.bg,
     description: 'Cut out the background and export a transparent PNG.',
     load: () => import('../components/tools/image/BackgroundRemover.jsx') },
