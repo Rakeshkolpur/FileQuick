@@ -960,7 +960,7 @@ const PDFEditor = () => {
   );
 
   return (
-    <div className="w-screen mx-[calc(50%-50vw)] px-2 sm:px-4">
+    <div className="w-full">
     <div className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col bg-gray-100 dark:bg-gray-900 h-[calc(100vh-8rem)] min-h-[560px]">
       <div className="flex items-center gap-1 px-2 py-1.5 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-x-auto">
         <Btn title="Pages" active={thumbsOpen} onClick={() => setThumbsOpen((v) => !v)}><I d={ICONS.pages} /></Btn>
