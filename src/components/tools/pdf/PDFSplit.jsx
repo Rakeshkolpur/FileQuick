@@ -6,6 +6,7 @@ import RangeSlider from '../../tool/RangeSlider';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
 import { formatBytes, stripExt } from '../../../lib/format';
+import { consumePdfHandoff } from '../../../lib/pdfHandoff';
 import { zipFiles } from '../../../lib/zip';
 import { openPdf, renderThumbnail } from '../../../lib/pdfjs';
 import { parsePageRange, formatPageRange } from '../../../lib/pageRange';
@@ -119,6 +120,8 @@ const PDFSplit = () => {
       setLoading(false);
     }
   }, [renderThumbs]);
+
+  useEffect(() => consumePdfHandoff((f) => onFiles([f]), 'document'), [onFiles]);
 
   const reset = () => {
     thumbToken.current += 1;

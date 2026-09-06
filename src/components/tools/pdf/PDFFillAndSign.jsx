@@ -4,8 +4,10 @@ import ReactCrop from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import ToolWorkspace from '../../tool/ToolWorkspace';
 import ResultScreen from '../../tool/ResultScreen';
+import OpenInPdfTool from '../../tool/OpenInPdfTool';
 import { downloadBlob } from '../../tool/DownloadButton';
 import { stripExt } from '../../../lib/format';
+import { consumePdfHandoff } from '../../../lib/pdfHandoff';
 import { openPdf, renderPageToCanvas } from '../../../lib/pdfjs';
 
 let seq = 0;
@@ -343,6 +345,8 @@ const PDFFillAndSign = () => {
     }
   }, []);
 
+  useEffect(() => consumePdfHandoff((f) => onFiles([f]), 'document'), [onFiles]);
+
   const reset = () => {
     setPhase('idle'); setFile(null); setBytes(null); setFileName(''); setPages([]);
     setItems([]); setSignature(null); setSelectedId(null); setEditingId(null); setResult(null); setError(null);
@@ -634,6 +638,7 @@ const PDFFillAndSign = () => {
       onBack={backFromResult}
       backLabel="Back to editing"
       note="Your fields are stamped onto the page. Nothing was uploaded."
+      extra={result ? <OpenInPdfTool getPdf={() => result.blob} exclude={['fill-sign']} /> : null}
     />
   ) : null;
 

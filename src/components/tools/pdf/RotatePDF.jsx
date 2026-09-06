@@ -4,7 +4,9 @@ import ToolWorkspace from '../../tool/ToolWorkspace';
 import RangeSlider from '../../tool/RangeSlider';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
+import OpenInPdfTool from '../../tool/OpenInPdfTool';
 import { formatBytes, stripExt } from '../../../lib/format';
+import { consumePdfHandoff } from '../../../lib/pdfHandoff';
 import { openPdf, renderThumbnail } from '../../../lib/pdfjs';
 
 const isPdf = (f) => f && (f.type === 'application/pdf' || f.name?.toLowerCase().endsWith('.pdf'));
@@ -72,6 +74,8 @@ const RotatePDF = () => {
       setLoading(false);
     }
   }, [renderThumbs]);
+
+  useEffect(() => consumePdfHandoff((f) => onFiles([f]), 'document'), [onFiles]);
 
   const reset = () => {
     thumbToken.current += 1;
@@ -227,6 +231,7 @@ const RotatePDF = () => {
       onDownload={() => downloadBlob(result.blob, outName)}
       onBack={backFromResult}
       backLabel="Back to pages"
+      extra={result ? <OpenInPdfTool getPdf={() => result.blob} exclude={['rotate-pdf']} /> : null}
     />
   ) : null;
 

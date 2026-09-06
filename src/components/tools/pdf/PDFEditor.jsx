@@ -7,6 +7,7 @@ import FileDropzone from '../../tool/FileDropzone';
 import { ToolBackContext } from '../../ToolWrapper';
 import { downloadBlob } from '../../tool/DownloadButton';
 import { stripExt } from '../../../lib/format';
+import { consumePdfHandoff } from '../../../lib/pdfHandoff';
 import { openPdf, renderPageToCanvas } from '../../../lib/pdfjs';
 import { BASE_SCALE, bakeIntoPdf, parseColor, colorOpacity, FONT_LIST, cssStack } from '../../../lib/pdfAnnotate';
 
@@ -583,6 +584,10 @@ const PDFEditor = () => {
     setHydrated(new Set()); setActivePage(0);
     store.current = { data: {}, live: {}, history: {}, active: 0 };
   };
+
+  // A PDF handed over from another tool opens straight into the editor.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => consumePdfHandoff((f) => onFiles([f]), 'document'), []);
 
   // While a PDF is open, the page's Back button returns to the upload screen.
   const registerBack = React.useContext(ToolBackContext);

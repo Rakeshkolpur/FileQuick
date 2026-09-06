@@ -24,6 +24,7 @@ import { formatBytes, stripExt } from '../../../lib/format';
 import { loadImageFromFile } from '../../../lib/imageResize';
 import { imagesToPdf, computePageLayout } from '../../../lib/imagesToPdf';
 import { consumeHandoff } from '../../../lib/imageHandoff';
+import OpenInPdfTool from '../../tool/OpenInPdfTool';
 
 let uid = 0;
 const isImg = (f) => f.type?.startsWith('image/') || /\.(jpe?g|png|webp|gif|bmp)$/i.test(f.name || '');
@@ -522,6 +523,7 @@ const JpgToPdf = () => {
       onDownload={() => result && downloadBlob(result.blob, outName)}
       onBack={backFromResult}
       backLabel="Back to images"
+      extra={result ? <OpenInPdfTool getPdf={() => result.blob} exclude={['image-to-pdf']} /> : null}
     />
   ) : null;
 

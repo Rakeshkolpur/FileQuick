@@ -5,7 +5,9 @@ import { PDFDocument } from 'pdf-lib';
 import ToolWorkspace from '../../tool/ToolWorkspace';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
+import OpenInPdfTool from '../../tool/OpenInPdfTool';
 import { formatBytes, stripExt } from '../../../lib/format';
+import { consumePdfHandoff } from '../../../lib/pdfHandoff';
 import { openPdf, renderPageToCanvas } from '../../../lib/pdfjs';
 
 const isPdf = (f) => f && (f.type === 'application/pdf' || f.name?.toLowerCase().endsWith('.pdf'));
@@ -100,6 +102,8 @@ const CropPDF = () => {
       setLoading(false);
     }
   }, [loadPreview]);
+
+  useEffect(() => consumePdfHandoff((f) => onFiles([f]), 'document'), [onFiles]);
 
   const reset = () => {
     renderTok.current += 1;
@@ -266,6 +270,7 @@ const CropPDF = () => {
       onBack={backFromResult}
       backLabel="Back to the pages"
       note="Cropping changes the visible page box — the original content is still in the file."
+      extra={result ? <OpenInPdfTool getPdf={() => result.blob} exclude={['crop-pdf']} /> : null}
     />
   ) : null;
 

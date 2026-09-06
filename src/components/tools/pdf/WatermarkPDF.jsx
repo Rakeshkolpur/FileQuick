@@ -5,7 +5,9 @@ import Segmented from '../../tool/Segmented';
 import RangeSlider from '../../tool/RangeSlider';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
+import OpenInPdfTool from '../../tool/OpenInPdfTool';
 import { formatBytes, stripExt } from '../../../lib/format';
+import { consumePdfHandoff } from '../../../lib/pdfHandoff';
 import { openPdf, renderPageToCanvas } from '../../../lib/pdfjs';
 import { parsePageRange } from '../../../lib/pageRange';
 
@@ -97,6 +99,8 @@ const WatermarkPDF = () => {
       setLoading(false);
     }
   }, [loadPreview]);
+
+  useEffect(() => consumePdfHandoff((f) => onFiles([f]), 'document'), [onFiles]);
 
   const reset = () => {
     tok.current += 1;
@@ -296,6 +300,7 @@ const WatermarkPDF = () => {
       onDownload={() => downloadBlob(result.blob, outName)}
       onBack={backFromResult}
       backLabel="Back to options"
+      extra={result ? <OpenInPdfTool getPdf={() => result.blob} exclude={['watermark-pdf']} /> : null}
     />
   ) : null;
 

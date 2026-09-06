@@ -47,7 +47,7 @@ const MegaMenu = ({ columns, onNavigate }) => {
         className={`${styles.menuPanel} bg-white dark:bg-gray-800 rounded-xl shadow-2xl ring-1 ring-black/5 dark:ring-white/10 p-4`}
       >
         <div
-          style={{ columnCount: cols, columnGap: '1.5rem', width: `${cols * 196}px`, maxWidth: 'calc(100vw - 2rem)' }}
+          style={{ columnCount: cols, columnGap: '1.5rem', width: `${cols * 210}px`, maxWidth: 'calc(100vw - 2rem)' }}
         >
           {columns.map((col) => (
             <div key={col.title} className="break-inside-avoid mb-4">
@@ -77,9 +77,9 @@ const MegaMenu = ({ columns, onNavigate }) => {
                       className={`${styles.menuItem} flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-sm text-gray-700 dark:text-gray-200 hover:bg-purple-50 dark:hover:bg-gray-700/60 transition-colors`}
                     >
                       <IconChip tint={getToolTint(t)}>{t.icon}</IconChip>
-                      <span className="whitespace-nowrap">{t.title}</span>
+                      <span className="min-w-0 leading-tight">{t.short || t.title}</span>
                       {t.status === 'soon' && (
-                        <span className="ml-auto text-[9px] font-semibold uppercase tracking-wide bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-300 px-1 py-0.5 rounded">
+                        <span className="ml-auto shrink-0 text-[9px] font-semibold uppercase tracking-wide bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-300 px-1 py-0.5 rounded">
                           soon
                         </span>
                       )}
@@ -252,9 +252,9 @@ const Navigation = () => {
                               className="flex items-center gap-3 px-5 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                             >
                               <IconChip tint={getToolTint(t)}>{t.icon}</IconChip>
-                              <span>{t.title}</span>
+                              <span className="leading-tight">{t.short || t.title}</span>
                               {t.status === 'soon' && (
-                                <span className="ml-auto text-[9px] font-semibold uppercase bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-300 px-1 rounded">
+                                <span className="ml-auto shrink-0 text-[9px] font-semibold uppercase bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-300 px-1 rounded">
                                   soon
                                 </span>
                               )}

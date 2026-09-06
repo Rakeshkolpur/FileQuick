@@ -4,7 +4,9 @@ import ToolWorkspace from '../../tool/ToolWorkspace';
 import RangeSlider from '../../tool/RangeSlider';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
+import OpenInPdfTool from '../../tool/OpenInPdfTool';
 import { formatBytes, stripExt } from '../../../lib/format';
+import { consumePdfHandoff } from '../../../lib/pdfHandoff';
 import { openPdf, renderThumbnail } from '../../../lib/pdfjs';
 import { parsePageRange, formatPageRange } from '../../../lib/pageRange';
 
@@ -71,6 +73,8 @@ const PDFDeletePages = () => {
       setLoading(false);
     }
   }, [renderThumbs]);
+
+  useEffect(() => consumePdfHandoff((f) => onFiles([f]), 'document'), [onFiles]);
 
   const reset = () => {
     thumbToken.current += 1;
@@ -218,6 +222,7 @@ const PDFDeletePages = () => {
       onDownload={() => downloadBlob(result.blob, outName)}
       onBack={backFromResult}
       backLabel="Back to page selection"
+      extra={result ? <OpenInPdfTool getPdf={() => result.blob} exclude={['delete-pages']} /> : null}
     />
   ) : null;
 

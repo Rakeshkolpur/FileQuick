@@ -22,7 +22,9 @@ import Segmented from '../../tool/Segmented';
 import RangeSlider from '../../tool/RangeSlider';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
+import OpenInPdfTool from '../../tool/OpenInPdfTool';
 import { stripExt } from '../../../lib/format';
+import { consumePdfHandoff } from '../../../lib/pdfHandoff';
 import { openPdf, renderThumbnail } from '../../../lib/pdfjs';
 
 let uid = 0;
@@ -262,6 +264,8 @@ const PDFOrganize = () => {
       setLoading(false);
     }
   }, [renderThumbs]);
+
+  useEffect(() => consumePdfHandoff((f) => addFiles([f]), 'document'), [addFiles]);
 
   const reset = () => {
     thumbToken.current += 1;
@@ -543,6 +547,7 @@ const PDFOrganize = () => {
       onDownload={() => downloadBlob(result.blob, outName)}
       onBack={backFromResult}
       backLabel="Back to editing"
+      extra={result ? <OpenInPdfTool getPdf={() => result.blob} exclude={['organize-pdf']} /> : null}
     />
   ) : null;
 

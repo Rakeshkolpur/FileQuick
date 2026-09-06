@@ -20,7 +20,9 @@ import { CSS } from '@dnd-kit/utilities';
 import ToolWorkspace from '../../tool/ToolWorkspace';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
+import OpenInPdfTool from '../../tool/OpenInPdfTool';
 import { formatBytes } from '../../../lib/format';
+import { consumePdfHandoff } from '../../../lib/pdfHandoff';
 import { openPdf, renderThumbnail } from '../../../lib/pdfjs';
 
 let uid = 0;
@@ -150,6 +152,8 @@ const PDFMerge = () => {
     setLoading(false);
   }, [hydrate]);
 
+  useEffect(() => consumePdfHandoff((f) => addFiles([f]), 'document'), [addFiles]);
+
   const removeItem = (id) => setItems((p) => p.filter((it) => it.id !== id));
   const clearAll = () => setItems([]);
   const sortByName = () => setItems((p) => [...p].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })));
@@ -271,6 +275,7 @@ const PDFMerge = () => {
       onDownload={() => downloadBlob(result.blob, outName)}
       onBack={backFromResult}
       backLabel="Back to files"
+      extra={result ? <OpenInPdfTool getPdf={() => result.blob} exclude={['merge-pdf']} /> : null}
     />
   ) : null;
 
