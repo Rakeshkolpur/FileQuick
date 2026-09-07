@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { screenFiles, rejectionMessage } from '../../lib/fileValidation';
+import { Link } from 'react-router-dom';
+import { screenFiles, rejectionMessage, DESKTOP_LIMIT_MB } from '../../lib/fileValidation';
+import { isDesktop } from '../../lib/desktop';
 
 const UploadGlyph = () => (
   <svg className="w-full h-full text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -24,18 +26,21 @@ const FileDropzone = ({
 }) => {
   const inputRef = useRef(null);
   const [dragging, setDragging] = useState(false);
-  const [error, setError] = useState('');
+  const [rejects, setRejects] = useState([]);
 
   const emit = useCallback(
     (list) => {
       const { accepted, rejected } = screenFiles(list, { accept, maxMB });
-      setError(rejectionMessage(rejected));
+      setRejects(rejected);
       // pass `rejected` too — a multi-file tool can keep warning about the
       // dropped files after this upload area unmounts
       if (accepted.length) onFiles(multiple ? accepted : [accepted[0]], rejected);
     },
     [accept, maxMB, multiple, onFiles],
   );
+
+  const error = rejectionMessage(rejects);
+  const overLimit = !isDesktop() && rejects.some((r) => r.kind === 'size');
 
   useEffect(() => {
     if (!paste) return undefined;
@@ -108,6 +113,19 @@ const FileDropzone = ({
       {formats && <p className="mt-4 text-xs text-gray-400 dark:text-gray-500">{formats}</p>}
       {error && (
         <p className="mt-3 text-xs font-medium text-red-600 dark:text-red-400" role="alert">{error}</p>
+      )}
+      {overLimit && (
+        <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+          Need bigger files? The{' '}
+          <Link
+            to="/download"
+            onClick={(e) => e.stopPropagation()}
+            className="font-medium text-purple-600 hover:underline dark:text-purple-400"
+          >
+            desktop app
+          </Link>{' '}
+          handles up to {DESKTOP_LIMIT_MB} MB.
+        </p>
       )}
     </div>
   );

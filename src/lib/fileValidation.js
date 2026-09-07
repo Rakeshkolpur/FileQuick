@@ -15,7 +15,7 @@
  */
 
 // Per-category size ceilings, in MB. These protect a *browser tab* from running
-// out of memory — the desktop app (window.fq) has no such limit and lifts them.
+// out of memory. The desktop app raises every tool to DESKTOP_LIMIT_MB.
 export const SIZE_LIMIT_MB = {
   pdf: 50,
   image: 30,
@@ -23,6 +23,10 @@ export const SIZE_LIMIT_MB = {
   text: 10,
   default: 40,
 };
+
+// The desktop app processes locally (no server) and can save straight to disk,
+// so it takes much bigger files — one flat ceiling for every tool.
+export const DESKTOP_LIMIT_MB = 100;
 
 // Uploads that actually go to the conversion server (api.filequik.in). Kept
 // well under the browser-tab limits above: a big office / PDF conversion is
@@ -88,7 +92,7 @@ export function screenFiles(list, { accept, maxMB } = {}) {
 
   for (const file of files) {
     const cat = fileCategory(file);
-    const cap = desktop ? Infinity : (maxMB || SIZE_LIMIT_MB[cat] || SIZE_LIMIT_MB.default);
+    const cap = desktop ? DESKTOP_LIMIT_MB : (maxMB || SIZE_LIMIT_MB[cat] || SIZE_LIMIT_MB.default);
 
     if (!file.size) {
       rejected.push({ file, reason: `"${file.name || 'That file'}" is empty.` });
@@ -97,7 +101,9 @@ export function screenFiles(list, { accept, maxMB } = {}) {
     } else if (file.size > cap * 1024 * 1024) {
       rejected.push({
         file,
-        reason: `"${file.name}" is ${(file.size / 1048576).toFixed(1)} MB — the limit is ${cap} MB.`,
+        kind: 'size',
+        capMB: cap,
+        reason: `"${file.name}" is ${(file.size / 1048576).toFixed(1)} MB. This tool takes files up to ${cap} MB.`,
       });
     } else if (accept && !matchesAccept(file)) {
       rejected.push({ file, reason: `"${file.name}" isn’t a file type this tool can open.` });
