@@ -3,6 +3,7 @@ import ToolWorkspace from '../../tool/ToolWorkspace';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
 import { formatBytes, stripExt } from '../../../lib/format';
+import { SERVER_UPLOAD_MB } from '../../../lib/fileValidation';
 import { api } from '../../../lib/api';
 import { openPdf, renderThumbnail } from '../../../lib/pdfjs';
 
@@ -109,7 +110,11 @@ const PdfToExcel = () => {
       setResult({ blob, size: blob.size });
     } catch (e) {
       console.error(e);
-      const msg = e.response ? 'Conversion server error.' : e.message;
+      let msg;
+      if (e.response?.status === 413) msg = `That PDF is too large — the converter takes files up to ${SERVER_UPLOAD_MB.convert} MB.`;
+      else if (e.code === 'ERR_NETWORK') msg = 'The converter is temporarily unavailable. Please try again in a moment.';
+      else if (e.response) msg = 'Conversion server error.';
+      else msg = e.message;
       setError(msg || 'Conversion failed.');
     } finally {
       setWorking(false);
@@ -125,7 +130,7 @@ const PdfToExcel = () => {
     const map = {
       checking: ['bg-gray-100 dark:bg-gray-700 text-gray-500', 'Checking converter…'],
       ready: ['bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300', 'Conversion engine · connected'],
-      unavailable: ['bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300', 'Converter offline — start it with npm run server'],
+      unavailable: ['bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300', 'Converter unavailable — try again shortly'],
     };
     const [cls, label] = map[server] || map.checking;
     return (
@@ -213,7 +218,8 @@ const PdfToExcel = () => {
     <ToolWorkspace
       file={file}
       accept="application/pdf,.pdf"
-      formats="PDF — tables pulled into an .xlsx workbook"
+      maxMB={SERVER_UPLOAD_MB.convert}
+      formats={`PDF up to ${SERVER_UPLOAD_MB.convert} MB — tables pulled into an .xlsx workbook`}
       dropTitle="Drop a PDF to convert"
       dropHint="or click to browse"
       paste={false}
@@ -254,8 +260,7 @@ const PdfToExcel = () => {
 
       {server === 'unavailable' && (
         <p className="mt-4 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-2">
-          PDF&nbsp;→&nbsp;Excel runs on the conversion server. Start it with <code className="text-[11px]">npm run server</code>,
-          then reload this page. (In production it&apos;s the deployed backend — see <code className="text-[11px]">server/README.md</code>.)
+          The PDF&nbsp;→&nbsp;Excel converter isn&apos;t responding right now. Please try again in a little while.
         </p>
       )}
     </ToolWorkspace>

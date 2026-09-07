@@ -57,7 +57,10 @@ CORS(
     ],
 )
 
-MAX_CONTENT_LENGTH = 100 * 1024 * 1024  # 100 MB
+# Hard ceiling on any upload. The web client caps well below this (20 MB for
+# office/PDF conversions, 50 MB for compress/unlock/protect) — this is the
+# safety net for a small VM. Also set nginx `client_max_body_size 55m;`.
+MAX_CONTENT_LENGTH = int(os.environ.get("MAX_UPLOAD_MB", "55")) * 1024 * 1024
 app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
 CONVERT_TIMEOUT = 180  # seconds (LibreOffice subprocess)
 

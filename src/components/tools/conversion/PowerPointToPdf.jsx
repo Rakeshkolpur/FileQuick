@@ -3,6 +3,7 @@ import ToolWorkspace from '../../tool/ToolWorkspace';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
 import { formatBytes, stripExt } from '../../../lib/format';
+import { SERVER_UPLOAD_MB } from '../../../lib/fileValidation';
 import { api } from '../../../lib/api';
 import { isDesktop } from '../../../lib/desktop';
 
@@ -70,7 +71,11 @@ const PowerPointToPdf = () => {
       setResult({ blob, size: blob.size });
     } catch (e) {
       console.error(e);
-      const msg = e.response ? 'Conversion server error.' : e.message;
+      let msg;
+      if (e.response?.status === 413) msg = `That file is too large — the converter takes files up to ${SERVER_UPLOAD_MB.convert} MB.`;
+      else if (e.code === 'ERR_NETWORK') msg = 'The converter is temporarily unavailable. Please try again in a moment.';
+      else if (e.response) msg = 'Conversion server error.';
+      else msg = e.message;
       setError(msg || 'Conversion failed.');
     } finally {
       setWorking(false);
@@ -86,7 +91,7 @@ const PowerPointToPdf = () => {
       ready: ['bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300', 'LibreOffice engine · connected'],
       unavailable: ['bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300', isDesktop()
         ? 'Needs LibreOffice — install it free from libreoffice.org, then reopen FileQuick'
-        : 'Converter offline — start it with npm run server'],
+        : 'Converter unavailable — try again shortly'],
     };
     const [cls, label] = map[server] || map.checking;
     return (
@@ -160,7 +165,8 @@ const PowerPointToPdf = () => {
     <ToolWorkspace
       file={file}
       accept=".pptx,.ppt,.odp,.pps,.ppsx,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint"
-      formats="PowerPoint .pptx / .ppt / .odp — slide layout is kept"
+      maxMB={SERVER_UPLOAD_MB.convert}
+      formats={`PowerPoint up to ${SERVER_UPLOAD_MB.convert} MB — slide layout is kept`}
       dropTitle="Drop a PowerPoint presentation"
       dropHint="or click to browse — .pptx, .ppt, .odp"
       paste={false}
@@ -187,8 +193,7 @@ const PowerPointToPdf = () => {
 
       {server === 'unavailable' && (
         <p className="mt-2 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-2">
-          PowerPoint&nbsp;→&nbsp;PDF runs on the conversion server. Start it with <code className="text-[11px]">npm run server</code>,
-          then reload this page. (In production it&apos;s the deployed backend — see <code className="text-[11px]">server/README.md</code>.)
+          The PowerPoint&nbsp;→&nbsp;PDF converter isn&apos;t responding right now. Please try again in a little while.
         </p>
       )}
     </ToolWorkspace>

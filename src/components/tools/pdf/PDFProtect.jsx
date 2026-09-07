@@ -3,6 +3,7 @@ import ToolWorkspace from '../../tool/ToolWorkspace';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
 import { formatBytes, stripExt } from '../../../lib/format';
+import { SERVER_UPLOAD_MB } from '../../../lib/fileValidation';
 import { api } from '../../../lib/api';
 
 const isPdf = (f) => f && (f.type === 'application/pdf' || f.name?.toLowerCase().endsWith('.pdf'));
@@ -63,13 +64,15 @@ const PDFProtect = () => {
       setResult({ blob, size: blob.size });
     } catch (e) {
       let msg = 'Could not protect this PDF.';
-      if (e.response?.data) {
+      if (e.response?.status === 413) {
+        msg = `That PDF is too large — the service takes files up to ${SERVER_UPLOAD_MB.light} MB.`;
+      } else if (e.response?.data) {
         try {
           const j = JSON.parse(await e.response.data.text());
           msg = j.error || msg;
         } catch (_) { /* keep default */ }
       } else if (e.code === 'ERR_NETWORK') {
-        msg = 'Can’t reach the server. Start it with `npm run server`.';
+        msg = 'The service is temporarily unavailable. Please try again in a moment.';
       }
       setError(msg);
     } finally {
@@ -84,7 +87,7 @@ const PDFProtect = () => {
     const map = {
       checking: ['bg-gray-100 dark:bg-gray-700 text-gray-500', 'Checking service…'],
       ready: ['bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300', 'Service · connected'],
-      unavailable: ['bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300', 'Service offline — start with npm run server'],
+      unavailable: ['bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300', 'Service unavailable — try again shortly'],
     };
     const [cls, text] = map[server] || map.checking;
     return (
@@ -182,7 +185,8 @@ const PDFProtect = () => {
     <ToolWorkspace
       file={file}
       accept="application/pdf,.pdf"
-      formats="PDF — password added to open the file"
+      maxMB={SERVER_UPLOAD_MB.light}
+      formats={`PDF up to ${SERVER_UPLOAD_MB.light} MB — password added to open the file`}
       dropTitle="Drop a PDF"
       dropHint="or click to browse"
       paste={false}
@@ -206,8 +210,7 @@ const PDFProtect = () => {
 
       {server === 'unavailable' && (
         <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-2">
-          Protect runs on the local service. Start it with <code className="text-[11px]">npm run server</code> and reload.
-          (In production it&apos;s the deployed backend — see <code className="text-[11px]">server/README.md</code>.)
+          The service isn&apos;t responding right now. Please try again in a little while.
         </p>
       )}
     </ToolWorkspace>

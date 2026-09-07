@@ -11,6 +11,7 @@ const ToolWorkspace = ({
   file,
   accept = 'image/*',
   multiple = false,
+  maxMB,
   formats,
   dropTitle = 'Drop your file here',
   dropHint = 'or click to browse',
@@ -37,6 +38,7 @@ const ToolWorkspace = ({
         <FileDropzone
           accept={accept}
           multiple={multiple}
+          maxMB={maxMB}
           formats={formats}
           title={dropTitle}
           hint={dropHint}

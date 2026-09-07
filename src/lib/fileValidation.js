@@ -24,6 +24,15 @@ export const SIZE_LIMIT_MB = {
   default: 40,
 };
 
+// Uploads that actually go to the conversion server (api.filequik.in). Kept
+// well under the browser-tab limits above: a big office / PDF conversion is
+// heavy on a small VM — LibreOffice and pdf2docx can use 1–2 GB of RAM per
+// job, so a few concurrent large files would take the box down.
+export const SERVER_UPLOAD_MB = {
+  convert: 20, // word/ppt/excel <-> pdf (LibreOffice, pdf2docx)
+  light: 50, //   compress / unlock / protect (pikepdf, pymupdf — streamed)
+};
+
 const isDesktopApp = () =>
   typeof window !== 'undefined' && !!window.fq && window.fq.isDesktop === true;
 

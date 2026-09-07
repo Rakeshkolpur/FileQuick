@@ -4,6 +4,7 @@ import Segmented from '../../tool/Segmented';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
 import { formatBytes, stripExt } from '../../../lib/format';
+import { SERVER_UPLOAD_MB } from '../../../lib/fileValidation';
 import { api } from '../../../lib/api';
 import { renderDocx, docxSectionsToPdf } from '../../../lib/docxToPdf';
 
@@ -221,9 +222,9 @@ const WordToPdf = () => {
             onChange={(v) => { setHiRes(v); setResult(null); }}
           />
           <p className="text-[11px] text-gray-500 dark:text-gray-400">
-            The converter server isn’t running, so the PDF is rendered in your browser from the
-            preview — layout is kept but the text becomes an image. Start the local server
-            (<code className="text-[10px]">npm run server</code>) for exact, selectable output.
+            The converter service isn’t reachable right now, so the PDF is rendered in your browser
+            from the preview — layout is kept but the text becomes an image. Try again later for an
+            exact, selectable PDF.
           </p>
         </section>
       )}
@@ -287,7 +288,8 @@ const WordToPdf = () => {
     <ToolWorkspace
       file={file}
       accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-      formats="Word .docx — fonts, styles, tables and layout are kept"
+      maxMB={SERVER_UPLOAD_MB.convert}
+      formats={`Word .docx up to ${SERVER_UPLOAD_MB.convert} MB — fonts, styles, tables and layout kept`}
       dropTitle="Drop a Word document"
       dropHint="or click to browse — .docx"
       paste={false}
