@@ -5,6 +5,7 @@ import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
 import { formatBytes, stripExt } from '../../../lib/format';
 import { SERVER_UPLOAD_MB } from '../../../lib/fileValidation';
+import { openPdf } from '../../../lib/pdfjs';
 import { api } from '../../../lib/api';
 
 const isPdf = (f) => f && (f.type === 'application/pdf' || f.name?.toLowerCase().endsWith('.pdf'));
@@ -59,6 +60,14 @@ const PDFCompressor = () => {
     setError(null);
     setWorking(true);
     try {
+      // page count of the source, to sanity-check what comes back
+      let srcPages = 0;
+      try {
+        const d = await openPdf(await file.arrayBuffer());
+        srcPages = d.numPages;
+        d.destroy?.();
+      } catch (_) { /* not fatal — skip the check */ }
+
       const fd = new FormData();
       fd.append('file', file, file.name);
       fd.append('level', level);
@@ -67,7 +76,31 @@ const PDFCompressor = () => {
         if (kb > 0) fd.append('targetKb', String(kb));
       }
       const res = await api.post('/pdf/compress', fd, { responseType: 'blob', timeout: 240000 });
-      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const data = res.data;
+      // The server sometimes 200s with a JSON/text error body — never show that
+      // as a "compressed" PDF.
+      if (data?.type && !/pdf|octet-stream/i.test(data.type)) {
+        const text = await data.text();
+        let err = 'The server did not return a PDF.';
+        try { err = JSON.parse(text).error || text || err; } catch (_) { if (text) err = text; }
+        throw new Error(err);
+      }
+      const blob = new Blob([data], { type: 'application/pdf' });
+      if (blob.size < 400) throw new Error('The compressed file came back empty — please try again.');
+      // guard against a broken result that "opens" but lost its content
+      if (srcPages) {
+        try {
+          const chk = await openPdf(await blob.arrayBuffer());
+          const outPages = chk.numPages;
+          chk.destroy?.();
+          if (outPages !== srcPages) {
+            throw new Error(`The compressed PDF came out with ${outPages} of ${srcPages} pages — the file wasn't compressed. Try a lighter level.`);
+          }
+        } catch (chkErr) {
+          if (chkErr?.message?.includes('pages')) throw chkErr;
+          throw new Error('The compressed PDF looks corrupted — try a lighter level or a smaller file.');
+        }
+      }
       setResult({
         blob,
         size: blob.size,
@@ -83,6 +116,8 @@ const PDFCompressor = () => {
         try { msg = JSON.parse(await e.response.data.text()).error || msg; } catch (_) { /* keep */ }
       } else if (e.code === 'ERR_NETWORK') {
         msg = 'The compression service is temporarily unavailable. Please try again in a moment.';
+      } else if (e.message && !/^request failed/i.test(e.message)) {
+        msg = e.message;
       }
       setError(msg);
     } finally {

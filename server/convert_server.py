@@ -323,41 +323,76 @@ def _recompress_images(doc, cap, quality):
     return changed
 
 
-def _save_optimized(doc):
-    return doc.tobytes(
-        garbage=4, deflate=True, deflate_images=True, deflate_fonts=True, clean=True,
-    )
+def _save_optimized(doc, aggressive=True):
+    if aggressive:
+        # garbage=3 dedupes shared objects (e.g. one image reused on many pages);
+        # clean=True rewrites content streams. Both help size but can mangle an
+        # unusual PDF — the caller validates the result and retries conservative.
+        return doc.tobytes(
+            garbage=3, deflate=True, deflate_images=True, deflate_fonts=True, clean=True,
+        )
+    # conservative: compact the xref and deflate streams only, never touch content.
+    return doc.tobytes(garbage=1, deflate=True, deflate_images=True, deflate_fonts=True)
+
+
+def _pdf_intact(data, expected_pages):
+    """A compressed PDF must reopen and still have every page — catches the
+    case where an aggressive save collapses the file to a few KB of structure."""
+    if not data or len(data) < 400:
+        return False
+    try:
+        d = pymupdf.open(stream=data, filetype="pdf")
+        try:
+            return d.page_count == expected_pages
+        finally:
+            d.close()
+    except Exception:  # noqa: BLE001
+        return False
 
 
 def compress_pdf(raw, level="medium", target_bytes=None):
     """Return (compressed_bytes, note). Text stays selectable at every level."""
+    src = pymupdf.open(stream=raw, filetype="pdf")
+    n_pages = src.page_count
+    src.close()
+
     best = raw
     note = ""
 
     def attempt(params):
-        d = pymupdf.open(stream=raw, filetype="pdf")
-        try:
-            if params:
-                _recompress_images(d, params["cap"], params["quality"])
-            return _save_optimized(d)
-        finally:
-            d.close()
+        # Try the aggressive save, then a conservative one; return the first
+        # result that reopens with every page intact, else None.
+        for aggressive in (True, False):
+            d = pymupdf.open(stream=raw, filetype="pdf")
+            try:
+                if params:
+                    _recompress_images(d, params["cap"], params["quality"])
+                out = _save_optimized(d, aggressive=aggressive)
+            finally:
+                d.close()
+            if _pdf_intact(out, n_pages):
+                return out
+        return None
 
     order = [level] if level in COMPRESS_LEVELS else ["medium"]
     if target_bytes:
-        # escalate through the stronger presets until the target is met
+        # try the cheap lossless pass first, then escalate from the chosen level
         seq = ["light", "medium", "strong", "extreme"]
-        order = seq[seq.index(order[0]):] if order[0] in seq else seq
+        i = seq.index(order[0]) if order[0] in seq else 1
+        order = list(dict.fromkeys(["light", *seq[i:]]))
 
     for name in order:
         out = attempt(COMPRESS_LEVELS[name])
+        if out is None:
+            continue  # this preset produced a broken PDF — skip it
         if len(out) < len(best):
             best = out
             note = f"compressed ({name})"
         if target_bytes and len(out) <= target_bytes:
-            note = f"reached target ({name})"
-            return out, note
+            return out, f"reached target ({name})"
 
+    if best is raw:
+        return raw, "couldn't compress this PDF further without risking its contents"
     if target_bytes and len(best) > target_bytes:
         note = "smallest without further quality loss — target not reached"
     if len(best) >= len(raw):

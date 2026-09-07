@@ -186,7 +186,10 @@ function startEngine() {
   if (!fs.existsSync(exePath)) return;
   try {
     engineProc = spawn(exePath, [], {
-      env: { ...process.env, PORT: '5000' },
+      // The desktop app allows uploads up to 100 MB (lib/fileValidation.js
+      // DESKTOP_LIMIT_MB); give the local engine headroom over that for the
+      // multipart overhead so it never 413s a file the UI accepted.
+      env: { ...process.env, PORT: '5000', MAX_UPLOAD_MB: '150' },
       windowsHide: true,
       stdio: 'ignore',
     });
