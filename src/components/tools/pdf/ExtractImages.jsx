@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ToolWorkspace from '../../tool/ToolWorkspace';
 import { downloadBlob } from '../../tool/DownloadButton';
 import { formatBytes, stripExt } from '../../../lib/format';
+import { PDF_RENDER_MB } from '../../../lib/fileValidation';
 import { openPdf } from '../../../lib/pdfjs';
 import { extractImages } from '../../../lib/pdfImages';
 import { zipFiles } from '../../../lib/zip';
@@ -175,6 +176,7 @@ const ExtractImages = () => {
     <ToolWorkspace
       file={file}
       accept="application/pdf,.pdf"
+      maxMB={PDF_RENDER_MB}
       formats="PDF — embedded photos and graphics saved as PNG"
       dropTitle="Drop a PDF"
       dropHint="or click to browse"

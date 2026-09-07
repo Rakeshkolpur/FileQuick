@@ -17,12 +17,16 @@
 // Per-category size ceilings, in MB. These protect a *browser tab* from running
 // out of memory. The desktop app raises every tool to DESKTOP_LIMIT_MB.
 export const SIZE_LIMIT_MB = {
-  pdf: 50,
+  pdf: 100, // page ops (merge / split / rotate / …) just restructure — cheap per MB
   image: 30,
   office: 25, // docx / pptx / xlsx and friends
   text: 10,
   default: 40,
 };
+
+// PDF tools that render every page to a canvas (editor, fill & sign, PDF→JPG,
+// extract images/text-with-OCR) hold a lot more in memory — keep those lower.
+export const PDF_RENDER_MB = 50;
 
 // The desktop app processes locally (no server) and can save straight to disk,
 // so it takes much bigger files — one flat ceiling for every tool.

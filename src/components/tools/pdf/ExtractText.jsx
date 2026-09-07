@@ -3,6 +3,7 @@ import ToolWorkspace from '../../tool/ToolWorkspace';
 import Segmented from '../../tool/Segmented';
 import { downloadBlob } from '../../tool/DownloadButton';
 import { formatBytes, stripExt } from '../../../lib/format';
+import { PDF_RENDER_MB } from '../../../lib/fileValidation';
 import { openPdf, renderPageToCanvas } from '../../../lib/pdfjs';
 import { parsePageRange } from '../../../lib/pageRange';
 import { ocrImage, preloadOcr, terminateOcr } from '../../../lib/ocr';
@@ -222,6 +223,7 @@ const ExtractText = () => {
     <ToolWorkspace
       file={file}
       accept="application/pdf,.pdf"
+      maxMB={PDF_RENDER_MB}
       formats="PDF — text layer + OCR for scanned pages"
       dropTitle="Drop a PDF to extract its text"
       dropHint="or click to browse"

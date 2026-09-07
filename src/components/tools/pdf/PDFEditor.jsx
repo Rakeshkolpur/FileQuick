@@ -6,6 +6,7 @@ import { CSS } from '@dnd-kit/utilities';
 import FileDropzone from '../../tool/FileDropzone';
 import { ToolBackContext } from '../../ToolWrapper';
 import { downloadBlob } from '../../tool/DownloadButton';
+import { PDF_RENDER_MB } from '../../../lib/fileValidation';
 import { stripExt } from '../../../lib/format';
 import { consumePdfHandoff } from '../../../lib/pdfHandoff';
 import { openPdf, renderPageToCanvas } from '../../../lib/pdfjs';
@@ -929,6 +930,7 @@ const PDFEditor = () => {
         ) : (
           <FileDropzone
             accept="application/pdf,.pdf"
+            maxMB={PDF_RENDER_MB}
             onFiles={onFiles}
             paste={false}
             title="Drop a PDF to edit"

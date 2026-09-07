@@ -5,6 +5,7 @@ import RangeSlider from '../../tool/RangeSlider';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
 import { formatBytes, stripExt } from '../../../lib/format';
+import { PDF_RENDER_MB } from '../../../lib/fileValidation';
 import { consumePdfHandoff } from '../../../lib/pdfHandoff';
 import { zipFiles } from '../../../lib/zip';
 import { openPdf, renderThumbnail, renderPageToCanvas } from '../../../lib/pdfjs';
@@ -231,6 +232,7 @@ const PdfToJpg = () => {
     <ToolWorkspace
       file={file}
       accept="application/pdf,.pdf"
+      maxMB={PDF_RENDER_MB}
       formats="PDF — each page becomes a JPG or PNG"
       dropTitle="Drop a PDF to turn its pages into images"
       dropHint="or click to browse"

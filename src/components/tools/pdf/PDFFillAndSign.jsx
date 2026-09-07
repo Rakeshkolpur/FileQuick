@@ -7,6 +7,7 @@ import ResultScreen from '../../tool/ResultScreen';
 import OpenInPdfTool from '../../tool/OpenInPdfTool';
 import { downloadBlob } from '../../tool/DownloadButton';
 import { stripExt } from '../../../lib/format';
+import { PDF_RENDER_MB } from '../../../lib/fileValidation';
 import { consumePdfHandoff } from '../../../lib/pdfHandoff';
 import { openPdf, renderPageToCanvas } from '../../../lib/pdfjs';
 
@@ -725,6 +726,7 @@ const PDFFillAndSign = () => {
       <ToolWorkspace
         file={file}
         accept="application/pdf,.pdf"
+        maxMB={PDF_RENDER_MB}
         formats="PDF — fields and signature go on top, nothing uploaded"
         dropTitle="Drop a PDF to fill & sign"
         dropHint="add text, a date, checkmarks and your signature"
