@@ -8,6 +8,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { SEO_SIZE_PRESETS, presetPath } from '../src/lib/targetSizeUrl.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SITE = (process.env.VITE_SITE_URL || process.env.SITE_URL || 'https://filequik.in').replace(/\/+$/, '');
@@ -35,11 +36,18 @@ while ((m = re.exec(src))) {
   routes.add(`/${m[1]}`);
 }
 
+// Dynamic "compress <format> to <size>" pages — only the configured presets are
+// indexable, so only those go in the sitemap (see src/lib/targetSizeUrl.js).
+const targetSizePaths = new Set(SEO_SIZE_PRESETS.map(presetPath));
+for (const p of targetSizePaths) routes.add(p);
+
 const today = new Date().toISOString().slice(0, 10);
 const urls = [...routes]
   .map((path) => {
     const id = path.slice(1);
-    const priority = path === '/' ? '1.0' : toolIds.has(id) ? '0.8' : '0.5';
+    const priority = path === '/'
+      ? '1.0'
+      : toolIds.has(id) ? '0.8' : targetSizePaths.has(path) ? '0.7' : '0.5';
     return `  <url>\n    <loc>${SITE}${path}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>${priority}</priority>\n  </url>`;
   })
   .join('\n');

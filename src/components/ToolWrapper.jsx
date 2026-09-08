@@ -4,6 +4,7 @@ import { getToolById } from '../data/tools';
 import RelatedTools from './tool/RelatedTools';
 import TrustStrip from './home/TrustStrip';
 import ToolSeoContent from './tool/ToolSeoContent';
+import TargetSizeLinks from './tool/TargetSizeLinks';
 import { getToolSeo } from '../data/toolSeo';
 import { usePageMeta } from '../lib/seo';
 
@@ -104,12 +105,21 @@ const TopBar = ({ tool, onBack, minimal }) => {
   );
 };
 
-const ToolWrapper = () => {
-  const { toolId } = useParams();
+/**
+ * @param {object}  [props]
+ * @param {string}  [props.toolId]    override the :toolId route param (dynamic pages)
+ * @param {object}  [props.pageMeta]  { title, description, h1, robots, seoContent } override
+ * @param {object}  [props.toolProps] spread onto the lazy tool component
+ */
+const ToolWrapper = ({ toolId: toolIdProp, pageMeta, toolProps } = {}) => {
+  const params = useParams();
+  const toolId = toolIdProp || params.toolId;
   const navigate = useNavigate();
   const tool = getToolById(toolId);
 
-  usePageMeta(tool ? { title: tool.title, description: tool.description } : null);
+  usePageMeta(
+    pageMeta || (tool ? { title: tool.title, description: tool.description } : null),
+  );
 
   const LazyTool = useMemo(() => (tool?.load ? React.lazy(tool.load) : null), [tool]);
 
@@ -144,16 +154,20 @@ const ToolWrapper = () => {
     ? (tool.category === 'image' ? 'max-w-6xl' : 'max-w-[110rem]')
     : slim ? 'max-w-[100rem]' : 'max-w-7xl';
 
+  const heading = pageMeta?.h1 || tool.title;
+
   return (
     <div className={`${width} mx-auto`}>
-      <TopBar tool={tool} onBack={handleBack} minimal={slim} />
+      <TopBar tool={{ ...tool, title: heading }} onBack={handleBack} minimal={slim} />
 
       {!slim && (
         <header className="mb-3.5">
           <h1 className="text-xl md:text-2xl font-extrabold tracking-tight text-gray-900 dark:text-white">
-            {tool.title}
+            {heading}
           </h1>
-          <p className="mt-1 text-[13px] md:text-sm text-gray-500 dark:text-gray-400 max-w-2xl">{tool.description}</p>
+          <p className="mt-1 text-[13px] md:text-sm text-gray-500 dark:text-gray-400 max-w-2xl">
+            {pageMeta?.description || tool.description}
+          </p>
         </header>
       )}
 
@@ -161,7 +175,7 @@ const ToolWrapper = () => {
         {isReady ? (
           <Suspense fallback={<Loading />}>
             <ToolBackContext.Provider value={registerBack}>
-              <LazyTool />
+              <LazyTool {...(toolProps || {})} />
             </ToolBackContext.Provider>
           </Suspense>
         ) : (
@@ -169,9 +183,10 @@ const ToolWrapper = () => {
         )}
       </ErrorBoundary>
 
-      {isReady && (minimal ? getToolSeo(tool.id) : true) && (
+      {isReady && (minimal ? (pageMeta?.seoContent || getToolSeo(tool.id)) : true) && (
         <div className="mt-16 space-y-14">
-          <ToolSeoContent tool={tool} />
+          <ToolSeoContent tool={tool} seo={pageMeta?.seoContent} />
+          {tool.id === 'compress-image' && <TargetSizeLinks currentSlug={toolIdProp && params.toolId} />}
           {!minimal && <RelatedTools category={tool.category} currentId={tool.id} />}
           {!minimal && <TrustStrip />}
         </div>

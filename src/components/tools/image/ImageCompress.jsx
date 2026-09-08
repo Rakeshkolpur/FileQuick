@@ -26,11 +26,14 @@ const targetFormat = (type) => {
   return 'jpeg';
 };
 
-const ImageCompress = () => {
+// presetFormat ('jpeg' | 'png' | 'webp') and presetKB come from a dynamic URL
+// like /jpg-to-20kb — see src/lib/targetSizeUrl.js. They prefill the "Target
+// size" mode and pin the output format; the user can still change everything.
+const ImageCompress = ({ presetFormat, presetKB } = {}) => {
   const [items, setItems] = useState([]); // {id,file,img,w,h}
-  const [mode, setMode] = useState('quality'); // 'quality' | 'target'
+  const [mode, setMode] = useState(presetKB ? 'target' : 'quality'); // 'quality' | 'target'
   const [quality, setQuality] = useState(70);
-  const [targetVal, setTargetVal] = useState('');
+  const [targetVal, setTargetVal] = useState(presetKB ? String(presetKB) : '');
   const [targetUnit, setTargetUnit] = useState('KB');
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -43,6 +46,14 @@ const ImageCompress = () => {
 
   useEffect(() => { itemsRef.current = items; }, [items]);
   useEffect(() => { setResults(null); }, [items, mode, quality, targetVal, targetUnit]);
+
+  // Keep the fields in sync when navigating between preset URLs.
+  useEffect(() => {
+    if (!presetKB) return;
+    setMode('target');
+    setTargetUnit('KB');
+    setTargetVal(String(presetKB));
+  }, [presetKB]);
 
   const loadItem = useCallback(async (entry, tok) => {
     try {
@@ -86,12 +97,12 @@ const ImageCompress = () => {
     && (mode === 'quality' || parseFloat(targetVal) > 0);
 
   const compressOne = async (it) => {
-    const fmt = targetFormat(it.file.type);
+    const fmt = presetFormat || targetFormat(it.file.type);
     const name = `${stripExt(it.file.name)}-min.${outExt(fmt)}`;
     if (mode === 'target') {
       const bytes = (targetUnit === 'MB' ? parseFloat(targetVal) * 1024 : parseFloat(targetVal)) * 1024;
       const r = await encodeToTargetBytes(it.img, {
-        width: it.w, height: it.h, format: 'auto', targetBytes: bytes, allowResize: false,
+        width: it.w, height: it.h, format: presetFormat || 'auto', targetBytes: bytes, allowResize: false,
       });
       return { name: `${stripExt(it.file.name)}-min.${outExt(r.format)}`, blob: r.blob, size: r.blob.size, from: it.file.size, fits: r.fits };
     }
@@ -231,7 +242,9 @@ const ImageCompress = () => {
       onDownload={downloadAll}
       onBack={backFromResult}
       backLabel="Back to settings"
-      note="Same dimensions, smaller file. Everything runs in your browser."
+      note={results && results.some((r) => r.fits === false)
+        ? 'Couldn’t get quite that small at these dimensions — this is as small as it goes without wrecking the image. Try Resize Image to also reduce the pixels.'
+        : 'Same dimensions, smaller file. Everything runs in your browser.'}
       extra={results && results.length > 1 ? (
         <div className="max-h-52 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700/60">
           {results.map((r, i) => (

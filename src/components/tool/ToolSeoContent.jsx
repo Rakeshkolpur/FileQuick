@@ -9,8 +9,8 @@ import { getToolSeo } from '../../data/toolSeo';
  *
  * Renders nothing for tools with no entry in src/data/toolSeo.js.
  */
-const ToolSeoContent = ({ tool }) => {
-  const seo = tool ? getToolSeo(tool.id) : null;
+const ToolSeoContent = ({ tool, seo: seoOverride }) => {
+  const seo = seoOverride || (tool ? getToolSeo(tool.id) : null);
 
   const graph = [];
   if (seo) {

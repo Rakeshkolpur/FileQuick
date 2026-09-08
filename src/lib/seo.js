@@ -34,13 +34,16 @@ function upsertLink(rel, href) {
  * crawlers execute — but the real win is correct titles in search snippets,
  * shared links and browser history.
  */
-export function setPageMeta({ title, description, path } = {}) {
+export function setPageMeta({ title, description, path, robots } = {}) {
   const fullTitle = title
     ? `${title} — ${SITE}`
     : `Free PDF & Image Tools — Compress, Convert, Merge | ${SITE}`;
   const desc = description || DEFAULT_DESC;
   document.title = fullTitle;
   upsertMeta('name', 'description', desc);
+  // Most pages inherit index.html's "index, follow"; dynamic pages that
+  // shouldn't be indexed pass robots: 'noindex, follow'.
+  upsertMeta('name', 'robots', robots || 'index, follow');
 
   const url = SITE_ORIGIN
     ? SITE_ORIGIN + (path || (typeof window !== 'undefined' ? window.location.pathname : '/'))

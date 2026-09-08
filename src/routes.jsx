@@ -15,6 +15,13 @@ import RecentFilesPage from './components/desktop/RecentFilesPage';
 import FavoritesPage from './components/desktop/FavoritesPage';
 import SettingsPage from './components/desktop/SettingsPage';
 import { getToolById } from './data/tools';
+import NotFound from './components/NotFound';
+import {
+  parseTargetSlug,
+  looksLikeTargetSlug,
+  targetMeta,
+  targetSeoContent,
+} from './lib/targetSizeUrl';
 
 // Old / alternate tool slugs people may have bookmarked or that show up in
 // search results. Anything not listed falls through to the tool lookup.
@@ -65,6 +72,22 @@ const ToolRoute = () => {
   if (getToolById(toolId)) return <ToolWrapper />;
   const alias = TOOL_ALIASES[(toolId || '').toLowerCase()];
   if (alias) return <Navigate to={toolPath(alias)} replace />;
+
+  // Dynamic "compress <format> to <size>" URLs — /jpg-to-20kb, /png-to-50kb …
+  // These reuse the existing Compress Image tool with the target prefilled.
+  const preset = parseTargetSlug(toolId);
+  if (preset) {
+    return (
+      <ToolWrapper
+        toolId="compress-image"
+        pageMeta={{ ...targetMeta(preset), seoContent: targetSeoContent(preset) }}
+        toolProps={{ presetFormat: preset.outFormat, presetKB: preset.targetKB }}
+      />
+    );
+  }
+  // Looked like a target-size URL but the size/format was invalid — real 404.
+  if (looksLikeTargetSlug(toolId)) return <NotFound />;
+
   return <Navigate to="/" replace />;
 };
 
