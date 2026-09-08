@@ -230,10 +230,15 @@ export async function encodeAtLeastBytes(img, { targetBytes, allowEnlarge = true
   return mk(gw, gh, gw !== W0, true)(pick);
 }
 
-// Lowest quality we'll ever use just to hit a size while keeping full resolution.
+// Lowest quality we'll push to at full resolution before we'd rather shrink the
+// picture instead — a downscaled image at decent quality beats a full-size one
+// at quality 0.3.
 const Q_FLOOR = 0.4;
-// When we're allowed to shrink, keep quality here so the smaller image stays sharp.
-const Q_KEEP = 0.6;
+// Quality we hold while searching for the right dimensions on a small target.
+const Q_ANCHOR = 0.74;
+// Bounds for the final quality fine-tune once the dimensions are locked in.
+const Q_TUNE_LO = 0.5;
+const Q_TUNE_HI = 0.95;
 
 let _webpOk = null;
 export function webpSupported() {
@@ -250,7 +255,15 @@ export function webpSupported() {
   return _webpOk;
 }
 
-/** Per-format target-size search (lossy). Extracted so `auto` can race formats. */
+/**
+ * Per-format target-size search (lossy). Extracted so `auto` can race formats.
+ *
+ * Two knobs: JPEG/WebP quality and pixel dimensions. We spend the quality knob
+ * first at full resolution; if the target is too small to reach that way and
+ * `allowResize` is on, we hold quality at a clean value and search the
+ * dimensions for the LARGEST picture that still fits, then fine-tune quality so
+ * the file lands just under the target rather than far below it.
+ */
 async function targetOneFormat(img, {
   cropRect,
   W0,
@@ -259,64 +272,86 @@ async function targetOneFormat(img, {
   targetBytes,
   highQuality = true,
   allowResize = false,
-  tolerance = 0.02,
+  tolerance = 0.015,
 }) {
   const render = (w, h, q) => encodeImage(img, { cropRect, width: w, height: h, format, quality: q, highQuality });
+  // "Close enough" — stop once we're within this many bytes under the target.
+  const band = Math.max(400, Math.round(targetBytes * tolerance));
+  const dims = (s) => [Math.max(16, Math.round(W0 * s)), Math.max(16, Math.round(H0 * s))];
 
-  // 1) tune quality at full resolution, floor Q_FLOOR
+  // 1) full resolution — binary-search quality down to Q_FLOOR, keep the
+  //    largest blob that's still at or under the target.
   let lo = Q_FLOOR;
   let hi = 0.985;
   let best = null;
-  for (let i = 0; i < 14; i += 1) {
-    // eslint-disable-next-line no-await-in-loop
-    const blob = await render(W0, H0, (lo + hi) / 2);
+  for (let i = 0; i < 15; i += 1) {
     const q = (lo + hi) / 2;
+    // eslint-disable-next-line no-await-in-loop
+    const blob = await render(W0, H0, q);
     if (blob.size <= targetBytes) {
       if (!best || blob.size > best.blob.size) best = { blob, width: W0, height: H0, quality: q };
       lo = q;
     } else {
       hi = q;
     }
-    if (best && targetBytes - best.blob.size <= targetBytes * tolerance) break;
-    if (hi - lo < 0.004) break;
+    if (best && targetBytes - best.blob.size <= band) break;
+    if (hi - lo < 0.0025) break;
   }
   if (best) return { ...best, format, fits: true, resized: false };
 
-  // 2) can't hit target at Q_FLOOR full-res
-  const floorBlob = await render(W0, H0, Q_FLOOR);
+  // 2) quality alone can't get there.
   if (!allowResize) {
+    const floorBlob = await render(W0, H0, Q_FLOOR);
     return { blob: floorBlob, width: W0, height: H0, quality: Q_FLOOR, format, fits: false, resized: false };
   }
 
-  // 3) opt-in: shrink dimensions, keep quality >= Q_KEEP
-  let w = W0;
-  let h = H0;
-  for (let step = 0; step < 10; step += 1) {
+  // 3) hold quality at Q_ANCHOR, bracket the scale factor and home in on the
+  //    biggest picture that fits. JPEG bytes track pixel count roughly
+  //    linearly, so sqrt(size ratio) is a good first guess.
+  const ref = await render(W0, H0, Q_ANCHOR);
+  let sHi = 1;        // full size — known too big
+  let sLo = 0;        // vanishingly small — always fits
+  let s = Math.min(0.95, Math.sqrt(targetBytes / ref.size));
+  let fit = null;
+  for (let i = 0; i < 11; i += 1) {
+    const [w, h] = dims(s);
     // eslint-disable-next-line no-await-in-loop
-    const cur = await render(w, h, Q_KEEP);
-    if (cur.size <= targetBytes) {
-      let flo = Q_KEEP;
-      let fhi = 0.92;
-      let fb = { blob: cur, width: w, height: h, quality: Q_KEEP };
-      for (let i = 0; i < 7; i += 1) {
-        const q = (flo + fhi) / 2;
-        // eslint-disable-next-line no-await-in-loop
-        const b = await render(w, h, q);
-        if (b.size <= targetBytes) {
-          fb = { blob: b, width: w, height: h, quality: q };
-          flo = q;
-        } else {
-          fhi = q;
-        }
-      }
-      return { ...fb, format, fits: true, resized: w !== W0 };
+    const b = await render(w, h, Q_ANCHOR);
+    if (b.size <= targetBytes) {
+      fit = { blob: b, width: w, height: h, quality: Q_ANCHOR };
+      sLo = s;
+      if (targetBytes - b.size <= band) break;
+      s = (s + sHi) / 2; // there's headroom — try a bigger picture
+    } else {
+      sHi = s;
+      s = sLo > 0 ? (sLo + s) / 2 : Math.max(0.04, s * Math.sqrt(targetBytes / b.size) * 0.96);
     }
-    const scale = Math.max(0.15, Math.sqrt(targetBytes / cur.size) * 0.93);
-    w = Math.max(24, Math.round(w * scale));
-    h = Math.max(24, Math.round(h * scale));
+    if (fit && sHi - sLo < 0.015) break;
   }
-  const lastBlob = await render(w, h, Q_KEEP);
-  return { blob: lastBlob, width: w, height: h, quality: Q_KEEP, format, fits: lastBlob.size <= targetBytes, resized: w !== W0 };
+
+  if (!fit) {
+    const [w, h] = dims(Math.max(0.04, (sHi || s) * 0.7));
+    const b = await render(w, h, Q_TUNE_LO);
+    return { blob: b, width: w, height: h, quality: Q_TUNE_LO, format, fits: b.size <= targetBytes, resized: true };
+  }
+
+  // 4) dimensions are locked — fine-tune quality to sit just under the target.
+  let qlo = Q_TUNE_LO;
+  let qhi = Q_TUNE_HI;
+  let tuned = fit;
+  for (let i = 0; i < 8; i += 1) {
+    const q = (qlo + qhi) / 2;
+    // eslint-disable-next-line no-await-in-loop
+    const b = await render(fit.width, fit.height, q);
+    if (b.size <= targetBytes) {
+      if (b.size > tuned.blob.size) tuned = { blob: b, width: fit.width, height: fit.height, quality: q };
+      qlo = q;
+    } else {
+      qhi = q;
+    }
+    if (targetBytes - tuned.blob.size <= band) break;
+  }
+  return { ...tuned, format, fits: true, resized: tuned.width !== W0 };
 }
 
 /**
@@ -326,7 +361,8 @@ async function targetOneFormat(img, {
  * If the target can't be met that way, the best full-res attempt is returned
  * with `fits: false`.
  *
- * `allowResize: true`: reduce dimensions (keeping quality >= Q_KEEP) until it fits.
+ * `allowResize: true`: when quality alone can't reach the target, scale the
+ * picture down (holding quality near Q_ANCHOR) to the largest size that fits.
  *
  * `format: 'auto'`: encode to the target as both WebP and JPEG and return
  * whichever keeps the most quality/resolution at the requested size.

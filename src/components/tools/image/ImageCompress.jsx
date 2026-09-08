@@ -102,9 +102,24 @@ const ImageCompress = ({ presetFormat, presetKB } = {}) => {
     if (mode === 'target') {
       const bytes = (targetUnit === 'MB' ? parseFloat(targetVal) * 1024 : parseFloat(targetVal)) * 1024;
       const r = await encodeToTargetBytes(it.img, {
-        width: it.w, height: it.h, format: presetFormat || 'auto', targetBytes: bytes, allowResize: false,
+        width: it.w,
+        height: it.h,
+        format: presetFormat || 'auto',
+        targetBytes: bytes,
+        // A small target can't be reached on a big image by lowering quality
+        // alone — let the engine scale the picture down to actually hit it.
+        allowResize: true,
       });
-      return { name: `${stripExt(it.file.name)}-min.${outExt(r.format)}`, blob: r.blob, size: r.blob.size, from: it.file.size, fits: r.fits };
+      return {
+        name: `${stripExt(it.file.name)}-min.${outExt(r.format)}`,
+        blob: r.blob,
+        size: r.blob.size,
+        from: it.file.size,
+        fits: r.fits,
+        resized: r.resized,
+        w: r.width,
+        h: r.height,
+      };
     }
     const blob = await encodeImage(it.img, {
       width: it.w, height: it.h, format: fmt, quality: quality / 100,
@@ -194,7 +209,7 @@ const ImageCompress = ({ presetFormat, presetKB } = {}) => {
               </select>
             </div>
             <p className="text-[11px] text-gray-400 dark:text-gray-500">
-              Quality is lowered until each image fits. Dimensions are kept — use Resize Image if you also want fewer pixels.
+              Quality is lowered to hit your target. If the target is too small to reach that way, the image is scaled down just enough to get there.
             </p>
           </>
         )}
@@ -242,9 +257,18 @@ const ImageCompress = ({ presetFormat, presetKB } = {}) => {
       onDownload={downloadAll}
       onBack={backFromResult}
       backLabel="Back to settings"
-      note={results && results.some((r) => r.fits === false)
-        ? 'Couldn’t get quite that small at these dimensions — this is as small as it goes without wrecking the image. Try Resize Image to also reduce the pixels.'
-        : 'Same dimensions, smaller file. Everything runs in your browser.'}
+      note={(() => {
+        if (!results) return undefined;
+        if (results.some((r) => r.fits === false)) {
+          return 'This is as small as it goes without destroying the image — try a slightly larger target size.';
+        }
+        if (results.some((r) => r.resized)) {
+          return single && results[0].w
+            ? `Hit your target — the image was scaled to ${results[0].w}×${results[0].h} to get there (lowering quality alone couldn’t).`
+            : 'Hit your target — some images were scaled down to get there, since lowering quality alone couldn’t.';
+        }
+        return 'Same dimensions, smaller file. Everything runs in your browser.';
+      })()}
       extra={results && results.length > 1 ? (
         <div className="max-h-52 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700/60">
           {results.map((r, i) => (

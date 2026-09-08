@@ -101,21 +101,21 @@ export function targetSeoContent(p) {
   const F = p.formatLabel;
   return {
     h1: `How to compress ${F} to ${size}`,
-    intro: `This tool lowers the quality of a ${F} image just enough to bring its file size down to ${size}, keeping the same dimensions. It runs entirely in your browser — the image is never uploaded. Free, no sign-up, no watermark.`,
+    intro: `This tool lowers the quality of a ${F} image to bring its file size down to ${size}. If ${size} is too small to reach by quality alone, it also scales the picture down just enough to get there. Everything runs in your browser — the image is never uploaded. Free, no sign-up, no watermark.`,
     steps: [
       `Drop your ${F} image (or several) onto the box above.`,
       `The target is already set to ${size} — change it if you need a different size.`,
-      'Click Compress. The quality is tuned down until each image fits.',
-      `Download the compressed ${F} at ${size}.`,
+      'Click Compress. Quality is tuned down until each image fits — a very small target may also reduce the dimensions.',
+      `Download the ${F}, now at or just under ${size}.`,
     ],
     faqs: [
       {
         q: `How do I compress a ${F} to ${size}?`,
-        a: `Upload the image here — the target is preset to ${size}. The tool reduces the JPEG quality until the file is at or just under ${size}, then you download it. Dimensions stay the same.`,
+        a: `Upload the image here — the target is preset to ${size}. The tool lowers the quality until the file is at or just under ${size}. For a small target on a large photo it also scales the image down, since quality alone can't get there.`,
       },
       {
         q: `Will the ${F} lose quality?`,
-        a: `Some, yes — that's how the file gets smaller at the same dimensions. Smaller targets (10–20 KB) show visible compression; 100 KB and up usually look fine.`,
+        a: `Some, yes — that's the trade for a smaller file. Small targets (10–20 KB) show visible compression and may be scaled down; 100 KB and up usually look fine at full size.`,
       },
       {
         q: 'Is my image uploaded to a server?',
