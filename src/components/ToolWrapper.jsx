@@ -89,7 +89,9 @@ const TopBar = ({ tool, onBack, minimal }) => {
         Back
       </button>
       {minimal ? (
-        <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 truncate">{tool.title}</span>
+        // Slim / editor layouts drop the big header, so this compact label is
+        // the page's <h1> — every tool page needs exactly one.
+        <h1 className="text-sm font-semibold text-gray-700 dark:text-gray-200 truncate">{tool.title}</h1>
       ) : (
         <nav className="flex items-center gap-1.5 text-sm text-gray-400 dark:text-gray-500 min-w-0">
           <Link to="/" className="hover:text-purple-600 dark:hover:text-purple-400 hidden sm:inline">Home</Link>
@@ -116,9 +118,16 @@ const ToolWrapper = ({ toolId: toolIdProp, pageMeta, toolProps } = {}) => {
   const toolId = toolIdProp || params.toolId;
   const navigate = useNavigate();
   const tool = getToolById(toolId);
+  const toolSeo = tool ? getToolSeo(tool.id) : null;
 
   usePageMeta(
-    pageMeta || (tool ? { title: tool.title, description: tool.description } : null),
+    pageMeta
+      || (tool
+        ? {
+          title: toolSeo?.seoTitle || tool.title,
+          description: toolSeo?.seoDescription || tool.description,
+        }
+        : null),
   );
 
   const LazyTool = useMemo(() => (tool?.load ? React.lazy(tool.load) : null), [tool]);
@@ -187,7 +196,9 @@ const ToolWrapper = ({ toolId: toolIdProp, pageMeta, toolProps } = {}) => {
         <div className="mt-16 space-y-14">
           <ToolSeoContent tool={tool} seo={pageMeta?.seoContent} />
           {tool.id === 'compress-image' && <TargetSizeLinks currentSlug={toolIdProp && params.toolId} />}
-          {!minimal && <RelatedTools category={tool.category} currentId={tool.id} />}
+          {!minimal && !(toolSeo?.related?.length) && (
+            <RelatedTools category={tool.category} currentId={tool.id} />
+          )}
           {!minimal && <TrustStrip />}
         </div>
       )}

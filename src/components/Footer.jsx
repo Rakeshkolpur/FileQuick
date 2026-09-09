@@ -17,7 +17,7 @@ const Footer = () => (
         <div className="col-span-2 md:col-span-1">
           <Logo className="mb-3" markClassName="h-8 w-8" wordClassName="text-lg" />
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            All your file tools in one place — resize, compress, convert, merge, sign and edit images and PDFs, free and in your browser.
+            FileQuick (also written File Quick) is all your file tools in one place — resize, compress, convert, merge, sign and edit images and PDFs, free and in your browser at filequik.in.
           </p>
         </div>
 

@@ -14,7 +14,8 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SITE = (process.env.VITE_SITE_URL || process.env.SITE_URL || 'https://filequik.in').replace(/\/+$/, '');
 
 const src = readFileSync(resolve(root, 'src/data/tools.jsx'), 'utf8');
-const re = /\bid:\s*'([a-z0-9-]+)',\s*title:[^,]+,\s*category:\s*'(image|pdf)'/g;
+// id … category — tolerant of extra keys (short:, popular:, chrome:) between them.
+const re = /\bid:\s*'([a-z0-9-]+)',[^}]*?category:\s*'(image|pdf)'/g;
 
 // Tools shown as "coming soon" shouldn't be in the sitemap — nothing to index yet.
 const comingSoon = new Set();
