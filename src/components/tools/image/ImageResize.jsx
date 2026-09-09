@@ -17,9 +17,9 @@ import {
   encodeImage,
   encodeToTargetBytes,
   outExt,
-  isLossy,
   webpSupported,
 } from '../../../lib/imageResize';
+import { imagesToPdf } from '../../../lib/imagesToPdf';
 import { cutoutBackground, loadCutout, compositeOnColor } from '../../../lib/backgroundRemoval';
 import CropModal from '../../tool/CropModal';
 
@@ -35,25 +35,33 @@ const ASPECTS = [
   { label: '16:9', value: 16 / 9 },
   { label: '9:16', value: 9 / 16 },
 ];
-const SAVE_AS = [
-  { value: 'original', label: 'Original format' },
-  { value: 'jpeg', label: 'JPG' },
+// One output-format dropdown for every mode. JPG is the default.
+const OUT_FORMATS = [
+  { value: 'jpg', label: 'JPG' },
+  { value: 'jpeg', label: 'JPEG' },
   { value: 'png', label: 'PNG' },
   { value: 'webp', label: 'WebP' },
+  { value: 'pdf', label: 'PDF' },
 ];
-const SIZE_FORMATS = [
-  { value: 'jpeg', label: 'JPG' },
-  { value: 'webp', label: 'WebP' },
-  { value: 'auto', label: 'Smallest' },
-];
+// dropdown value -> { enc: canvas encode format, ext: file extension }
+const FMT_MAP = {
+  jpg: { enc: 'jpeg', ext: 'jpg' },
+  jpeg: { enc: 'jpeg', ext: 'jpeg' },
+  png: { enc: 'png', ext: 'png' },
+  webp: { enc: 'webp', ext: 'webp' },
+  pdf: { enc: 'jpeg', ext: 'pdf' }, // a JPEG image on one PDF page
+};
 const SCALES = [0.25, 0.5, 0.75, 1];
 
-const inputFmt = (file) => {
-  const t = (file?.type || '').split('/')[1];
-  if (t === 'jpeg' || t === 'jpg') return 'jpeg';
-  if (t === 'png') return 'png';
-  if (t === 'webp') return 'webp';
-  return 'jpeg';
+// A blob -> single-page PDF (fit page to the image, white background).
+const blobToPdf = async (blob) => {
+  const dataUrl = await new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => res(fr.result);
+    fr.onerror = () => rej(new Error('Could not read the image.'));
+    fr.readAsDataURL(blob);
+  });
+  return imagesToPdf([{ dataUrl }], { pageSize: 'fit', marginMm: 0, bg: '#ffffff' });
 };
 const initialCrop = (aspect, w, h) =>
   aspect
@@ -190,7 +198,7 @@ const BatchCard = ({ item, result, onRemove, onDownload, onCrop }) => {
             ) : dl === 'done' ? (
               <><svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg> Saved</>
             ) : (
-              `Download .${outExt(result.format)}`
+              `Download .${result.ext || outExt(result.format)}`
             )}
           </button>
         </>
@@ -227,11 +235,12 @@ const ImageResize = () => {
   // file-size mode
   const [targetValue, setTargetValue] = useState('100');
   const [targetUnit, setTargetUnit] = useState('KB');
-  const [sizeFormat, setSizeFormat] = useState(webpSupported() ? 'auto' : 'jpeg');
-  const [allowResize, setAllowResize] = useState(false);
+  // When the target is too small for compression alone, scale the picture down
+  // to hit it — on by default, since reducing size is what this tool is for.
+  const [allowResize, setAllowResize] = useState(true);
 
-  // output (dimensions/percentage modes)
-  const [saveAs, setSaveAs] = useState('original');
+  // output format — one dropdown, all modes. JPG by default.
+  const [outFmt, setOutFmt] = useState('jpg');
   const [quality, setQuality] = useState(90);
   const [highQuality, setHighQuality] = useState(true);
 
@@ -481,13 +490,22 @@ const ImageResize = () => {
     setDimsTouched(false);
   };
 
-  const rawFormat = isSizeMode
-    ? sizeFormat
-    : saveAs === 'original'
-      ? inputFmt(single?.file || items[0]?.file)
-      : saveAs;
-  // A transparent background needs an alpha-capable format.
-  const outFormat = needsAlpha && (rawFormat === 'jpeg' || rawFormat === 'auto') ? 'webp' : rawFormat;
+  const fmtInfo = FMT_MAP[outFmt] || FMT_MAP.jpg;
+  const isPdf = outFmt === 'pdf';
+  // Dropdown options: a transparent cut-out can only be saved to PNG or WebP.
+  const formatOptions = needsAlpha
+    ? OUT_FORMATS.filter((o) => o.value === 'png' || o.value === 'webp')
+    : OUT_FORMATS;
+  useEffect(() => {
+    if (needsAlpha && outFmt !== 'png' && outFmt !== 'webp') setOutFmt('webp');
+  }, [needsAlpha, outFmt]);
+  // The canvas encode format (PDF encodes a JPEG page; alpha forces webp/png).
+  const encFormat = needsAlpha && !isPdf && fmtInfo.enc === 'jpeg'
+    ? (webpSupported() ? 'webp' : 'png')
+    : fmtInfo.enc;
+  // Format we ask the target-size encoder for (never 'pdf').
+  const outFormat = isPdf ? 'jpeg' : encFormat;
+  const showQuality = outFmt !== 'png';
 
   const targetBytes = useMemo(() => {
     const n = parseFloat(targetValue);
@@ -517,36 +535,36 @@ const ImageResize = () => {
   const anyResult = results.some(Boolean);
   const ready = items.length > 0 && items.every((it) => it.img) && !busy && (!isSizeMode || targetBytes);
 
+  // Encode one image (size-targeted or fixed-quality), then wrap to PDF if asked.
+  // A PDF page adds ~1–2 KB, so aim the image a little under the target.
+  const encodeResult = async (src, cr, d) => {
+    let r;
+    if (isSizeMode) {
+      const aim = isPdf ? Math.max(1024, targetBytes - 2048) : targetBytes;
+      r = await encodeToTargetBytes(src, {
+        cropRect: cr, width: d.w, height: d.h, format: outFormat, targetBytes: aim, highQuality, allowResize,
+      });
+    } else {
+      const blob = await encodeImage(src, {
+        cropRect: cr, width: d.w, height: d.h, format: outFormat, quality: quality / 100, highQuality,
+      });
+      r = { blob, width: d.w, height: d.h, format: outFormat, fits: true, resized: false };
+    }
+    if (isPdf) {
+      const pdf = await blobToPdf(r.blob);
+      r = { ...r, blob: pdf, format: 'pdf' };
+    }
+    return { ...r, size: r.blob.size, ext: fmtInfo.ext };
+  };
+
   const run = async () => {
     if (!ready) return;
     setBusy(true);
     setError(null);
     try {
       if (single) {
-        const d = singleOutDims;
-        let r;
-        if (isSizeMode) {
-          r = await encodeToTargetBytes(workSource, {
-            cropRect,
-            width: d.w,
-            height: d.h,
-            format: outFormat,
-            targetBytes,
-            highQuality,
-            allowResize,
-          });
-        } else {
-          const blob = await encodeImage(workSource, {
-            cropRect,
-            width: d.w,
-            height: d.h,
-            format: outFormat,
-            quality: quality / 100,
-            highQuality,
-          });
-          r = { blob, width: d.w, height: d.h, format: outFormat, fits: true, resized: false };
-        }
-        setResults([{ ...r, size: r.blob.size }]);
+        const r = await encodeResult(workSource, cropRect, singleOutDims);
+        setResults([r]);
       } else {
         const out = [];
         setProgress({ done: 0, total: items.length });
@@ -555,18 +573,8 @@ const ImageResize = () => {
           if (!it.img) {
             out.push(null);
           } else {
-            const d = dimsFor(it);
-            const cr = it.cropRect || undefined;
-            let r;
-            if (isSizeMode) {
-              // eslint-disable-next-line no-await-in-loop
-              r = await encodeToTargetBytes(it.img, { cropRect: cr, width: d.w, height: d.h, format: outFormat, targetBytes, highQuality, allowResize });
-            } else {
-              // eslint-disable-next-line no-await-in-loop
-              const blob = await encodeImage(it.img, { cropRect: cr, width: d.w, height: d.h, format: outFormat, quality: quality / 100, highQuality });
-              r = { blob, width: d.w, height: d.h, format: outFormat, fits: true, resized: false };
-            }
-            out.push({ ...r, size: r.blob.size });
+            // eslint-disable-next-line no-await-in-loop
+            out.push(await encodeResult(it.img, it.cropRect || undefined, dimsFor(it)));
           }
           setProgress({ done: i + 1, total: items.length });
         }
@@ -581,7 +589,7 @@ const ImageResize = () => {
     }
   };
 
-  const nameFor = (file, r) => `${stripExt(file.name)}_${r.width}x${r.height}.${outExt(r.format || outFormat)}`;
+  const nameFor = (file, r) => `${stripExt(file.name)}_${r.width}x${r.height}.${r.ext || outExt(r.format || outFormat)}`;
   const downloadOne = (i) => {
     const r = results[i];
     if (r) downloadBlob(r.blob, nameFor(items[i].file, r));
@@ -599,6 +607,27 @@ const ImageResize = () => {
     : `Resize ${isBatch ? `${items.length} images` : 'image'}`;
 
   const r0 = results[0];
+
+  // One small format dropdown, reused by every mode.
+  const formatField = (
+    <div>
+      <span className="block mb-1 text-xs font-medium text-gray-600 dark:text-gray-300">Format</span>
+      <select
+        value={formatOptions.some((o) => o.value === outFmt) ? outFmt : formatOptions[0].value}
+        onChange={(e) => { setOutFmt(e.target.value); markDirty(); }}
+        className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm p-2"
+      >
+        {formatOptions.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+      {needsAlpha && (
+        <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+          Transparent cut-out — only PNG or WebP can keep the transparency.
+        </p>
+      )}
+    </div>
+  );
 
   const sidebar = (
     <>
@@ -696,23 +725,7 @@ const ImageResize = () => {
                 </select>
               </div>
             </div>
-            <div>
-              <span className="block mb-1.5 text-xs font-medium text-gray-600 dark:text-gray-300">Format</span>
-              <Segmented
-                options={needsAlpha ? [{ value: 'webp', label: 'WebP' }, { value: 'png', label: 'PNG' }] : SIZE_FORMATS}
-                value={needsAlpha ? (sizeFormat === 'png' ? 'png' : 'webp') : sizeFormat}
-                onChange={(v) => { setSizeFormat(v); markDirty(); }}
-              />
-              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-                {needsAlpha
-                  ? 'Transparent background — WebP keeps it small, PNG is lossless.'
-                  : sizeFormat === 'webp'
-                    ? 'WebP fits more detail per KB — best quality at a small size.'
-                    : sizeFormat === 'auto'
-                      ? 'Tries JPG and WebP, keeps whichever looks best at your target size.'
-                      : 'Most compatible. WebP or Smallest usually looks better at the same size.'}
-              </p>
-            </div>
+            {formatField}
             {!isBatch && (
               <div className="grid grid-cols-2 gap-2">
                 <label className="text-xs">
@@ -728,9 +741,9 @@ const ImageResize = () => {
             <label className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-300">
               <input type="checkbox" checked={allowResize} onChange={(e) => { setAllowResize(e.target.checked); markDirty(); }} className="mt-0.5 h-4 w-4 accent-purple-600" />
               <span>
-                Allow smaller dimensions if needed
+                Scale the picture down to hit the target
                 <span className="block text-gray-400 dark:text-gray-500">
-                  Only when compression alone can’t reach the target. Keeps the image sharp.
+                  Kicks in only when lowering quality alone can’t reach the size. Uncheck to keep the exact dimensions above.
                 </span>
               </span>
             </label>
@@ -844,15 +857,8 @@ const ImageResize = () => {
       {!isSizeMode && (
         <section className="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
           <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Output</h3>
-          <label className="block text-xs">
-            <span className="block mb-1 font-medium text-gray-600 dark:text-gray-300">Save image as</span>
-            <select value={saveAs} onChange={(e) => { setSaveAs(e.target.value); markDirty(); }} className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm p-2">
-              {SAVE_AS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </label>
-          {isLossy(outFormat) && (
+          {formatField}
+          {showQuality && (
             <RangeSlider label="Quality" value={quality} min={10} max={100} onChange={(v) => { setQuality(v); markDirty(); }} suffix="%" />
           )}
         </section>
@@ -909,7 +915,7 @@ const ImageResize = () => {
             </div>
           ) : null))}
         </div>
-      ) : (r0 ? (
+      ) : (r0 && r0.format !== 'pdf' ? (
         <OpenInTool getImage={() => results[0].blob} exclude={['resize-image']} />
       ) : null)}
     />
@@ -1025,20 +1031,20 @@ const ImageResize = () => {
                 )}
                 <span className="text-gray-400">·</span>
                 <span className="text-gray-500 dark:text-gray-400">
-                  {outExt(r0.format).toUpperCase()}
+                  {(r0.ext || outExt(r0.format)).toUpperCase()}
                   {r0.quality ? ` · ${Math.round(r0.quality * 100)}% (${qualityWord(r0.quality)})` : ''}
                 </span>
                 {isSizeMode && (
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${r0.fits ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'}`}>
-                    {r0.fits ? (r0.resized ? 'Target met · resized to fit' : 'Target met') : `Can't reach ${targetValue} ${targetUnit}`}
+                    {r0.fits ? (r0.resized ? `Target met · resized to ${r0.width}×${r0.height}` : 'Target met') : `Can't reach ${targetValue} ${targetUnit}`}
                   </span>
                 )}
               </>
             )}
             {r0 && isSizeMode && !r0.fits && (
               <p className="w-full mt-1 text-xs text-amber-600 dark:text-amber-400">
-                Smallest at {r0.width}×{r0.height} without wrecking the image. Try “WebP” / “Smallest”, lower the dimensions,
-                or tick “allow smaller dimensions”.
+                Smallest at {r0.width}×{r0.height} without wrecking the image. Try WebP, lower the dimensions,
+                or tick “Scale the picture down to hit the target”.
               </p>
             )}
           </div>
