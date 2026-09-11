@@ -117,6 +117,24 @@ const Navigation = () => {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  // The mobile menu can grow taller than the screen once a group (e.g. "PDF
+  // Tools", ~25 links) is expanded. It used to sit inline in this `position:
+  // sticky` nav, which on some mobile browsers traps the page scroll once the
+  // sticky element itself is taller than the viewport — you could not scroll
+  // at all until the group was collapsed again. Locking body scroll and
+  // letting the panel scroll itself (below) fixes that for good.
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const prevOverflow = document.body.style.overflow;
+    const prevTouch = document.body.style.touchAction;
+    document.body.style.overflow = 'hidden';
+    document.body.style.touchAction = 'none';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.style.touchAction = prevTouch;
+    };
+  }, [menuOpen]);
+
   const navClass = [
     styles.navbarSticky,
     scrolled ? styles.navbarScrolled : 'bg-white dark:bg-gray-800',
@@ -213,7 +231,10 @@ const Navigation = () => {
         </div>
 
         {menuOpen && (
-          <div className={`${styles.scaleIn} lg:hidden pb-3 border-t border-gray-200 dark:border-gray-700`}>
+          <div
+            className={`${styles.scaleIn} lg:hidden pb-3 border-t border-gray-200 dark:border-gray-700 overflow-y-auto overscroll-contain`}
+            style={{ maxHeight: 'calc(100vh - 4rem)', WebkitOverflowScrolling: 'touch' }}
+          >
             <Link
               to="/"
               onClick={closeAll}
