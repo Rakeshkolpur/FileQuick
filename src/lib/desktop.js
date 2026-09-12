@@ -31,3 +31,25 @@ export const onUpdate = (cb) => (isDesktop() ? window.fq.onUpdate(cb) : () => {}
 export const downloadUpdate = () => isDesktop() && window.fq.downloadUpdate();
 export const installUpdate = () => isDesktop() && window.fq.installUpdate();
 export const checkForUpdates = () => isDesktop() && window.fq.checkForUpdates();
+
+/**
+ * A few tools (Remove Background, OCR) fetch an AI model / language file from
+ * a CDN the first time they run in a session. On the web that's just normal
+ * browsing; the desktop app, though, can be opened with no network at all —
+ * check before those calls and surface a small "You're offline" popup
+ * (see DesktopBridge) instead of a silent stall or a raw fetch error.
+ */
+export const isOnline = () => typeof navigator === 'undefined' || navigator.onLine !== false;
+
+/**
+ * Returns true if it's fine to go ahead with a network-dependent tool action.
+ * Always true on the web (never gates there). On desktop, if there's no
+ * network, fires the "You're offline" popup and returns false so the caller
+ * can bail out before attempting the network call.
+ * @param {string} toolLabel  shown in the popup, e.g. "Remove Background"
+ */
+export function requireOnlineForTool(toolLabel) {
+  if (!isDesktop() || isOnline()) return true;
+  window.dispatchEvent(new CustomEvent('fq:offline', { detail: { tool: toolLabel, at: Date.now() } }));
+  return false;
+}

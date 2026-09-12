@@ -1,4 +1,5 @@
 import { loadImageFromFile } from './imageResize';
+import { requireOnlineForTool } from './desktop';
 
 let _mod = null;
 async function lib() {
@@ -26,6 +27,9 @@ export async function preloadBackgroundModel() {
  * @returns {Promise<Blob>} transparent PNG
  */
 export async function cutoutBackground(source, onProgress, opts = {}) {
+  if (!requireOnlineForTool('Remove Background')) {
+    throw new Error('You’re offline — connect to the internet to remove a background.');
+  }
   const { removeBackground } = await lib();
   const raw = await removeBackground(source, {
     model: opts.hq ? 'isnet' : 'isnet_fp16',

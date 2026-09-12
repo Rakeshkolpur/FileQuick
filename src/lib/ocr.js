@@ -7,6 +7,8 @@
  * The English language model (~10 MB) is fetched once from the tessdata CDN and
  * cached by the browser. It is public data; no user content is uploaded.
  */
+import { requireOnlineForTool } from './desktop';
+
 // BASE_URL is '/' on the web, './' in the desktop (file://) build.
 const B = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL) || '/';
 const WORKER_PATH = `${B}tesseract/worker.min.js`;
@@ -48,6 +50,10 @@ const getWorker = () => {
   if (!workerPromise) {
     workerPromise = (async () => {
       if (!wasmSimd()) throw new Error('This browser is too old for in-browser OCR.');
+      // The language file (~10 MB) comes from a CDN the first time OCR runs.
+      if (!requireOnlineForTool('OCR (Extract Text)')) {
+        throw new Error('You’re offline — connect to the internet the first time you use OCR.');
+      }
       const Tesseract = await loadLib();
       const w = await Tesseract.createWorker({
         workerPath: WORKER_PATH,
