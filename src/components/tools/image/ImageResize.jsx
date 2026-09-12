@@ -18,8 +18,10 @@ import {
   encodeToTargetBytes,
   outExt,
   webpSupported,
+  OUTPUT_FORMATS,
+  OUTPUT_FORMAT_MAP,
 } from '../../../lib/imageResize';
-import { imagesToPdf } from '../../../lib/imagesToPdf';
+import { singleImageToPdf } from '../../../lib/imagesToPdf';
 import { cutoutBackground, loadCutout, compositeOnColor } from '../../../lib/backgroundRemoval';
 import CropModal from '../../tool/CropModal';
 import MatteBrush from '../../tool/MatteBrush';
@@ -36,34 +38,8 @@ const ASPECTS = [
   { label: '16:9', value: 16 / 9 },
   { label: '9:16', value: 9 / 16 },
 ];
-// One output-format dropdown for every mode. JPG is the default.
-const OUT_FORMATS = [
-  { value: 'jpg', label: 'JPG' },
-  { value: 'jpeg', label: 'JPEG' },
-  { value: 'png', label: 'PNG' },
-  { value: 'webp', label: 'WebP' },
-  { value: 'pdf', label: 'PDF' },
-];
-// dropdown value -> { enc: canvas encode format, ext: file extension }
-const FMT_MAP = {
-  jpg: { enc: 'jpeg', ext: 'jpg' },
-  jpeg: { enc: 'jpeg', ext: 'jpeg' },
-  png: { enc: 'png', ext: 'png' },
-  webp: { enc: 'webp', ext: 'webp' },
-  pdf: { enc: 'jpeg', ext: 'pdf' }, // a JPEG image on one PDF page
-};
 const SCALES = [0.25, 0.5, 0.75, 1];
 
-// A blob -> single-page PDF (fit page to the image, white background).
-const blobToPdf = async (blob) => {
-  const dataUrl = await new Promise((res, rej) => {
-    const fr = new FileReader();
-    fr.onload = () => res(fr.result);
-    fr.onerror = () => rej(new Error('Could not read the image.'));
-    fr.readAsDataURL(blob);
-  });
-  return imagesToPdf([{ dataUrl }], { pageSize: 'fit', marginMm: 0, bg: '#ffffff' });
-};
 const initialCrop = (aspect, w, h) =>
   aspect
     ? centerCrop(makeAspectCrop({ unit: '%', width: 80 }, aspect, w, h), w, h)
@@ -493,12 +469,12 @@ const ImageResize = () => {
     setDimsTouched(false);
   };
 
-  const fmtInfo = FMT_MAP[outFmt] || FMT_MAP.jpg;
+  const fmtInfo = OUTPUT_FORMAT_MAP[outFmt] || OUTPUT_FORMAT_MAP.jpg;
   const isPdf = outFmt === 'pdf';
   // Dropdown options: a transparent cut-out can only be saved to PNG or WebP.
   const formatOptions = needsAlpha
-    ? OUT_FORMATS.filter((o) => o.value === 'png' || o.value === 'webp')
-    : OUT_FORMATS;
+    ? OUTPUT_FORMATS.filter((o) => o.value === 'png' || o.value === 'webp')
+    : OUTPUT_FORMATS;
   useEffect(() => {
     if (needsAlpha && outFmt !== 'png' && outFmt !== 'webp') setOutFmt('webp');
   }, [needsAlpha, outFmt]);
@@ -554,7 +530,7 @@ const ImageResize = () => {
       r = { blob, width: d.w, height: d.h, format: outFormat, fits: true, resized: false };
     }
     if (isPdf) {
-      const pdf = await blobToPdf(r.blob);
+      const pdf = await singleImageToPdf(r.blob);
       r = { ...r, blob: pdf, format: 'pdf' };
     }
     return { ...r, size: r.blob.size, ext: fmtInfo.ext };

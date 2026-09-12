@@ -9,6 +9,25 @@ export const outExt = (format) => (format === 'jpeg' || format === 'jpg' ? 'jpg'
 export const mimeFor = (format) => MIME[format] || 'image/jpeg';
 export const isLossy = (format) => mimeFor(format) !== 'image/png';
 
+// One "download as" format list shared by every image tool that offers more
+// than a plain JPG/PNG/WebP toggle (Resize Image, Remove Background, …).
+// `enc` is the canvas encode format; `ext` is the file extension — kept apart
+// so "JPG" and "JPEG" can be the same encoder with a different extension.
+export const OUTPUT_FORMATS = [
+  { value: 'jpg', label: 'JPG' },
+  { value: 'jpeg', label: 'JPEG' },
+  { value: 'png', label: 'PNG' },
+  { value: 'webp', label: 'WebP' },
+  { value: 'pdf', label: 'PDF' },
+];
+export const OUTPUT_FORMAT_MAP = {
+  jpg: { enc: 'jpeg', ext: 'jpg' },
+  jpeg: { enc: 'jpeg', ext: 'jpeg' },
+  png: { enc: 'png', ext: 'png' },
+  webp: { enc: 'webp', ext: 'webp' },
+  pdf: { enc: 'jpeg', ext: 'pdf' }, // a JPEG image on one PDF page
+};
+
 export function loadImageFromFile(file) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);

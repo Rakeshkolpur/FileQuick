@@ -1,12 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ToolWorkspace from '../../tool/ToolWorkspace';
-import Segmented from '../../tool/Segmented';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
 import OpenInTool from '../../tool/OpenInTool';
 import { formatBytes, stripExt } from '../../../lib/format';
 import { consumeHandoff } from '../../../lib/imageHandoff';
-import { encodeImage, webpSupported, loadImageFromFile } from '../../../lib/imageResize';
+import {
+  encodeImage, webpSupported, loadImageFromFile, OUTPUT_FORMATS, OUTPUT_FORMAT_MAP,
+} from '../../../lib/imageResize';
+import { singleImageToPdf } from '../../../lib/imagesToPdf';
 import { cutoutBackground, loadCutout, compositeOnColor } from '../../../lib/backgroundRemoval';
 import MatteBrush from '../../tool/MatteBrush';
 
@@ -18,7 +20,7 @@ const BackgroundRemover = () => {
   const [original, setOriginal] = useState(null); // HTMLImageElement, source for the Restore brush
   const [showBrush, setShowBrush] = useState(false);
   const [bgColor, setBgColor] = useState('transparent');
-  const [format, setFormat] = useState(webpSupported() ? 'webp' : 'png');
+  const [outFmt, setOutFmt] = useState(webpSupported() ? 'webp' : 'png');
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState(null);
@@ -73,7 +75,15 @@ const BackgroundRemover = () => {
   };
 
   const transparent = bgColor === 'transparent';
-  const effFormat = transparent && format === 'jpeg' ? 'webp' : format;
+  // Dropdown options: a transparent cut-out can only be saved to PNG or WebP.
+  const formatOptions = transparent
+    ? OUTPUT_FORMATS.filter((o) => o.value === 'png' || o.value === 'webp')
+    : OUTPUT_FORMATS;
+  useEffect(() => {
+    if (transparent && outFmt !== 'png' && outFmt !== 'webp') setOutFmt('webp');
+  }, [transparent, outFmt]);
+  const fmtInfo = OUTPUT_FORMAT_MAP[outFmt] || OUTPUT_FORMAT_MAP.png;
+  const isPdf = outFmt === 'pdf';
 
   const previewUrl = useMemo(() => {
     if (!cutout) return null;
@@ -82,9 +92,9 @@ const BackgroundRemover = () => {
 
   const [result, setResult] = useState(null); // { blob, size }
   const [encoding, setEncoding] = useState(false);
-  useEffect(() => { setResult(null); }, [cutout, bgColor, format]);
+  useEffect(() => { setResult(null); }, [cutout, bgColor, outFmt]);
 
-  const outName = file ? `${stripExt(file.name)}_no-bg.${effFormat === 'jpeg' ? 'jpg' : effFormat}` : 'image_no-bg.png';
+  const outName = file ? `${stripExt(file.name)}_no-bg.${fmtInfo.ext}` : `image_no-bg.${fmtInfo.ext}`;
   const backFromResult = () => setResult(null);
 
   const makeDownload = async () => {
@@ -92,12 +102,13 @@ const BackgroundRemover = () => {
     setEncoding(true);
     try {
       const canvas = compositeOnColor(cutout, bgColor);
-      const blob = await encodeImage(canvas, {
+      let blob = await encodeImage(canvas, {
         width: canvas.width,
         height: canvas.height,
-        format: effFormat,
+        format: fmtInfo.enc,
         quality: 0.92,
       });
+      if (isPdf) blob = await singleImageToPdf(blob);
       setResult({ blob, size: blob.size });
     } catch (_) {
       setError('Could not export the image. Try a different format.');
@@ -156,17 +167,19 @@ const BackgroundRemover = () => {
 
       <section className="space-y-2 pt-4 border-t border-gray-200 dark:border-gray-700">
         <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Download format</h3>
-        <Segmented
-          options={
-            transparent
-              ? [{ value: 'webp', label: 'WebP' }, { value: 'png', label: 'PNG' }]
-              : [{ value: 'webp', label: 'WebP' }, { value: 'png', label: 'PNG' }, { value: 'jpeg', label: 'JPG' }]
-          }
-          value={effFormat}
-          onChange={setFormat}
-        />
+        <select
+          value={outFmt}
+          onChange={(e) => setOutFmt(e.target.value)}
+          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm p-2"
+        >
+          {formatOptions.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
         <p className="text-xs text-gray-400 dark:text-gray-500">
-          {transparent ? 'Transparent background needs WebP or PNG.' : 'WebP is smallest; PNG is lossless.'}
+          {transparent
+            ? 'Transparent background needs WebP or PNG — pick a background colour above to unlock JPG and PDF too.'
+            : 'WebP is smallest, PNG is lossless, JPG is most compatible, PDF puts the image on one page.'}
         </p>
       </section>
 
@@ -197,7 +210,7 @@ const BackgroundRemover = () => {
       onBack={backFromResult}
       backLabel="Back to editing"
       note="Transparent or coloured background baked in. The file stays on your device."
-      extra={result ? (
+      extra={result && !isPdf ? (
         <OpenInTool
           getImage={() => result.blob}
           exclude={['remove-background']}
@@ -248,7 +261,7 @@ const BackgroundRemover = () => {
 
       {cutout && (
         <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
-          {formatBytes(file?.size)} original · exports as {effFormat.toUpperCase()}
+          {formatBytes(file?.size)} original · exports as {outFmt.toUpperCase()}
           {result ? ` · ${formatBytes(result.size)}` : ''}
         </p>
       )}

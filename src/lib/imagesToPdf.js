@@ -95,3 +95,21 @@ export async function imagesToPdf(pages, opts = {}) {
 
   return new Blob([await doc.save()], { type: 'application/pdf' });
 }
+
+/**
+ * One image blob (JPEG or PNG) -> a single-page PDF sized to fit it. Shared
+ * by every tool whose "download as" list includes PDF (Resize Image, Remove
+ * Background, …) so a page isn't reimplementing the blob->dataURL step.
+ * @param {Blob} blob
+ * @param {object} [opts] same shape as imagesToPdf's opts, minus `pages`.
+ * @returns {Promise<Blob>}
+ */
+export async function singleImageToPdf(blob, opts = {}) {
+  const dataUrl = await new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result);
+    fr.onerror = () => reject(new Error('Could not read the image.'));
+    fr.readAsDataURL(blob);
+  });
+  return imagesToPdf([{ dataUrl }], { pageSize: 'fit', marginMm: 0, bg: '#ffffff', ...opts });
+}

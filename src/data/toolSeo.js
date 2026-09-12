@@ -222,25 +222,25 @@ const toolSeo = {
   'remove-background': {
     seoTitle: 'Remove Background from Image – Free & Automatic',
     seoDescription:
-      'Remove the background from an image online free. Automatic AI cut-out for people, products and logos — download a transparent PNG. No sign-up, no watermark, no upload.',
+      'Remove the background from an image online free. Automatic AI cut-out for people, products and logos — download as transparent PNG/WebP, or JPG/PDF on a colour. No sign-up, no watermark.',
     h1: 'How to remove an image background',
     intro:
-      'Cut the background out of a photo and download a transparent PNG — people, products, logos and signatures. Runs on an in-browser AI model, so it is free and nothing is uploaded.',
+      'Cut the background out of a photo — people, products, logos and signatures — and download it transparent, or on a background colour of your choice. Runs on an in-browser AI model, so it is free and nothing is uploaded.',
     body: [
       'A transparent cut-out is the starting point for a lot of design work: a product shot on a white catalogue page, a headshot for a team grid, a logo over a coloured banner, or a signature to drop into a document. This tool finds the subject automatically and removes everything behind it in a few seconds.',
       'The AI model runs entirely in your browser — it downloads once, then works offline with no per-image credit or watermark. If it leaves a scrap of background or cuts away a bit of the subject, "Touch up edges" gives you an erase brush and a restore brush to fix it by hand.',
-      `${NO_UPLOAD} To place the cut-out on a solid colour or another photo afterwards, use Convert Image or the Passport Photo Maker.`,
+      `Leave the background transparent and download PNG or WebP, or pick a solid colour and export as JPG, PNG, WebP or a one-page PDF. ${NO_UPLOAD}`,
     ],
     steps: [
       'Upload the image you want to cut out.',
       'The tool detects the subject and removes the background automatically.',
       'If a bit of background is left or a bit of the subject got cut away, click "Touch up edges" and paint it right with the erase / restore brush.',
-      'Download the transparent PNG.',
+      'Keep it transparent, or pick a background colour, then download as PNG, WebP, JPG or PDF.',
     ],
     faqs: [
       { q: 'Is the background remover free?', a: 'Yes, with no sign-up, no credits and no watermark. The AI model runs on your own device.' },
-      { q: 'How do I make an image background transparent?', a: 'Upload it here — the subject is detected and the background is deleted, and you download a PNG with a transparent background.' },
-      { q: 'Can I put a new background behind the cut-out?', a: 'Download the transparent PNG, then use Convert Image or the Passport Photo Maker to place it on a solid colour or another photo.' },
+      { q: 'How do I make an image background transparent?', a: 'Upload it here — the subject is detected and the background is deleted, and you download it as a transparent PNG or WebP.' },
+      { q: 'Can I download it as a JPG or PDF instead of PNG?', a: 'Yes — pick a background colour (transparent can only export as PNG or WebP), and JPG, WebP and a one-page PDF unlock alongside PNG in the Download format menu.' },
       { q: 'What resolution do I get?', a: 'The cut-out keeps the original resolution of your photo. Fine detail like stray hair may need a quick brush touch-up.' },
       { q: 'The AI missed a spot — can I fix it by hand?', a: 'Yes. Click "Touch up edges" for a brush editor: Erase paints away any leftover background, Restore paints back a bit of the subject the model cut by mistake, using the real pixels from your original photo.' },
       { q: 'Is my photo uploaded?', a: `No. ${NO_UPLOAD}` },
