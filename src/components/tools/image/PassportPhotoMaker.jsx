@@ -5,6 +5,7 @@ import { downloadBlob } from '../../tool/DownloadButton';
 import { ToolBackContext } from '../../ToolWrapper';
 import { stripExt } from '../../../lib/format';
 import { cutoutBackground, preloadBackgroundModel } from '../../../lib/backgroundRemoval';
+import MatteBrush from '../../tool/MatteBrush';
 import { consumeHandoff } from '../../../lib/imageHandoff';
 
 const DPI = 300;
@@ -63,6 +64,7 @@ const PassportPhotoMaker = () => {
   const [removeBg, setRemoveBg] = useState(true);
   const [bgBusy, setBgBusy] = useState(false);
   const [bgProgress, setBgProgress] = useState(0);
+  const [showBrush, setShowBrush] = useState(false);
 
   const [bg, setBg] = useState('#ffffff');
   const [specIdx, setSpecIdx] = useState(0);
@@ -112,7 +114,7 @@ const PassportPhotoMaker = () => {
     urls.current.forEach((u) => URL.revokeObjectURL(u));
     urls.current = [];
     setFile(null); setImg(null); setImgUrl(null); setCutout(null); setCutoutUrl(null);
-    setRemoveBg(true); setError(null); setCellUrl(null);
+    setRemoveBg(true); setError(null); setCellUrl(null); setShowBrush(false);
     setScale(100); setOffset({ x: 0, y: 0 });
   };
 
@@ -164,6 +166,13 @@ const PassportPhotoMaker = () => {
     } finally {
       if (tok === loadTok.current) setBgBusy(false);
     }
+  };
+
+  const handleBrushApply = (newImg, newUrl) => {
+    urls.current.push(newUrl);
+    setCutout(newImg);
+    setCutoutUrl(newUrl);
+    setShowBrush(false);
   };
 
   // ---- pointer drag ----
@@ -376,6 +385,15 @@ const PassportPhotoMaker = () => {
             </label>
           </div>
           {!cutout && !bgBusy && <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">Background couldn’t be removed — the original photo is used.</p>}
+          {cutout && (
+            <button
+              type="button"
+              onClick={() => setShowBrush(true)}
+              className="mt-1.5 w-full text-[12px] font-medium py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+            >
+              ✏️ Touch up edges (erase / restore)
+            </button>
+          )}
         </div>
 
         {/* size */}
@@ -480,6 +498,9 @@ const PassportPhotoMaker = () => {
       </div>
 
       {lightbox && <Lightbox src={lightbox.src} caption={lightbox.caption} onClose={() => setLightbox(null)} />}
+      {showBrush && cutout && img && (
+        <MatteBrush original={img} cutout={cutout} onApply={handleBrushApply} onClose={() => setShowBrush(false)} />
+      )}
     </div>
   );
 };

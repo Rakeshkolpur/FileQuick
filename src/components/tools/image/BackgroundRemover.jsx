@@ -6,14 +6,17 @@ import ResultScreen from '../../tool/ResultScreen';
 import OpenInTool from '../../tool/OpenInTool';
 import { formatBytes, stripExt } from '../../../lib/format';
 import { consumeHandoff } from '../../../lib/imageHandoff';
-import { encodeImage, webpSupported } from '../../../lib/imageResize';
+import { encodeImage, webpSupported, loadImageFromFile } from '../../../lib/imageResize';
 import { cutoutBackground, loadCutout, compositeOnColor } from '../../../lib/backgroundRemoval';
+import MatteBrush from '../../tool/MatteBrush';
 
 const SWATCHES = ['transparent', '#ffffff', '#000000', '#f43f5e', '#3b82f6', '#22c55e', '#f59e0b', '#a855f7'];
 
 const BackgroundRemover = () => {
   const [file, setFile] = useState(null);
   const [cutout, setCutout] = useState(null); // HTMLImageElement (transparent PNG)
+  const [original, setOriginal] = useState(null); // HTMLImageElement, source for the Restore brush
+  const [showBrush, setShowBrush] = useState(false);
   const [bgColor, setBgColor] = useState('transparent');
   const [format, setFormat] = useState(webpSupported() ? 'webp' : 'png');
   const [busy, setBusy] = useState(false);
@@ -27,10 +30,14 @@ const BackgroundRemover = () => {
     setError(null);
     setProgress(0);
     setCutout(null);
+    setOriginal(null);
     try {
-      const blob = await cutoutBackground(f, (p) => t === token.current && setProgress(p));
+      const [blob, orig] = await Promise.all([
+        cutoutBackground(f, (p) => t === token.current && setProgress(p)),
+        loadImageFromFile(f),
+      ]);
       const img = await loadCutout(blob);
-      if (t === token.current) setCutout(img);
+      if (t === token.current) { setCutout(img); setOriginal(orig); }
     } catch (e) {
       if (t === token.current) setError('Background removal failed — the model may still be downloading. Try again in a moment.');
     } finally {
@@ -54,8 +61,15 @@ const BackgroundRemover = () => {
     token.current += 1;
     setFile(null);
     setCutout(null);
+    setOriginal(null);
+    setShowBrush(false);
     setError(null);
     setBusy(false);
+  };
+
+  const handleBrushApply = (img) => {
+    setCutout(img);
+    setShowBrush(false);
   };
 
   const transparent = bgColor === 'transparent';
@@ -128,6 +142,15 @@ const BackgroundRemover = () => {
               />
             </label>
           </div>
+        )}
+        {!busy && cutout && original && (
+          <button
+            type="button"
+            onClick={() => setShowBrush(true)}
+            className="w-full text-xs font-medium py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+          >
+            ✏️ Touch up edges (erase / restore)
+          </button>
         )}
       </section>
 
@@ -228,6 +251,10 @@ const BackgroundRemover = () => {
           {formatBytes(file?.size)} original · exports as {effFormat.toUpperCase()}
           {result ? ` · ${formatBytes(result.size)}` : ''}
         </p>
+      )}
+
+      {showBrush && cutout && original && (
+        <MatteBrush original={original} cutout={cutout} onApply={handleBrushApply} onClose={() => setShowBrush(false)} />
       )}
     </ToolWorkspace>
   );

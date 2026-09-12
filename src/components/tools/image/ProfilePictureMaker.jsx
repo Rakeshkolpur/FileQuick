@@ -5,6 +5,7 @@ import { downloadBlob } from '../../tool/DownloadButton';
 import { ToolBackContext } from '../../ToolWrapper';
 import { formatBytes, stripExt } from '../../../lib/format';
 import { cutoutBackground, preloadBackgroundModel } from '../../../lib/backgroundRemoval';
+import MatteBrush from '../../tool/MatteBrush';
 import { upscaleImage } from '../../../lib/upscale';
 import { consumeHandoff } from '../../../lib/imageHandoff';
 
@@ -249,6 +250,7 @@ const ProfilePictureMaker = () => {
   const [removeBg, setRemoveBg] = useState(false);
   const [bgBusy, setBgBusy] = useState(false);
   const [bgProgress, setBgProgress] = useState(0);
+  const [showBrush, setShowBrush] = useState(false);
 
   const [tab, setTab] = useState('bg');
   const [bgSub, setBgSub] = useState('color');
@@ -299,7 +301,7 @@ const ProfilePictureMaker = () => {
     urlsRef.current.forEach((u) => URL.revokeObjectURL(u));
     urlsRef.current = [];
     setFile(null); setImg(null); setImgUrl(null); setCutout(null); setCutoutUrl(null);
-    setResult(null); setError(null); setRemoveBg(false);
+    setResult(null); setError(null); setRemoveBg(false); setShowBrush(false);
   };
   useEffect(() => () => urlsRef.current.forEach((u) => URL.revokeObjectURL(u)), []);
 
@@ -386,6 +388,14 @@ const ProfilePictureMaker = () => {
       setError('Background removal failed — try a clearer, front-facing photo.');
       setRemoveBg(false);
     } finally { setBgBusy(false); }
+  };
+
+  const handleBrushApply = (newImg, newUrl) => {
+    urlsRef.current.push(newUrl);
+    setCutout(newImg);
+    setCutoutUrl(newUrl);
+    setShowBrush(false);
+    setResult(null);
   };
 
   const src = removeBg && cutout ? cutout : img;
@@ -695,6 +705,15 @@ const ProfilePictureMaker = () => {
           {tab === 'bg' && (
             <>
               {!removeBg && <p className="text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-2.5 py-1.5">Turn on <b>Remove BG</b> to put your photo on the background you pick.</p>}
+              {removeBg && cutout && (
+                <button
+                  type="button"
+                  onClick={() => setShowBrush(true)}
+                  className="w-full text-[12px] font-medium py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+                >
+                  ✏️ Touch up edges (erase / restore)
+                </button>
+              )}
               <div className="flex rounded-lg bg-gray-100 dark:bg-gray-700/60 p-0.5 text-[12px] font-medium">
                 {[['color', 'Colour'], ['gradient', 'Gradient'], ['pattern', 'Texture']].map(([kk, l]) => (
                   <button key={kk} type="button" onClick={() => setBgSub(kk)} className={`flex-1 py-1 rounded-md ${bgSub === kk ? 'bg-white dark:bg-gray-800 text-purple-600 dark:text-purple-300' : 'text-gray-500'}`}>{l}</button>
@@ -889,6 +908,10 @@ const ProfilePictureMaker = () => {
           </button>
         </div>
       </div>
+
+      {showBrush && cutout && img && (
+        <MatteBrush original={img} cutout={cutout} onApply={handleBrushApply} onClose={() => setShowBrush(false)} />
+      )}
     </div>
   );
 };

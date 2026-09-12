@@ -22,6 +22,7 @@ import {
 import { imagesToPdf } from '../../../lib/imagesToPdf';
 import { cutoutBackground, loadCutout, compositeOnColor } from '../../../lib/backgroundRemoval';
 import CropModal from '../../tool/CropModal';
+import MatteBrush from '../../tool/MatteBrush';
 
 const BG_SWATCHES = ['transparent', '#ffffff', '#000000', '#f43f5e', '#3b82f6', '#22c55e', '#f59e0b'];
 
@@ -262,6 +263,7 @@ const ImageResize = () => {
   const [bgBusy, setBgBusy] = useState(false);
   const [bgProgress, setBgProgress] = useState(0);
   const [bgError, setBgError] = useState(null);
+  const [showBrush, setShowBrush] = useState(false);
 
   const [results, setResults] = useState([]);
   const [, setDirty] = useState(true);
@@ -326,6 +328,7 @@ const ImageResize = () => {
     setBgRemove(false);
     setCutoutImg(null);
     setBgError(null);
+    setShowBrush(false);
     setCropApplied(false);
     setCompletedCrop(null);
   };
@@ -849,6 +852,13 @@ const ImageResize = () => {
                   Transparent → saved as {outFormat.toUpperCase()}.
                 </p>
               )}
+              <button
+                type="button"
+                onClick={() => setShowBrush(true)}
+                className="mt-2 w-full text-xs font-medium py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+              >
+                ✏️ Touch up edges (erase / restore)
+              </button>
             </div>
           )}
         </section>
@@ -1078,6 +1088,15 @@ const ImageResize = () => {
           />
         ) : null;
       })()}
+
+      {showBrush && cutoutImg && single?.img && (
+        <MatteBrush
+          original={single.img}
+          cutout={cutoutImg}
+          onApply={(img) => { setCutoutImg(img); setShowBrush(false); markDirty(); }}
+          onClose={() => setShowBrush(false)}
+        />
+      )}
     </ToolWorkspace>
   );
 };

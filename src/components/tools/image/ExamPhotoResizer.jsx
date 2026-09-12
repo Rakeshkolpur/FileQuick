@@ -7,6 +7,7 @@ import { formatBytes } from '../../../lib/format';
 import { zipFiles } from '../../../lib/zip';
 import { loadImageFromFile, encodeToTargetBytes } from '../../../lib/imageResize';
 import { cutoutBackground, compositeOnColor } from '../../../lib/backgroundRemoval';
+import MatteBrush from '../../tool/MatteBrush';
 
 const CropDialog = React.lazy(() => import('../../tool/CropDialog'));
 
@@ -215,6 +216,7 @@ const ExamPhotoResizer = () => {
   const [bgBusy, setBgBusy] = useState(false);
   const [bgPct, setBgPct] = useState(0);
   const [bgPreview, setBgPreview] = useState(null); // data URL of photo on the chosen colour
+  const [showBrush, setShowBrush] = useState(false);
 
   const photoInput = useRef(null);
   const signInput = useRef(null);
@@ -236,7 +238,16 @@ const ExamPhotoResizer = () => {
   const dropCutout = useCallback(() => {
     setCutout((c) => { if (c?.url) URL.revokeObjectURL(c.url); return null; });
     setBgPreview((u) => { if (u) URL.revokeObjectURL(u); return null; });
+    setShowBrush(false);
   }, []);
+
+  const handleBrushApply = (newImg, newUrl) => {
+    setCutout((c) => {
+      if (c?.url) URL.revokeObjectURL(c.url);
+      return { img: newImg, url: track(newUrl) };
+    });
+    setShowBrush(false);
+  };
 
   const reset = useCallback(() => {
     setPhoto((p) => { if (p?.url) URL.revokeObjectURL(p.url); return null; });
@@ -465,6 +476,15 @@ const ExamPhotoResizer = () => {
             {bgOn && !bgBusy && (
               <p className="mt-2 text-[11px] text-gray-400 dark:text-gray-500">White or light blue is what most official forms accept.</p>
             )}
+            {bgOn && !bgBusy && cutout && (
+              <button
+                type="button"
+                onClick={() => setShowBrush(true)}
+                className="mt-2 w-full text-[11px] font-medium py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+              >
+                ✏️ Touch up edges (erase / restore)
+              </button>
+            )}
           </div>
         </Slot>
         <Slot
@@ -537,6 +557,10 @@ const ExamPhotoResizer = () => {
             onClose={() => setCropFor(null)}
           />
         </Suspense>
+      )}
+
+      {showBrush && cutout && photo?.img && (
+        <MatteBrush original={photo.img} cutout={cutout.img} onApply={handleBrushApply} onClose={() => setShowBrush(false)} />
       )}
     </div>
   );

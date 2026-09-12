@@ -47,6 +47,27 @@ export function loadCutout(blob) {
 }
 
 /**
+ * Turn a canvas (the touched-up cutout from MatteBrush) into a loaded <img>,
+ * the same shape every tool already keeps its cutout in.
+ * @returns {Promise<{ img: HTMLImageElement, url: string, blob: Blob }>}
+ *   `url` is a fresh object URL the caller owns — revoke it when replaced/unmounted,
+ *   the same way tools already track cutout object URLs (or just ignore it, like
+ *   the tools that don't bother revoking the original AI cutout's URL either).
+ */
+export function canvasToCutoutImage(canvas) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) { reject(new Error('Could not save the edited cut-out.')); return; }
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => resolve({ img, url, blob });
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not load the edited cut-out.')); };
+      img.src = url;
+    }, 'image/png');
+  });
+}
+
+/**
  * Paint a cutout onto a solid background colour.
  * @param {HTMLImageElement} cutoutImg
  * @param {string} color  css colour, or 'transparent'
