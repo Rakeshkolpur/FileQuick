@@ -75,15 +75,11 @@ const BackgroundRemover = () => {
   };
 
   const transparent = bgColor === 'transparent';
-  // Dropdown options: a transparent cut-out can only be saved to PNG or WebP.
-  const formatOptions = transparent
-    ? OUTPUT_FORMATS.filter((o) => o.value === 'png' || o.value === 'webp')
-    : OUTPUT_FORMATS;
-  useEffect(() => {
-    if (transparent && outFmt !== 'png' && outFmt !== 'webp') setOutFmt('webp');
-  }, [transparent, outFmt]);
   const fmtInfo = OUTPUT_FORMAT_MAP[outFmt] || OUTPUT_FORMAT_MAP.png;
   const isPdf = outFmt === 'pdf';
+  // JPG/JPEG/PDF can't hold transparency — encodeImage's own JPEG path fills
+  // it white when exporting one of those, so every format stays selectable.
+  const willFlattenAlpha = transparent && fmtInfo.enc === 'jpeg';
 
   const previewUrl = useMemo(() => {
     if (!cutout) return null;
@@ -172,14 +168,14 @@ const BackgroundRemover = () => {
           onChange={(e) => setOutFmt(e.target.value)}
           className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm p-2"
         >
-          {formatOptions.map((o) => (
+          {OUTPUT_FORMATS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>
         <p className="text-xs text-gray-400 dark:text-gray-500">
-          {transparent
-            ? 'Transparent background needs WebP or PNG — pick a background colour above to unlock JPG and PDF too.'
-            : 'WebP is smallest, PNG is lossless, JPG is most compatible, PDF puts the image on one page.'}
+          {willFlattenAlpha
+            ? `${outFmt.toUpperCase()} can’t hold transparency — the background will be filled white. Pick PNG or WebP to keep it transparent.`
+            : 'WebP is smallest, PNG is lossless (and keeps transparency), JPG is most compatible, PDF puts the image on one page.'}
         </p>
       </section>
 

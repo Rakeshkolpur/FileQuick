@@ -17,7 +17,6 @@ import {
   encodeImage,
   encodeToTargetBytes,
   outExt,
-  webpSupported,
   OUTPUT_FORMATS,
   OUTPUT_FORMAT_MAP,
 } from '../../../lib/imageResize';
@@ -471,20 +470,14 @@ const ImageResize = () => {
 
   const fmtInfo = OUTPUT_FORMAT_MAP[outFmt] || OUTPUT_FORMAT_MAP.jpg;
   const isPdf = outFmt === 'pdf';
-  // Dropdown options: a transparent cut-out can only be saved to PNG or WebP.
-  const formatOptions = needsAlpha
-    ? OUTPUT_FORMATS.filter((o) => o.value === 'png' || o.value === 'webp')
-    : OUTPUT_FORMATS;
-  useEffect(() => {
-    if (needsAlpha && outFmt !== 'png' && outFmt !== 'webp') setOutFmt('webp');
-  }, [needsAlpha, outFmt]);
-  // The canvas encode format (PDF encodes a JPEG page; alpha forces webp/png).
-  const encFormat = needsAlpha && !isPdf && fmtInfo.enc === 'jpeg'
-    ? (webpSupported() ? 'webp' : 'png')
-    : fmtInfo.enc;
+  // All 5 formats are always offered. JPG/JPEG/PDF can't hold transparency,
+  // so if the background is left transparent, encodeImage's own JPEG path
+  // fills it white when exporting to one of those — no format is hidden.
+  const encFormat = fmtInfo.enc;
   // Format we ask the target-size encoder for (never 'pdf').
   const outFormat = isPdf ? 'jpeg' : encFormat;
   const showQuality = outFmt !== 'png';
+  const willFlattenAlpha = needsAlpha && encFormat === 'jpeg';
 
   const targetBytes = useMemo(() => {
     const n = parseFloat(targetValue);
@@ -587,22 +580,22 @@ const ImageResize = () => {
 
   const r0 = results[0];
 
-  // One small format dropdown, reused by every mode.
+  // One small format dropdown, reused by every mode — all 5 formats, always.
   const formatField = (
     <div>
       <span className="block mb-1 text-xs font-medium text-gray-600 dark:text-gray-300">Format</span>
       <select
-        value={formatOptions.some((o) => o.value === outFmt) ? outFmt : formatOptions[0].value}
+        value={outFmt}
         onChange={(e) => { setOutFmt(e.target.value); markDirty(); }}
         className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm p-2"
       >
-        {formatOptions.map((o) => (
+        {OUTPUT_FORMATS.map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>
         ))}
       </select>
-      {needsAlpha && (
+      {willFlattenAlpha && (
         <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-          Transparent cut-out — only PNG or WebP can keep the transparency.
+          {outFmt.toUpperCase()} can’t hold transparency — the cut-out background will be filled white. Pick PNG or WebP to keep it transparent.
         </p>
       )}
     </div>
@@ -825,7 +818,9 @@ const ImageResize = () => {
               </div>
               {needsAlpha && (
                 <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
-                  Transparent → saved as {outFormat.toUpperCase()}.
+                  {willFlattenAlpha
+                    ? `Transparent → filled white for ${outFmt.toUpperCase()}.`
+                    : `Transparent → saved as ${outFmt.toUpperCase()}.`}
                 </p>
               )}
               <button
