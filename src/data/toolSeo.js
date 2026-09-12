@@ -727,28 +727,29 @@ const toolSeo = {
   },
 
   'watermark-pdf': {
-    seoTitle: 'Add Watermark to PDF – Text or Logo, Free',
+    seoTitle: 'Add Watermark to PDF or Photo – Text or Logo',
     seoDescription:
-      'Add a watermark to a PDF online free — a text stamp like "CONFIDENTIAL" or an image logo across every page, with angle, opacity and tiling. No upload, no watermark from us.',
-    h1: 'How to add a watermark to a PDF',
+      'Add a watermark to a PDF or a photo online free — a text stamp like "CONFIDENTIAL" or an image logo, with angle, opacity and tiling. No upload, no watermark from us.',
+    h1: 'How to add a watermark to a PDF or a photo',
     intro:
-      'Stamp a text or image watermark across every page — set the angle, opacity, size and whether it is tiled or centred. Free and fully in-browser.',
+      'Stamp a text or image watermark across every page of a PDF — or straight onto a JPG/PNG/WebP photo — set the angle, opacity, size and whether it is tiled or centred. Free and fully in-browser.',
     body: [
-      'A watermark marks a document as a draft, a copy, or confidential, or brands each page with a logo. Type your text or upload a PNG logo, set the opacity so the page stays readable, and choose a diagonal angle or a tiled repeat.',
-      'The watermark is applied to every page and the result downloads with no added branding from FileQuick.',
-      NO_UPLOAD,
+      'A watermark marks a document as a draft, a copy, or confidential, or brands a page or photo with a logo. Type your text or upload a PNG logo, set the opacity so the page stays readable, and choose a diagonal angle or a tiled repeat.',
+      'Drop in a PDF and every page gets it (or just a page range you pick); drop in a photo instead and the same text or logo is stamped straight onto the image — handy for marking up a product photo or a screenshot before you share it.',
+      `The watermark is applied and the result downloads with no added branding from FileQuick. ${NO_UPLOAD}`,
     ],
     steps: [
-      'Add your PDF to the Add Watermark tool.',
+      'Add a PDF, or a JPG / PNG / WebP photo, to the Add Watermark tool.',
       'Type your watermark text or upload a logo.',
       'Adjust opacity, rotation and placement.',
-      'Download the watermarked PDF.',
+      'Download the watermarked PDF or photo.',
     ],
     faqs: [
       { q: 'How do I add "CONFIDENTIAL" diagonally across each page?', a: 'Type the text, set rotation to about 45° and lower the opacity so the page stays readable.' },
-      { q: 'Can I use an image or logo as the watermark?', a: 'Yes — upload a PNG (transparency supported) and position or tile it across the pages.' },
+      { q: 'Can I watermark a photo instead of a PDF?', a: 'Yes — drop a JPG, PNG or WebP image in the same tool and the text or logo is stamped straight onto the photo, downloaded in the same format.' },
+      { q: 'Can I use an image or logo as the watermark?', a: 'Yes — upload a PNG (transparency supported) and position or tile it across the pages or photo.' },
       { q: 'Does FileQuick add its own watermark?', a: 'Never. The only watermark on the file is the one you add.' },
-      { q: 'Is my PDF uploaded?', a: `No. ${NO_UPLOAD}` },
+      { q: 'Is my file uploaded?', a: `No. ${NO_UPLOAD}` },
     ],
     related: [
       { id: 'page-numbers', text: 'add page numbers in the same pass' },

@@ -114,7 +114,7 @@ const TOOLS = [
     description: 'Stamp page numbers anywhere — position, format, start number, font and colour.',
     load: () => import('../components/tools/pdf/PageNumbers.jsx') },
   { id: 'watermark-pdf', title: 'Add Watermark', category: 'pdf', group: 'Pages', icon: I.water,
-    description: 'Stamp text or a logo watermark — angle, opacity, tiled or centred.',
+    description: 'Stamp text or a logo watermark on a PDF or a photo — angle, opacity, tiled or centred.',
     load: () => import('../components/tools/pdf/WatermarkPDF.jsx') },
   { id: 'fill-sign', title: 'Fill & Sign', category: 'pdf', group: 'Edit', icon: I.sign, chrome: 'min',
     description: 'Add text, dates, checkmarks and your signature to a PDF — all in your browser.',
