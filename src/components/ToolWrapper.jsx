@@ -64,7 +64,7 @@ const ComingSoon = ({ tool }) => (
     </div>
     <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">{tool.title} — coming soon</h2>
     <p className="text-gray-600 dark:text-gray-300 text-sm">
-      This one runs on our conversion engine, which we&apos;re bringing online shortly. Check back in a few days.
+      {tool.comingSoonNote || 'This one runs on our conversion engine, which we’re bringing online shortly. Check back in a few days.'}
     </p>
     <Link
       to="/pdf"
