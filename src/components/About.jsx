@@ -51,6 +51,7 @@ const About = () => {
         '@type': 'Person',
         name: 'K Rakesh',
         jobTitle: 'Founder',
+        sameAs: ['https://github.com/Rakeshkolpur', 'https://www.linkedin.com/in/krakeshfullstack/'],
         homeLocation: {
           '@type': 'Place',
           address: {

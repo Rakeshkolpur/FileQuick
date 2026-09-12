@@ -1,7 +1,13 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { FaGithub, FaLinkedin } from 'react-icons/fa';
 import { getToolsByCategory } from '../data/tools';
 import Logo from './Logo';
+
+const SOCIAL_LINKS = [
+  { label: 'GitHub', href: 'https://github.com/Rakeshkolpur', Icon: FaGithub },
+  { label: 'LinkedIn', href: 'https://www.linkedin.com/in/krakeshfullstack/', Icon: FaLinkedin },
+];
 
 const pdfTools = getToolsByCategory('pdf');
 const COLUMNS = [
@@ -45,7 +51,7 @@ const Footer = () => (
         ))}
       </div>
 
-      <div className="mt-10 pt-6 border-t border-gray-200 dark:border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div className="mt-10 pt-6 border-t border-gray-200 dark:border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4">
         <p className="text-sm text-gray-400">© {new Date().getFullYear()} FileQuick</p>
         <div className="flex flex-wrap justify-center gap-x-5 gap-y-2">
           <Link to="/about" className="text-sm text-gray-500 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400">
@@ -66,6 +72,21 @@ const Footer = () => (
           <Link to="/terms-of-service" className="text-sm text-gray-500 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400">
             Terms
           </Link>
+        </div>
+        <div className="flex items-center gap-3">
+          {SOCIAL_LINKS.map((s) => (
+            <a
+              key={s.label}
+              href={s.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={s.label}
+              title={s.label}
+              className="grid h-8 w-8 place-items-center rounded-full text-gray-400 hover:bg-purple-50 hover:text-purple-600 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-purple-400"
+            >
+              <s.Icon className="h-4 w-4" />
+            </a>
+          ))}
         </div>
       </div>
     </div>
