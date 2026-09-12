@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { PDFDocument, rgb, degrees } from 'pdf-lib';
+import { PDFDocument, StandardFonts, rgb, degrees } from 'pdf-lib';
 import ToolWorkspace from '../../tool/ToolWorkspace';
 import ResultScreen from '../../tool/ResultScreen';
 import WatermarkBrushModal from '../../tool/WatermarkBrushModal';
@@ -20,31 +20,54 @@ const COVER_SWATCHES = ['#ffffff', '#f3f4f6', '#000000', '#fef3c7'];
 
 let uid = 0;
 
-/** Redact the chosen candidates from a PDF's bytes — covers each occurrence
- * with a solid rectangle, rotated to match the text if the watermark is
- * diagonal. This hides it visually; it does not strip the underlying text
- * object from the file (that needs deeper content-stream surgery than a
- * client-side tool can safely do), so treat it as "covered", not "deleted". */
+/**
+ * Redact the chosen candidates from a PDF's bytes — for each occurrence,
+ * redraws the SAME string at the SAME position, size and rotation in the
+ * cover colour, on top of the original.
+ *
+ * This deliberately does NOT cover a padded bounding box. A big diagonal
+ * watermark's bounding box is much larger than its visible strokes (a wide
+ * rotated word's rectangle sweeps corner to corner across the page), so
+ * painting that whole box would blank out real content the watermark just
+ * happens to cross over. Re-printing the exact text only paints over the
+ * actual ink — real content anywhere else under that bounding box, even
+ * right next to a letter, is left alone.
+ *
+ * It hides the watermark visually; it does not strip the original text
+ * object from the file (that needs content-stream surgery this tool can't
+ * safely do), so treat it as "covered", not "deleted".
+ */
 async function redactPdf(job) {
   const doc = await PDFDocument.load(job.bytes);
   const pages = doc.getPages();
+  // Regular weight, not bold, and NOT scaled up: a bold or larger copy
+  // grows each glyph's own advance width, so on a multi-character string
+  // every letter after the first drifts a little further from its
+  // original spot — by the last letter of a long word the drift is
+  // whole pixels, not a hairline. Same font, same size reproduces the
+  // exact original layout, so every glyph lands exactly on itself.
+  const font = await doc.embedFont(StandardFonts.Helvetica);
   const color = hexRgb(job.coverColor || '#ffffff');
+  // A ring of small rigid nudges (same size, just shifted) swallows the
+  // anti-aliased edge pixels a single same-position redraw might leave
+  // peeking out from under the original glyph strokes.
+  const nudges = [
+    [0, 0], [0.6, 0], [-0.6, 0], [0, 0.6], [0, -0.6], [0.6, 0.6], [-0.6, -0.6], [0.6, -0.6], [-0.6, 0.6],
+  ];
+
   job.candidates
     .filter((c) => job.selected.has(c.text))
     .forEach((c) => {
       c.occurrences.forEach((o) => {
         const page = pages[o.page - 1];
         if (!page) return;
-        const padX = Math.max(o.height * 0.3, 2);
-        const padY = Math.max(o.height * 0.35, 2);
-        const boxW = o.width + padX * 2;
-        const boxH = o.height + padY * 2;
+        const size = o.height || 12;
         const th = (o.angle * Math.PI) / 180;
-        const dx = -padX;
-        const dy = -padY * 0.6;
-        const x = o.x + dx * Math.cos(th) - dy * Math.sin(th);
-        const y = o.y + dx * Math.sin(th) + dy * Math.cos(th);
-        page.drawRectangle({ x, y, width: boxW, height: boxH, rotate: degrees(o.angle), color });
+        nudges.forEach(([ndx, ndy]) => {
+          const x = o.x + ndx * Math.cos(th) - ndy * Math.sin(th);
+          const y = o.y + ndx * Math.sin(th) + ndy * Math.cos(th);
+          page.drawText(c.text, { x, y, size, font, color, rotate: degrees(o.angle) });
+        });
       });
     });
   const bytes = await doc.save();
@@ -291,37 +314,58 @@ const RemoveWatermark = () => {
                 {job.loadError && <p className="mt-1 text-xs text-red-500">{job.loadError}</p>}
 
                 {job.kind === 'pdf' && !job.loading && !job.loadError && (
-                  job.candidates.length ? (
-                    <div className="mt-2 space-y-1.5">
-                      {job.candidates.map((c) => (
-                        <label key={c.text} className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
-                          <input
-                            type="checkbox"
-                            checked={job.selected.has(c.text)}
-                            onChange={() => toggleCandidate(job.id, c.text)}
-                            className="h-3.5 w-3.5 accent-purple-600"
-                          />
-                          <span className="truncate font-medium text-gray-800 dark:text-gray-100">“{c.text}”</span>
-                          <span className="shrink-0 text-gray-400">
-                            {c.pagesHit}/{c.totalPages} pages{c.confidence === 'high' ? '' : ' · check this one'}
-                          </span>
-                        </label>
-                      ))}
-                      <div className="flex items-center gap-1.5 pt-1">
-                        <span className="text-[11px] text-gray-400">Cover with</span>
-                        {COVER_SWATCHES.map((sw) => (
-                          <button
-                            key={sw}
-                            type="button"
-                            title={sw}
-                            onClick={() => patchJob(job.id, { coverColor: sw })}
-                            className={`h-4 w-4 rounded-full border ${job.coverColor === sw ? 'border-purple-500 ring-1 ring-purple-500' : 'border-gray-300 dark:border-gray-600'}`}
-                            style={{ backgroundColor: sw }}
-                          />
+                  job.candidates.length ? (() => {
+                    const high = job.candidates.filter((c) => c.confidence === 'high');
+                    const medium = job.candidates.filter((c) => c.confidence === 'medium');
+                    const visible = job.showMore ? job.candidates : high;
+                    return (
+                      <div className="mt-2 space-y-1.5">
+                        {high.length > 0 && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            Found and ready to remove — just click <span className="font-medium">Remove watermark</span> below.
+                          </p>
+                        )}
+                        {visible.map((c) => (
+                          <label key={c.text} className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+                            <input
+                              type="checkbox"
+                              checked={job.selected.has(c.text)}
+                              onChange={() => toggleCandidate(job.id, c.text)}
+                              className="h-3.5 w-3.5 accent-purple-600"
+                            />
+                            <span className="truncate font-medium text-gray-800 dark:text-gray-100">“{c.text}”</span>
+                            <span className="shrink-0 text-gray-400">{c.pagesHit}/{c.totalPages} pages</span>
+                          </label>
                         ))}
+                        {medium.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => patchJob(job.id, { showMore: !job.showMore })}
+                            className="text-[11px] text-purple-600 dark:text-purple-400 hover:underline"
+                          >
+                            {job.showMore ? 'Hide extra matches' : high.length
+                              ? `Show ${medium.length} more possible match${medium.length === 1 ? '' : 'es'}`
+                              : `No obvious watermark found — show ${medium.length} weaker match${medium.length === 1 ? '' : 'es'}`}
+                          </button>
+                        )}
+                        {(job.selected.size > 0) && (
+                          <div className="flex items-center gap-1.5 pt-1">
+                            <span className="text-[11px] text-gray-400">Cover with</span>
+                            {COVER_SWATCHES.map((sw) => (
+                              <button
+                                key={sw}
+                                type="button"
+                                title={sw}
+                                onClick={() => patchJob(job.id, { coverColor: sw })}
+                                className={`h-4 w-4 rounded-full border ${job.coverColor === sw ? 'border-purple-500 ring-1 ring-purple-500' : 'border-gray-300 dark:border-gray-600'}`}
+                                style={{ backgroundColor: sw }}
+                              />
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ) : (
+                    );
+                  })() : (
                     <p className="mt-1 text-xs text-gray-400">
                       No repeated watermark text found. If it’s a logo/image stamp, this tool can’t auto-detect it yet.
                     </p>
