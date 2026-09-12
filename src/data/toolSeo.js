@@ -752,9 +752,44 @@ const toolSeo = {
       { q: 'Is my file uploaded?', a: `No. ${NO_UPLOAD}` },
     ],
     related: [
+      { id: 'remove-watermark', text: 'strip a watermark back off a PDF or photo' },
       { id: 'page-numbers', text: 'add page numbers in the same pass' },
       { id: 'protect-pdf', text: 'password-protect the document as well' },
       { id: 'pdf-editor', text: 'place text or images on specific pages' },
+    ],
+  },
+
+  'remove-watermark': {
+    seoTitle: 'Remove Watermark from PDF or Image – Free',
+    seoDescription:
+      'Remove a watermark from a PDF or an image online free. Auto-detects repeated text across pages, or paint one off a photo by hand. Several files at once, nothing uploaded.',
+    h1: 'How to remove a watermark from a PDF or an image',
+    intro:
+      'Take a repeated text watermark off a PDF automatically, or paint a mark off a photo by hand — upload several files at once. Free and fully in-browser.',
+    body: [
+      'Most watermarks are the same bit of text stamped at the same spot on every page — "CONFIDENTIAL", a company name, a domain. This tool reads the text layer of your PDF, finds any string that keeps showing up in the same place (the classic sign of a stamp rather than normal body text), and lists it for you to confirm. Tick the ones you want gone and it covers each occurrence with a solid colour matched to the page.',
+      'A photo watermark — a logo or a translucent stamp baked into the image itself — can\'t be found automatically the same way, so this tool gives you a brush instead: paint over the mark and it blends in a fill sourced from the area around it. It is a local, on-device technique, not an AI model, so it works best on a small or faint mark over a fairly plain background; a large, sharp logo on a busy photo may still leave a soft trace, in which case painting it a flat colour is the honest fallback.',
+      `Add PDFs and photos together and process the whole batch in one go, downloading the results individually or as a ZIP. ${NO_UPLOAD}`,
+    ],
+    steps: [
+      'Drop in one or more PDFs and/or photos.',
+      'For a PDF, tick which detected watermark text to remove (and pick a cover colour if the page isn\'t white).',
+      'For a photo, click "Paint over the watermark", brush the mark, and Apply.',
+      'Click "Remove watermarks" and download the cleaned files, individually or as a ZIP.',
+    ],
+    faqs: [
+      { q: 'Does this really delete the watermark from a PDF?', a: 'It covers every occurrence with a solid rectangle matched to the page colour, so it is visually gone. The original text stays underneath in the file rather than being stripped out — for pages you\'ll print or view normally that looks identical to a true removal, but the text is technically still there if someone dug through the file\'s raw content.' },
+      { q: 'Can it remove a logo or image watermark from a PDF?', a: 'Not automatically yet — auto-detect only works on repeated text. For a logo stamp, open the PDF page as an image (PDF to JPG) and use the photo brush instead, or use the PDF Editor to white-out the area by hand.' },
+      { q: 'Will it work on any photo watermark?', a: 'It works best on a small, faint or semi-transparent mark over a fairly plain area — it blends in nearby colour and texture, not an AI reconstruction. A large, sharp logo on a detailed photo may still show a soft trace; painting it a flat colour instead is more reliable there.' },
+      { q: 'Can I do several files at once?', a: 'Yes — drop in as many PDFs and photos as you like and process them together, then download each file or grab a ZIP of everything.' },
+      { q: 'Is this legal to use?', a: 'Only remove a watermark from a document or photo you own or are authorised to edit — for example your own exported files, or a mark you added yourself with Add Watermark.' },
+      { q: 'Is my file uploaded?', a: `No. ${NO_UPLOAD}` },
+    ],
+    related: [
+      { id: 'watermark-pdf', text: 'add a watermark of your own instead' },
+      { id: 'pdf-to-jpg', text: 'turn a page into an image to brush off a logo stamp' },
+      { id: 'pdf-editor', text: 'white-out any remaining trace by hand' },
+      { id: 'compress-image', text: 'shrink the cleaned photo afterwards' },
     ],
   },
 

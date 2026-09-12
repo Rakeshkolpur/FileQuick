@@ -3,7 +3,7 @@ import {
   LuImage, LuFileArchive, LuCrop, LuRepeat, LuScissors, LuCombine, LuFileText,
   LuTrash2, LuListOrdered, LuUnlock, LuLock, LuFileSignature, LuAlignLeft,
   LuEraser, LuRotateCw, LuFileOutput, LuHash, LuDroplet, LuPresentation,
-  LuTable, LuFileType2, LuUser, LuContact, LuExpand, LuScanLine, LuScaling, LuImagePlus,
+  LuTable, LuFileType2, LuUser, LuContact, LuExpand, LuScanLine, LuScaling, LuImagePlus, LuWand2,
 } from 'react-icons/lu';
 
 const C = 'h-full w-full';
@@ -35,6 +35,7 @@ const I = {
   scan: <LuScanLine className={C} />,
   examphoto: <LuScaling className={C} />,
   grow: <LuImagePlus className={C} />,
+  wand: <LuWand2 className={C} />,
 };
 
 // category: 'image' | 'pdf'
@@ -116,6 +117,9 @@ const TOOLS = [
   { id: 'watermark-pdf', title: 'Add Watermark', category: 'pdf', group: 'Pages', icon: I.water,
     description: 'Stamp text or a logo watermark on a PDF or a photo — angle, opacity, tiled or centred.',
     load: () => import('../components/tools/pdf/WatermarkPDF.jsx') },
+  { id: 'remove-watermark', title: 'Remove Watermark', category: 'pdf', group: 'Pages', icon: I.wand,
+    description: 'Strip a repeated text watermark from a PDF automatically, or paint one off a photo — several files at once.',
+    load: () => import('../components/tools/pdf/RemoveWatermark.jsx') },
   { id: 'fill-sign', title: 'Fill & Sign', category: 'pdf', group: 'Edit', icon: I.sign, chrome: 'min',
     description: 'Add text, dates, checkmarks and your signature to a PDF — all in your browser.',
     load: () => import('../components/tools/pdf/PDFFillAndSign.jsx') },

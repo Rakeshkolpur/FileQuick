@@ -15,6 +15,7 @@ const ORDER = [
   'exam-photo-resizer',
   'convert-image',
   'watermark-pdf',
+  'remove-watermark',
   'image-to-pdf',
 ];
 
@@ -30,6 +31,7 @@ const SHORT = {
   'exam-photo-resizer': 'Exam photo',
   'convert-image': 'Convert',
   'watermark-pdf': 'Watermark',
+  'remove-watermark': 'Remove watermark',
   'image-to-pdf': 'Make a PDF',
 };
 
