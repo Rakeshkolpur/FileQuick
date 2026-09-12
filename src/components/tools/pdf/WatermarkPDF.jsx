@@ -42,17 +42,25 @@ const POSITIONS = [
 const hexRgb = (h) => rgb(parseInt(h.slice(1, 3), 16) / 255, parseInt(h.slice(3, 5), 16) / 255, parseInt(h.slice(5, 7), 16) / 255);
 
 /**
- * Where to stamp the watermark: one centre for a fixed position, or a grid of
- * centres for "Tiled". Shared by the PDF (pdf-lib, Y grows up) and image
- * (canvas, Y grows down) bake steps — `flipY` is the only thing that differs.
+ * Where to stamp the watermark: one centre for a fixed position, a grid of
+ * centres for "Tiled", or a user-dragged point. Shared by the PDF (pdf-lib, Y
+ * grows up) and image (canvas, Y grows down) bake steps — `flipY` is the only
+ * thing that differs. `customPos` is { x, y } as a 0–100 percent of the page/
+ * photo, measured the way the screen shows it (y=0 is the top) regardless of
+ * which way the underlying coordinate space actually grows.
  */
-function watermarkCenters({ W, H, position, flipY, stepX, stepY }) {
+function watermarkCenters({ W, H, position, flipY, stepX, stepY, customPos }) {
   if (position === 'tile') {
     const centers = [];
     for (let gy = stepY / 2; gy < H + stepY; gy += stepY) {
       for (let gx = stepX / 2; gx < W + stepX; gx += stepX) centers.push([gx, gy]);
     }
     return centers;
+  }
+  if (customPos) {
+    const cx = (customPos.x / 100) * W;
+    const cy = flipY ? (customPos.y / 100) * H : H - (customPos.y / 100) * H;
+    return [[cx, cy]];
   }
   const nearTop = flipY ? H * 0.15 : H * 0.85;
   const nearBottom = flipY ? H * 0.85 : H * 0.15;
@@ -83,6 +91,9 @@ const WatermarkPDF = () => {
   const [opacity, setOpacity] = useState(25);
   const [angle, setAngle] = useState(45);
   const [position, setPosition] = useState('center');
+  // A drag in the preview overrides `position`'s fixed spot — { x, y } as a
+  // 0–100% point, null while a preset (Centre/Top/Bottom/Tiled) is in charge.
+  const [customPos, setCustomPos] = useState(null);
   const [scope, setScope] = useState('all'); // PDF only
   const [rangeText, setRangeText] = useState(''); // PDF only
 
@@ -92,8 +103,9 @@ const WatermarkPDF = () => {
   const [error, setError] = useState(null);
 
   const tok = useRef(0);
+  const previewBoxRef = useRef(null);
   const isImageSrc = !!file && isImageFile(file);
-  useEffect(() => { setResult(null); }, [mode, text, fontKey, size, color, imgSrc, imgScale, opacity, angle, position, scope, rangeText]);
+  useEffect(() => { setResult(null); }, [mode, text, fontKey, size, color, imgSrc, imgScale, opacity, angle, position, customPos, scope, rangeText]);
 
   const font = FONTS.find((f) => f.value === fontKey) || FONTS[0];
 
@@ -163,8 +175,35 @@ const WatermarkPDF = () => {
   const reset = () => {
     tok.current += 1;
     setFile(null); setBytes(null); setPdf(null); setSrcImg(null); setPageCount(0);
-    setPreview(null); setResult(null); setError(null);
+    setPreview(null); setResult(null); setError(null); setCustomPos(null);
   };
+
+  // Drag the watermark anywhere in the preview — mouse or touch, via Pointer
+  // Events. Disabled for "Tiled" (there's no single spot to drag).
+  const dragStateRef = useRef(null);
+  const posFromEvent = (e) => {
+    const box = previewBoxRef.current;
+    if (!box) return null;
+    const rect = box.getBoundingClientRect();
+    const x = Math.max(2, Math.min(98, ((e.clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(2, Math.min(98, ((e.clientY - rect.top) / rect.height) * 100));
+    return { x, y };
+  };
+  const startDrag = (e) => {
+    if (position === 'tile') return;
+    e.preventDefault();
+    e.stopPropagation();
+    const p = posFromEvent(e);
+    if (p) setCustomPos(p);
+    dragStateRef.current = true;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  };
+  const onDragMove = (e) => {
+    if (!dragStateRef.current) return;
+    const p = posFromEvent(e);
+    if (p) setCustomPos(p);
+  };
+  const endDrag = () => { dragStateRef.current = null; };
   const backFromResult = () => setResult(null);
   const gotoPage = async (n) => {
     const i = Math.max(1, Math.min(pageCount, n));
@@ -223,7 +262,7 @@ const WatermarkPDF = () => {
 
       const stepX = mode === 'text' ? Math.max(140, f.widthOfTextAtSize(text, size) * 0.9 + 60) : (imgScale / 100) * W + 40;
       const stepY = mode === 'text' ? Math.max(110, size * 2.4) : ((imgScale / 100) * W) * (imgDims.h / imgDims.w) + 40;
-      watermarkCenters({ W, H, position, flipY: false, stepX, stepY }).forEach(([cx, cy]) => stampAt(cx, cy));
+      watermarkCenters({ W, H, position, flipY: false, stepX, stepY, customPos }).forEach(([cx, cy]) => stampAt(cx, cy));
     });
 
     const outBytes = await doc.save();
@@ -281,7 +320,7 @@ const WatermarkPDF = () => {
     const stepY = mode === 'text'
       ? Math.max(110 * scale, pxSize * 2.4)
       : ((imgScale / 100) * canvas.width) * (imgDims.h / imgDims.w) + 40 * scale;
-    watermarkCenters({ W: canvas.width, H: canvas.height, position, flipY: true, stepX, stepY }).forEach(([cx, cy]) => stampAt(cx, cy));
+    watermarkCenters({ W: canvas.width, H: canvas.height, position, flipY: true, stepX, stepY, customPos }).forEach(([cx, cy]) => stampAt(cx, cy));
 
     return new Promise((resolve, reject) => {
       canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Could not export the image.'))), mimeFor(fmt), 0.92);
@@ -371,7 +410,14 @@ const WatermarkPDF = () => {
 
       <section className="space-y-2 pt-4 border-t border-gray-200 dark:border-gray-700">
         <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Placement</h3>
-        <Segmented options={POSITIONS} value={position} onChange={setPosition} />
+        <Segmented options={POSITIONS} value={position} onChange={(v) => { setPosition(v); setCustomPos(null); }} />
+        <p className="text-[11px] text-gray-400 dark:text-gray-500">
+          {position === 'tile'
+            ? 'Tiled repeats across the whole page, so there’s no single spot to drag.'
+            : customPos
+              ? <>Placed by hand. <button type="button" onClick={() => setCustomPos(null)} className="text-purple-600 dark:text-purple-400 hover:underline">Reset to {POSITIONS.find((p) => p.value === position)?.label}</button></>
+              : 'Or drag the watermark in the preview to put it exactly where you want.'}
+        </p>
         <RangeSlider label="Rotation" value={angle} min={-90} max={90} onChange={setAngle} suffix="°" />
         <RangeSlider label="Opacity" value={opacity} min={5} max={100} onChange={setOpacity} suffix=" %" />
       </section>
@@ -457,12 +503,13 @@ const WatermarkPDF = () => {
     const cells = [];
     for (let r = 0; r < rows; r += 1) {
       for (let c = 0; c < cols; c += 1) {
-        const topPct = tiles ? ((r + 0.5) / rows) * 100 : (position === 'top' ? 15 : position === 'bottom' ? 85 : 50);
-        const leftPct = tiles ? ((c + 0.5) / cols) * 100 : 50;
+        const topPct = tiles ? ((r + 0.5) / rows) * 100 : (customPos ? customPos.y : (position === 'top' ? 15 : position === 'bottom' ? 85 : 50));
+        const leftPct = tiles ? ((c + 0.5) / cols) * 100 : (customPos ? customPos.x : 50);
         cells.push(
           <div
             key={`${r}-${c}`}
-            className="absolute"
+            onPointerDown={tiles ? undefined : startDrag}
+            className={`absolute ${tiles ? '' : 'touch-none select-none cursor-grab active:cursor-grabbing'}`}
             style={{
               top: `${topPct}%`, left: `${leftPct}%`,
               transform: `translate(-50%,-50%) rotate(${-angle}deg)`,
@@ -477,7 +524,7 @@ const WatermarkPDF = () => {
                 {text || 'WATERMARK'}
               </span>
             ) : imgSrc ? (
-              <img src={imgSrc} alt="" style={{ width: `calc(${imgScale} / 100 * 100cqw)`, maxWidth: 'none' }} />
+              <img src={imgSrc} alt="" draggable={false} style={{ width: `calc(${imgScale} / 100 * 100cqw)`, maxWidth: 'none' }} />
             ) : null}
           </div>,
         );
@@ -519,6 +566,10 @@ const WatermarkPDF = () => {
           </div>
         ) : preview ? (
           <div
+            ref={previewBoxRef}
+            onPointerMove={onDragMove}
+            onPointerUp={endDrag}
+            onPointerCancel={endDrag}
             className="relative shadow-lg ring-1 ring-black/10 bg-white overflow-hidden"
             style={{
               aspectRatio: `${preview.wPt} / ${preview.hPt}`,
@@ -527,15 +578,16 @@ const WatermarkPDF = () => {
               containerType: 'inline-size',
             }}
           >
-            <img src={preview.url} alt={isImageSrc ? file.name : `Page ${previewIdx}`} className="block h-full w-full" />
+            <img src={preview.url} alt={isImageSrc ? file.name : `Page ${previewIdx}`} className="block h-full w-full" draggable={false} />
             {overlay()}
           </div>
         ) : null}
       </div>
 
       <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
-        Tip: a light grey <span className="font-medium">CONFIDENTIAL</span> at ~45° and 25% opacity is the classic look. Use
-        “Tiled” for a repeating background, or an image for a company logo — works the same on a PDF or a photo.
+        Tip: drag the watermark straight in the preview to put it anywhere — corner, edge, wherever. A light grey{' '}
+        <span className="font-medium">CONFIDENTIAL</span> at ~45° and 25% opacity is the classic look. Use “Tiled” for a
+        repeating background, or an image for a company logo — works the same on a PDF or a photo.
       </p>
     </ToolWorkspace>
   );
