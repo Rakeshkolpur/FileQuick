@@ -11,6 +11,11 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
 
+    <!-- GA4 only loads after cookie consent, but warm the connection early so
+         it doesn't cost a fresh DNS/TLS handshake the moment it's allowed to. -->
+    <link rel="preconnect" href="https://www.googletagmanager.com" />
+    <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+
     <title>Free PDF &amp; Image Tools — Compress, Convert, Merge | FileQuick</title>
     <meta
       name="description"
