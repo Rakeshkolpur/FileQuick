@@ -228,13 +228,13 @@ const toolSeo = {
       'Cut the background out of a photo and download a transparent PNG — people, products, logos and signatures. Runs on an in-browser AI model, so it is free and nothing is uploaded.',
     body: [
       'A transparent cut-out is the starting point for a lot of design work: a product shot on a white catalogue page, a headshot for a team grid, a logo over a coloured banner, or a signature to drop into a document. This tool finds the subject automatically and removes everything behind it in a few seconds.',
-      'The AI model runs entirely in your browser — it downloads once, then works offline with no per-image credit or watermark. Fine detail such as stray hair can be tidied with the keep / erase brush.',
+      'The AI model runs entirely in your browser — it downloads once, then works offline with no per-image credit or watermark. If it leaves a scrap of background or cuts away a bit of the subject, "Touch up edges" gives you an erase brush and a restore brush to fix it by hand.',
       `${NO_UPLOAD} To place the cut-out on a solid colour or another photo afterwards, use Convert Image or the Passport Photo Maker.`,
     ],
     steps: [
       'Upload the image you want to cut out.',
       'The tool detects the subject and removes the background automatically.',
-      'Touch up the edges with the keep / erase brush if needed.',
+      'If a bit of background is left or a bit of the subject got cut away, click "Touch up edges" and paint it right with the erase / restore brush.',
       'Download the transparent PNG.',
     ],
     faqs: [
@@ -242,6 +242,7 @@ const toolSeo = {
       { q: 'How do I make an image background transparent?', a: 'Upload it here — the subject is detected and the background is deleted, and you download a PNG with a transparent background.' },
       { q: 'Can I put a new background behind the cut-out?', a: 'Download the transparent PNG, then use Convert Image or the Passport Photo Maker to place it on a solid colour or another photo.' },
       { q: 'What resolution do I get?', a: 'The cut-out keeps the original resolution of your photo. Fine detail like stray hair may need a quick brush touch-up.' },
+      { q: 'The AI missed a spot — can I fix it by hand?', a: 'Yes. Click "Touch up edges" for a brush editor: Erase paints away any leftover background, Restore paints back a bit of the subject the model cut by mistake, using the real pixels from your original photo.' },
       { q: 'Is my photo uploaded?', a: `No. ${NO_UPLOAD}` },
     ],
     related: [
