@@ -67,10 +67,6 @@ const FileFloat = ({ src, className }) => (
     src={src}
     alt=""
     aria-hidden
-    width={48}
-    height={48}
-    loading="lazy"
-    decoding="async"
     className={`pointer-events-none absolute hidden h-12 w-12 drop-shadow-[0_10px_20px_rgba(79,70,229,0.18)] lg:block ${className}`}
   />
 );
