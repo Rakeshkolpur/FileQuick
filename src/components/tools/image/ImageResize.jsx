@@ -9,7 +9,7 @@ import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
 import OpenInTool from '../../tool/OpenInTool';
 import useObjectUrl from '../../../hooks/useObjectUrl';
-import { formatBytes, pct, stripExt } from '../../../lib/format';
+import { formatBytes, stripExt } from '../../../lib/format';
 import { consumeHandoff } from '../../../lib/imageHandoff';
 import { zipFiles } from '../../../lib/zip';
 import {
@@ -44,13 +44,6 @@ const initialCrop = (aspect, w, h) =>
   aspect
     ? centerCrop(makeAspectCrop({ unit: '%', width: 80 }, aspect, w, h), w, h)
     : { unit: '%', x: 8, y: 8, width: 84, height: 84 };
-
-const qualityWord = (q) => {
-  if (q >= 0.82) return 'looks great';
-  if (q >= 0.65) return 'good quality';
-  if (q >= 0.5) return 'acceptable';
-  return 'reduced quality';
-};
 
 const numField =
   'w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent';
@@ -184,14 +177,9 @@ const BatchCard = ({ item, result, onRemove, onDownload, onCrop }) => {
   );
 };
 
-// Keep previews compact so the controls below stay in view (portrait photos
-// otherwise fill the screen and force a scroll).
-const PREVIEW_IMG = 'max-h-[340px] max-w-full w-auto object-contain';
-
-const ResultImg = ({ blob }) => {
-  const url = useObjectUrl(blob);
-  return url ? <img src={url} alt="Result" className={PREVIEW_IMG} /> : null;
-};
+// Keep previews compact so the controls + "send to" row below stay in view
+// without scrolling (portrait photos otherwise fill the screen).
+const PREVIEW_IMG = 'max-h-[260px] max-w-full w-auto object-contain';
 
 const ImageResize = () => {
   const [items, setItems] = useState([]);
@@ -1007,6 +995,11 @@ const ImageResize = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 7v6h-6M21 13a9 9 0 11-3-6.7L21 9" />
                   </svg>
                 </IconBtn>
+                <IconBtn active={bgRemove} title="Remove background" onClick={toggleBg}>
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 4.5l10.5 10.5M4.5 9L15 19.5M12 21a9 9 0 100-18 9 9 0 000 18z" />
+                  </svg>
+                </IconBtn>
                 {(rotation !== 0 || cropApplied) && (
                   <button type="button" onClick={resetTransform} className="text-xs px-2 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">Reset</button>
                 )}
@@ -1027,7 +1020,7 @@ const ImageResize = () => {
             )}
             {cropOn && workUrl ? (
               <ReactCrop crop={crop} onChange={(_, p) => setCrop(p)} onComplete={(_, p) => setCompletedCrop(p)} aspect={cropAspect || undefined}>
-                <img src={workUrl} alt="Source" className="max-h-[420px] max-w-full w-auto object-contain" />
+                <img src={workUrl} alt="Source" className="max-h-[320px] max-w-full w-auto object-contain" />
               </ReactCrop>
             ) : croppedPreviewUrl ? (
               <img src={croppedPreviewUrl} alt="Cropped" className={PREVIEW_IMG} />
@@ -1040,7 +1033,7 @@ const ImageResize = () => {
             {formatBytes(single.file.size)} · will export as {singleOutDims.w} × {singleOutDims.h}
           </p>
 
-          <div className="mt-5 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
             <OpenInTool getImage={getCurrentImage} exclude={['resize-image']} heading="Or send this image to" />
           </div>
         </div>
@@ -1051,7 +1044,7 @@ const ImageResize = () => {
             {tabBtn('tools', 'Tools')}
           </div>
 
-          <div className="flex-1 lg:overflow-y-auto p-5 space-y-5">
+          <div className="flex-1 lg:overflow-y-auto p-4 space-y-4">
             {activeTab === 'download' ? (
               <>
                 <section className="space-y-3">
@@ -1136,7 +1129,7 @@ const ImageResize = () => {
                 </section>
 
                 {!isSizeMode && (
-                  <section className="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <section className="space-y-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                     <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Output</h3>
                     {formatField}
                     {showQuality && (
@@ -1184,7 +1177,7 @@ const ImageResize = () => {
                   )}
                 </section>
 
-                <section className="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <section className="space-y-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                   <label className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-gray-900 dark:text-white">Remove background</span>
                     <button
@@ -1297,131 +1290,27 @@ const ImageResize = () => {
       <input ref={addInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }} />
 
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        {single ? (
-          <div className="min-w-0 flex items-center gap-2 text-sm">
-            <span className="font-medium text-gray-900 dark:text-white truncate max-w-[12rem]">{single.file.name}</span>
-            <span className="text-gray-400">·</span>
-            <span className="rounded-md bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 text-gray-600 dark:text-gray-300">{natW} × {natH}</span>
-            <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 12h15" />
-            </svg>
-            <span className="rounded-md bg-purple-100 dark:bg-purple-900/40 px-1.5 py-0.5 text-purple-700 dark:text-purple-300 font-medium">
-              {r0 ? `${r0.width} × ${r0.height}` : `${singleOutDims.w} × ${singleOutDims.h}`}
-            </span>
-          </div>
-        ) : (
-          <p className="text-sm font-medium text-gray-900 dark:text-white">{items.length} images</p>
-        )}
+        <p className="text-sm font-medium text-gray-900 dark:text-white">{items.length} images</p>
         <div className="flex gap-2">
           <button type="button" onClick={() => addInputRef.current?.click()} className="text-sm px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600">Add images</button>
           <button type="button" onClick={reset} className="text-sm px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600">Start over</button>
         </div>
       </div>
 
-      {single ? (
-        <>
-          <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-            {cropOn ? (
-              <>
-                <button type="button" onClick={applyCrop} className="h-8 px-3 rounded-lg bg-purple-600 text-white text-sm font-medium hover:bg-purple-700">
-                  Apply crop
-                </button>
-                <button type="button" onClick={cancelCrop} className="h-8 px-3 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm hover:bg-gray-200 dark:hover:bg-gray-600">
-                  Cancel
-                </button>
-                <span className="ml-1 text-xs text-gray-400 dark:text-gray-500">drag to set the area</span>
-              </>
-            ) : (
-              <>
-                <IconBtn active={cropApplied} title="Crop" onClick={startCrop}>
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 2v14a2 2 0 002 2h14M2 6h14a2 2 0 012 2v14" />
-                  </svg>
-                </IconBtn>
-                <IconBtn title="Rotate left" onClick={() => rotate(-90)}>
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v6h6M3 13a9 9 0 103-6.7L3 9" />
-                  </svg>
-                </IconBtn>
-                <IconBtn title="Rotate right" onClick={() => rotate(90)}>
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 7v6h-6M21 13a9 9 0 11-3-6.7L21 9" />
-                  </svg>
-                </IconBtn>
-                {(rotation !== 0 || cropApplied) && (
-                  <button type="button" onClick={resetTransform} className="text-xs px-2 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">Reset</button>
-                )}
-              </>
-            )}
-          </div>
-
-          <div
-            className={`rounded-xl flex items-center justify-center p-3 min-h-[200px] relative ${
-              needsAlpha ? 'bg-checkered' : 'bg-gray-100 dark:bg-gray-900/50'
-            }`}
-          >
-            {(busy || bgBusy) && (
-              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-white/70 dark:bg-gray-900/70 rounded-xl">
-                <div className="w-10 h-10 border-4 border-t-purple-600 border-gray-300 dark:border-gray-600 rounded-full animate-spin" />
-                {bgBusy && <p className="text-xs text-gray-500 dark:text-gray-400">Removing background… {Math.round(bgProgress * 100)}%</p>}
-              </div>
-            )}
-            {cropOn && workUrl ? (
-              <ReactCrop crop={crop} onChange={(_, p) => setCrop(p)} onComplete={(_, p) => setCompletedCrop(p)} aspect={cropAspect || undefined}>
-                <img src={workUrl} alt="Source" className="max-h-[420px] max-w-full w-auto object-contain" />
-              </ReactCrop>
-            ) : r0 ? (
-              <ResultImg blob={r0.blob} />
-            ) : croppedPreviewUrl ? (
-              <img src={croppedPreviewUrl} alt="Cropped" className={PREVIEW_IMG} />
-            ) : (
-              workUrl && <img src={workUrl} alt="Original" className={PREVIEW_IMG} />
-            )}
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-            <span className="text-gray-500 dark:text-gray-400">{formatBytes(single.file.size)}</span>
-            {r0 && (
-              <>
-                <span className="text-gray-400">→</span>
-                <span className="font-semibold text-gray-900 dark:text-white">{formatBytes(r0.size)}</span>
-                {r0.size < single.file.size && (
-                  <span className="text-green-600 dark:text-green-400 font-medium">−{pct(single.file.size, r0.size)}%</span>
-                )}
-                <span className="text-gray-400">·</span>
-                <span className="text-gray-500 dark:text-gray-400">
-                  {(r0.ext || outExt(r0.format)).toUpperCase()}
-                  {r0.quality ? ` · ${Math.round(r0.quality * 100)}% (${qualityWord(r0.quality)})` : ''}
-                </span>
-                {isSizeMode && (
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${r0.fits ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'}`}>
-                    {r0.fits ? (r0.resized ? `Target met · resized to ${r0.width}×${r0.height}` : 'Target met') : `Can't reach ${targetValue} ${targetUnit}`}
-                  </span>
-                )}
-              </>
-            )}
-            {r0 && isSizeMode && !r0.fits && (
-              <p className="w-full mt-1 text-xs text-amber-600 dark:text-amber-400">
-                Smallest at {r0.width}×{r0.height} without wrecking the image. Try WebP, lower the dimensions,
-                or tick “Scale the picture down to hit the target”.
-              </p>
-            )}
-          </div>
-        </>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-          {items.map((it, i) => (
-            <BatchCard
-              key={it.id}
-              item={it}
-              result={results[i]}
-              onRemove={() => removeItem(it.id)}
-              onDownload={() => downloadOne(i)}
-              onCrop={() => setCropModalId(it.id)}
-            />
-          ))}
-        </div>
-      )}
+      {/* Single-image editing has its own layout above (see the early return
+          for the `single` case) — this grid is reached only in batch mode. */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+        {items.map((it, i) => (
+          <BatchCard
+            key={it.id}
+            item={it}
+            result={results[i]}
+            onRemove={() => removeItem(it.id)}
+            onDownload={() => downloadOne(i)}
+            onCrop={() => setCropModalId(it.id)}
+          />
+        ))}
+      </div>
 
       {cropModalId != null && (() => {
         const it = items.find((x) => x.id === cropModalId);
@@ -1437,15 +1326,6 @@ const ImageResize = () => {
           />
         ) : null;
       })()}
-
-      {showBrush && cutoutImg && single?.img && (
-        <MatteBrush
-          original={single.img}
-          cutout={cutoutImg}
-          onApply={(img) => { setCutoutImg(img); setShowBrush(false); markDirty(); }}
-          onClose={() => setShowBrush(false)}
-        />
-      )}
     </ToolWorkspace>
   );
 };
