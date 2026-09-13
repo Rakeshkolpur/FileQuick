@@ -4,8 +4,8 @@ import { screenFiles, rejectionMessage, DESKTOP_LIMIT_MB } from '../../lib/fileV
 import { isDesktop } from '../../lib/desktop';
 
 const UploadGlyph = () => (
-  <svg className="w-full h-full text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M12 16V4m0 0L8 8m4-4l4 4M4 20h16" />
+  <svg className="w-full h-full text-white" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 4a1 1 0 01.7.29l5 5a1 1 0 01-1.4 1.42L13 7.4V19a1 1 0 01-2 0V7.4l-3.3 3.3a1 1 0 01-1.4-1.42l5-5A1 1 0 0112 4z" />
   </svg>
 );
 
@@ -99,7 +99,7 @@ const FileDropzone = ({
         }}
       />
       <div
-        className={`mx-auto mb-4 rounded-2xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center shadow-lg shadow-purple-600/25 p-3.5 ${
+        className={`mx-auto mb-4 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/25 p-3.5 ${
           compact ? 'w-12 h-12' : 'w-16 h-16'
         }`}
       >
