@@ -3,7 +3,7 @@ import FileDropzone from '../../tool/FileDropzone';
 import { downloadBlob } from '../../tool/DownloadButton';
 import { ToolBackContext } from '../../ToolWrapper';
 import { formatBytes, stripExt } from '../../../lib/format';
-import { upscaleImage, preloadUpscaleModel } from '../../../lib/upscale';
+import { upscaleImage, preloadUpscaleModel, isCpuFallback } from '../../../lib/upscale';
 import { consumeHandoff } from '../../../lib/imageHandoff';
 import OpenInTool from '../../tool/OpenInTool';
 
@@ -90,7 +90,12 @@ const ImageUpscaler = () => {
       setResult(out);
       setPos(50); setZoom(1); setPan({ x: 0, y: 0 });
     } catch (e) {
-      if (e?.name !== 'AbortError') setError(e?.message || 'Upscaling failed. Try a smaller image or the 2× option.');
+      if (e?.name === 'AbortError') { /* user cancelled */ }
+      else if (/shader|webgl/i.test(String(e?.message || e || ''))) {
+        setError("Your device's graphics couldn't handle this — trying a slower fallback usually fixes it. Give it another click, or try 2× instead.");
+      } else {
+        setError(e?.message || 'Upscaling failed. Try a smaller image or the 2× option.');
+      }
     } finally {
       setBusy(false);
       abortRef.current = null;
@@ -301,7 +306,11 @@ const ImageUpscaler = () => {
               <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
                 <div className="h-full rounded-full bg-gradient-to-r from-purple-600 to-pink-600 transition-[width] duration-200" style={{ width: `${Math.max(4, progress * 100)}%` }} />
               </div>
-              <p className="mt-2 text-[11px] text-gray-400 dark:text-gray-500">4× can take up to a minute — the model is working, not frozen.</p>
+              <p className="mt-2 text-[11px] text-gray-400 dark:text-gray-500">
+                {isCpuFallback()
+                  ? "Your device's graphics can't run this model, so it's using a slower CPU mode — this can take a few minutes."
+                  : '4× can take up to a minute — the model is working, not frozen.'}
+              </p>
               <button type="button" onClick={() => abortRef.current?.abort()} className="mt-2 text-[12px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">Cancel</button>
             </div>
           ) : (

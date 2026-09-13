@@ -4,14 +4,18 @@
 
 let _core = null;
 const _upscalers = {}; // factor -> Upscaler
+// Some GPUs/drivers can't compile the WebGL shaders this model needs (seen as
+// "Failed to link vertex and fragment shaders") — once that happens we stick
+// to the CPU backend for the rest of the session rather than fail every time.
+let _forceCpu = false;
 
 async function loadCore() {
   if (_core) return _core;
-  const [{ default: Upscaler }] = await Promise.all([
+  const [{ default: Upscaler }, tf] = await Promise.all([
     import('upscaler'),
     import('@tensorflow/tfjs'), // registers the WebGL backend
   ]);
-  _core = { Upscaler };
+  _core = { Upscaler, tf };
   return _core;
 }
 
@@ -31,6 +35,12 @@ async function getUpscaler(factor) {
 // warm the network fetch so the first "Upscale" click isn't the wait
 export function preloadUpscaleModel(factor = 2) {
   getUpscaler(factor).catch(() => {});
+}
+
+// Whether this session already had to fall back to the (slower) CPU backend
+// because the GPU couldn't compile the model's WebGL shaders.
+export function isCpuFallback() {
+  return _forceCpu;
 }
 
 const loadImage = (src) =>
@@ -82,15 +92,36 @@ async function polish(dataUrl) {
  */
 export async function upscaleImage(dataUrl, factor, onProgress, signal) {
   const up = await getUpscaler(factor);
+  const { tf } = await loadCore();
+  if (_forceCpu && tf.getBackend() !== 'cpu') {
+    await tf.setBackend('cpu');
+    await tf.ready();
+  }
   const { src, w, h, capped } = await prepareSource(dataUrl, factor);
   onProgress?.(0);
-  const out = await up.upscale(src, {
+  const opts = {
     output: 'base64',
     patchSize: 64,
     padding: 6,
     signal,
     progress: (rate) => onProgress?.(Math.max(0, Math.min(1, rate))),
-  });
+  };
+  let out;
+  try {
+    out = await up.upscale(src, opts);
+  } catch (e) {
+    const msg = String(e?.message || e || '');
+    if (!_forceCpu && /shader|webgl/i.test(msg)) {
+      // The GPU/driver couldn't compile this model's shaders — retry once
+      // on the CPU backend. Slower, but works on every device.
+      _forceCpu = true;
+      await tf.setBackend('cpu');
+      await tf.ready();
+      out = await up.upscale(src, opts);
+    } else {
+      throw e;
+    }
+  }
   onProgress?.(1);
   let blob;
   try {
