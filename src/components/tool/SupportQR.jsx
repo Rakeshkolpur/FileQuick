@@ -36,7 +36,7 @@ export const SupportModal = ({ onClose }) => (
   </div>
 );
 
-const SupportLink = ({ className = '', children }) => {
+const SupportLink = ({ className = '', children, ...rest }) => {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -44,6 +44,7 @@ const SupportLink = ({ className = '', children }) => {
         type="button"
         onClick={() => setOpen(true)}
         className={className || 'inline-flex items-center gap-1 text-xs font-medium text-purple-600 hover:underline dark:text-purple-400'}
+        {...rest}
       >
         {children || <>☕ Support this project</>}
       </button>

@@ -4,6 +4,7 @@ import styles from './Navigation.module.css';
 import { useTheme } from '../context/ThemeContext';
 import { NAV_CATEGORIES, getMenuColumns, getToolTint } from '../data/tools';
 import Logo from './Logo';
+import SupportLink from './tool/SupportQR';
 
 const SunIcon = () => (
   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -197,6 +198,13 @@ const Navigation = () => {
           </div>
 
           <div className="flex items-center gap-1">
+            <SupportLink
+              className="p-2 rounded-md text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white"
+              title="Support this project"
+              aria-label="Support this project"
+            >
+              ☕
+            </SupportLink>
             <button
               onClick={toggle}
               aria-label="Toggle dark mode"
