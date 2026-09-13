@@ -54,10 +54,14 @@ const loadImage = (src) =>
 
 // Cap the source so a pass stays quick and the result fits in a canvas.
 const CAP = { 2: 1200, 4: 700 };
+// The CPU backend has no GPU parallelism, so ESRGAN's conv layers are far
+// slower and far more memory-hungry per pixel — cap much smaller there to
+// avoid locking up or crashing the tab on a weaker laptop.
+const CPU_CAP = { 2: 500, 4: 320 };
 
-async function prepareSource(dataUrl, factor) {
+async function prepareSource(dataUrl, factor, useCpuCap) {
   const img = await loadImage(dataUrl);
-  const cap = CAP[factor];
+  const cap = useCpuCap ? CPU_CAP[factor] : CAP[factor];
   const long = Math.max(img.naturalWidth, img.naturalHeight);
   if (long <= cap) return { src: dataUrl, w: img.naturalWidth, h: img.naturalHeight, capped: false };
   const k = cap / long;
@@ -97,7 +101,7 @@ export async function upscaleImage(dataUrl, factor, onProgress, signal) {
     await tf.setBackend('cpu');
     await tf.ready();
   }
-  const { src, w, h, capped } = await prepareSource(dataUrl, factor);
+  let { src, w, h, capped } = await prepareSource(dataUrl, factor, _forceCpu);
   onProgress?.(0);
   const opts = {
     output: 'base64',
@@ -111,13 +115,18 @@ export async function upscaleImage(dataUrl, factor, onProgress, signal) {
     out = await up.upscale(src, opts);
   } catch (e) {
     const msg = String(e?.message || e || '');
-    if (!_forceCpu && /shader|webgl/i.test(msg)) {
-      // The GPU/driver couldn't compile this model's shaders — retry once
-      // on the CPU backend. Slower, but works on every device.
+    // The GPU/driver couldn't compile this model's shaders. 4x is a much
+    // deeper network — retrying it on the CPU has been seen to lock up or
+    // crash the tab on weaker laptops, so only 2x gets an automatic retry
+    // (at a much smaller size); 4x just fails with a clear message.
+    if (!_forceCpu && factor === 2 && /shader|webgl/i.test(msg)) {
       _forceCpu = true;
       await tf.setBackend('cpu');
       await tf.ready();
+      ({ src, w, h, capped } = await prepareSource(dataUrl, factor, true));
       out = await up.upscale(src, opts);
+    } else if (/shader|webgl/i.test(msg)) {
+      throw new Error("Your device's graphics can't run 4× upscaling. Try 2× instead, or a different device.");
     } else {
       throw e;
     }

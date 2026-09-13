@@ -84,19 +84,25 @@ const ImageUpscaler = () => {
     setBusy(true); setError(null); setProgress(0); clearResult();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
+    // Safety net: if a device-specific quirk leaves the model stuck instead
+    // of rejecting cleanly, force it to give up rather than hang the page.
+    let timedOut = false;
+    const watchdog = setTimeout(() => { timedOut = true; ctrl.abort(); }, 90_000);
     try {
       const out = await upscaleImage(srcUrl, factor, setProgress, ctrl.signal);
       resultUrlRef.current = out.blobUrl;
       setResult(out);
       setPos(50); setZoom(1); setPan({ x: 0, y: 0 });
     } catch (e) {
-      if (e?.name === 'AbortError') { /* user cancelled */ }
-      else if (/shader|webgl/i.test(String(e?.message || e || ''))) {
-        setError("Your device's graphics couldn't handle this — trying a slower fallback usually fixes it. Give it another click, or try 2× instead.");
+      if (e?.name === 'AbortError') {
+        if (timedOut) setError('This is taking too long on your device. Try 2× instead, or a different device.');
+        // else: user pressed Cancel — no message needed
       } else {
         setError(e?.message || 'Upscaling failed. Try a smaller image or the 2× option.');
       }
     } finally {
+      clearTimeout(watchdog);
+      clearTimeout(watchdog);
       setBusy(false);
       abortRef.current = null;
     }
