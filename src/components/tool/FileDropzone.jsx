@@ -3,18 +3,21 @@ import { Link } from 'react-router-dom';
 import { screenFiles, rejectionMessage, DESKTOP_LIMIT_MB } from '../../lib/fileValidation';
 import { isDesktop } from '../../lib/desktop';
 
-// A cloud silhouette — one dominant dome plus two low, gentle bumps that
-// only widen the base (their tops sit well below the dome's edge, so they
-// don't poke up into a second peak) — with a bold white up-arrow on top.
+// Same cloud shape as the homepage's UploadZone CloudMark, just a deeper
+// blue fill instead of that one's light indigo gradient.
 const UploadGlyph = ({ className }) => (
-  <svg viewBox="0 0 64 48" className={className}>
-    <g className="fill-blue-600">
-      <rect x="10" y="24" width="44" height="16" rx="8" />
-      <circle cx="17" cy="27" r="10" />
-      <circle cx="47" cy="27" r="10" />
-      <circle cx="32" cy="18" r="17" />
-    </g>
-    <path d="M32 19l8 8h-5v10h-6V27h-5l8-8z" fill="white" />
+  <svg viewBox="0 0 72 56" className={className}>
+    <defs>
+      <linearGradient id="fq-dropzone-cloud" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stopColor="#2563eb" />
+        <stop offset="1" stopColor="#1d4ed8" />
+      </linearGradient>
+    </defs>
+    <path
+      fill="url(#fq-dropzone-cloud)"
+      d="M20 52a14 14 0 01-2.6-27.75 18 18 0 0134.6-4.2A13 13 0 0150 52H20z"
+    />
+    <path fill="#fff" d="M36 15l10 11h-6.2v13h-7.6V26H26l10-11z" />
   </svg>
 );
 
@@ -107,7 +110,7 @@ const FileDropzone = ({
           e.target.value = '';
         }}
       />
-      <UploadGlyph className={`mx-auto mb-4 drop-shadow-lg ${compact ? 'w-16 h-12' : 'w-24 h-[4.5rem]'}`} />
+      <UploadGlyph className={`mx-auto mb-4 drop-shadow-lg ${compact ? 'w-14 h-11' : 'w-20 h-16'}`} />
       <h3 className={`font-bold text-gray-900 dark:text-white ${compact ? 'text-lg' : 'text-2xl'}`}>{title}</h3>
       <p className="text-gray-500 dark:text-gray-400 mt-1">
         {hint}
