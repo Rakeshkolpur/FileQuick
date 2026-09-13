@@ -5,6 +5,7 @@ import Footer from './components/Footer';
 import ScrollToTop from './components/ScrollToTop';
 import BackToTop from './components/BackToTop';
 import DesktopBridge from './components/DesktopBridge';
+import SupportToast from './components/SupportToast';
 import DesktopShell from './components/desktop/DesktopShell';
 import CookieBanner from './components/CookieBanner';
 import Analytics from './components/Analytics';
@@ -25,6 +26,7 @@ const App = () => {
       <Footer />
       <BackToTop />
       <DesktopBridge />
+      <SupportToast />
       <CookieBanner />
     </div>
   );

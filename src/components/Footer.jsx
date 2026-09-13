@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { FaGithub, FaLinkedin } from 'react-icons/fa';
 import { getToolsByCategory } from '../data/tools';
 import Logo from './Logo';
+import SupportLink from './tool/SupportQR';
 
 const SOCIAL_LINKS = [
   { label: 'GitHub', href: 'https://github.com/Rakeshkolpur', Icon: FaGithub },
@@ -72,6 +73,9 @@ const Footer = () => (
           <Link to="/terms-of-service" className="text-sm text-gray-500 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400">
             Terms
           </Link>
+          <SupportLink className="text-sm font-medium text-purple-600 hover:underline dark:text-purple-400">
+            ☕ Support this project
+          </SupportLink>
         </div>
         <div className="flex items-center gap-3">
           {SOCIAL_LINKS.map((s) => (

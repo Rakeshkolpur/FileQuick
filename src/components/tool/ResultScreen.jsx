@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { formatBytes } from '../../lib/format';
+import SupportLink from './SupportQR';
 
 const R = 52;
 const CIRC = 2 * Math.PI * R;
@@ -54,8 +55,10 @@ const ResultScreen = ({
     if (dl !== 'idle' || !onDownload) return;
     setDl('working');
     await new Promise((r) => setTimeout(r, 350));
-    try { await onDownload(); }
-    finally { setDl('done'); setTimeout(() => setDl('idle'), 2200); }
+    try {
+      await onDownload();
+      window.dispatchEvent(new CustomEvent('fq:downloaded'));
+    } finally { setDl('done'); setTimeout(() => setDl('idle'), 2200); }
   };
 
   return (
@@ -141,6 +144,7 @@ const ResultScreen = ({
       </button>
 
       {note && <p className="mt-2 text-[11px] text-gray-400 dark:text-gray-500 max-w-xs">{note}</p>}
+      {complete && <SupportLink className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-purple-600 hover:underline dark:text-purple-400" />}
     </div>
   );
 };
