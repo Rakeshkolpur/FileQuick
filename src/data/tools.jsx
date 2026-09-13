@@ -41,7 +41,7 @@ const I = {
 // category: 'image' | 'pdf'
 const TOOLS = [
   // ============ IMAGE ============
-  { id: 'resize-image', title: 'Resize Image', category: 'image', group: 'Resize & Crop', icon: I.image, popular: true,
+  { id: 'resize-image', title: 'Resize Image', category: 'image', group: 'Resize & Crop', icon: I.image, popular: true, compactHeader: true,
     description: 'Change image dimensions by pixels, percentage, or a target file size.',
     load: () => import('../components/tools/image/ImageResize.jsx') },
   { id: 'crop-image', title: 'Crop Image', category: 'image', group: 'Resize & Crop', icon: I.crop,

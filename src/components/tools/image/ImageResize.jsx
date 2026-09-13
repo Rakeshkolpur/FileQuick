@@ -998,11 +998,25 @@ const ImageResize = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 7v6h-6M21 13a9 9 0 11-3-6.7L21 9" />
                   </svg>
                 </IconBtn>
-                <IconBtn active={bgRemove} title="Remove background" onClick={toggleBg}>
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 4.5l10.5 10.5M4.5 9L15 19.5M12 21a9 9 0 100-18 9 9 0 000 18z" />
+                {/* A labelled pill, not a bare icon — "remove background" has no
+                    universally-recognised pictograph, so a hover-only tooltip
+                    left people guessing what the icon did. */}
+                <button
+                  type="button"
+                  title="Remove background"
+                  onClick={toggleBg}
+                  className={`h-8 px-2.5 flex items-center gap-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    bgRemove
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                    <rect x="3" y="4" width="18" height="16" rx="2" />
+                    <circle cx="12" cy="12" r="4" strokeDasharray="2.5 2.5" />
                   </svg>
-                </IconBtn>
+                  Remove BG
+                </button>
                 {(rotation !== 0 || cropApplied) && (
                   <button type="button" onClick={resetTransform} className="text-xs px-2 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">Reset</button>
                 )}

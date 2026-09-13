@@ -174,9 +174,15 @@ const ToolWrapper = ({ toolId: toolIdProp, pageMeta, toolProps } = {}) => {
           <h1 className="text-xl md:text-2xl font-extrabold tracking-tight text-gray-900 dark:text-white">
             {heading}
           </h1>
-          <p className="mt-1 text-[13px] md:text-sm text-gray-500 dark:text-gray-400 max-w-2xl">
-            {pageMeta?.description || tool.description}
-          </p>
+          {/* A tool can opt out of the subtitle line (compactHeader) to save
+              vertical space once a file is loaded — the description still
+              exists for tool-grid cards and the meta description tag,
+              it just isn't repeated here. Every other tool is unaffected. */}
+          {!tool.compactHeader && (
+            <p className="mt-1 text-[13px] md:text-sm text-gray-500 dark:text-gray-400 max-w-2xl">
+              {pageMeta?.description || tool.description}
+            </p>
+          )}
         </header>
       )}
 
