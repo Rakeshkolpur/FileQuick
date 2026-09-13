@@ -47,9 +47,12 @@ const initialCrop = (aspect, w, h) =>
 
 const numField =
   'w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent';
+// Only ever rendered from the single-image editing screen below (batch mode's
+// own copy of this kind of chip is dead code, replaced by that screen) — safe
+// to give this tool's own blue accent instead of the site-wide purple.
 const chip =
-  'px-2.5 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-purple-100 dark:hover:bg-purple-900/40';
-const chipActive = 'px-2.5 py-1 text-xs rounded-md bg-purple-600 text-white';
+  'px-2.5 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-blue-100 dark:hover:bg-blue-900/40';
+const chipActive = 'px-2.5 py-1 text-xs rounded-md bg-blue-600 text-white';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -77,7 +80,7 @@ const IconBtn = ({ active, title, onClick, children }) => (
     onClick={onClick}
     className={`h-8 w-8 flex items-center justify-center rounded-lg transition-colors ${
       active
-        ? 'bg-purple-600 text-white'
+        ? 'bg-blue-600 text-white'
         : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
     }`}
   >
@@ -931,7 +934,7 @@ const ImageResize = () => {
       onClick={() => setActiveTab(id)}
       className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
         activeTab === id
-          ? 'border-purple-600 text-purple-600 dark:text-purple-400'
+          ? 'border-blue-600 text-blue-600 dark:text-blue-400'
           : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
       }`}
     >
@@ -957,7 +960,7 @@ const ImageResize = () => {
               <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 12h15" />
               </svg>
-              <span className="rounded-md bg-purple-100 dark:bg-purple-900/40 px-1.5 py-0.5 text-purple-700 dark:text-purple-300 font-medium">
+              <span className="rounded-md bg-blue-100 dark:bg-blue-900/40 px-1.5 py-0.5 text-blue-700 dark:text-blue-300 font-medium">
                 {singleOutDims.w} × {singleOutDims.h}
               </span>
             </div>
@@ -970,7 +973,7 @@ const ImageResize = () => {
           <div className="flex items-center gap-1.5 mb-2 flex-wrap">
             {cropOn ? (
               <>
-                <button type="button" onClick={applyCrop} className="h-8 px-3 rounded-lg bg-purple-600 text-white text-sm font-medium hover:bg-purple-700">
+                <button type="button" onClick={applyCrop} className="h-8 px-3 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700">
                   Apply crop
                 </button>
                 <button type="button" onClick={cancelCrop} className="h-8 px-3 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm hover:bg-gray-200 dark:hover:bg-gray-600">
@@ -1057,6 +1060,7 @@ const ImageResize = () => {
                     ]}
                     value={singleMode}
                     onChange={(v) => { setSingleMode(v); markDirty(); }}
+                    accent="blue"
                   />
 
                   {singleMode === 'dimensions' && (
@@ -1072,7 +1076,7 @@ const ImageResize = () => {
                         </label>
                       </div>
                       <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                        <input type="checkbox" checked={lockAspect} onChange={(e) => setLockAspect(e.target.checked)} className="h-4 w-4 accent-purple-600" />
+                        <input type="checkbox" checked={lockAspect} onChange={(e) => setLockAspect(e.target.checked)} className="h-4 w-4 accent-blue-600" />
                         Lock aspect ratio
                       </label>
                       <div className="flex flex-wrap gap-1.5">
@@ -1087,7 +1091,7 @@ const ImageResize = () => {
 
                   {singleMode === 'percent' && (
                     <>
-                      <RangeSlider label="Scale" value={percent} min={5} max={200} onChange={(v) => { setPercent(v); markDirty(); }} suffix="%" />
+                      <RangeSlider label="Scale" value={percent} min={5} max={200} onChange={(v) => { setPercent(v); markDirty(); }} suffix="%" accent="blue" />
                       <p className="text-xs text-gray-400 dark:text-gray-500">Output: {singleOutDims.w} × {singleOutDims.h} px</p>
                     </>
                   )}
@@ -1116,7 +1120,7 @@ const ImageResize = () => {
                         </label>
                       </div>
                       <label className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-300">
-                        <input type="checkbox" checked={allowResize} onChange={(e) => { setAllowResize(e.target.checked); markDirty(); }} className="mt-0.5 h-4 w-4 accent-purple-600" />
+                        <input type="checkbox" checked={allowResize} onChange={(e) => { setAllowResize(e.target.checked); markDirty(); }} className="mt-0.5 h-4 w-4 accent-blue-600" />
                         <span>
                           Scale the picture down to hit the target
                           <span className="block text-gray-400 dark:text-gray-500">
@@ -1133,13 +1137,13 @@ const ImageResize = () => {
                     <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Output</h3>
                     {formatField}
                     {showQuality && (
-                      <RangeSlider label="Quality" value={quality} min={10} max={100} onChange={(v) => { setQuality(v); markDirty(); }} suffix="%" />
+                      <RangeSlider label="Quality" value={quality} min={10} max={100} onChange={(v) => { setQuality(v); markDirty(); }} suffix="%" accent="blue" />
                     )}
                   </section>
                 )}
 
                 <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 pt-2">
-                  <input type="checkbox" checked={highQuality} onChange={(e) => { setHighQuality(e.target.checked); markDirty(); }} className="h-4 w-4 accent-purple-600" />
+                  <input type="checkbox" checked={highQuality} onChange={(e) => { setHighQuality(e.target.checked); markDirty(); }} className="h-4 w-4 accent-blue-600" />
                   High-quality downscaling
                 </label>
 
@@ -1156,12 +1160,12 @@ const ImageResize = () => {
                       <button type="button" onClick={removeCrop} className="text-xs px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600">Remove</button>
                     </div>
                   ) : cropOn ? (
-                    <p className="text-xs text-gray-400 dark:text-gray-500">Drag the box on the image, then press <span className="font-medium text-purple-600 dark:text-purple-400">Apply crop</span>.</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500">Drag the box on the image, then press <span className="font-medium text-blue-600 dark:text-blue-400">Apply crop</span>.</p>
                   ) : (
                     <button
                       type="button"
                       onClick={startCrop}
-                      className="w-full text-sm py-2 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-purple-400 dark:hover:border-purple-500"
+                      className="w-full text-sm py-2 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-blue-400 dark:hover:border-blue-500"
                     >
                       + Crop image
                     </button>
@@ -1187,7 +1191,7 @@ const ImageResize = () => {
                       disabled={bgBusy}
                       onClick={toggleBg}
                       className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-50 ${
-                        bgRemove ? 'bg-purple-600' : 'bg-gray-300 dark:bg-gray-600'
+                        bgRemove ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
                       }`}
                     >
                       <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${bgRemove ? 'translate-x-4' : 'translate-x-0.5'}`} />
@@ -1197,7 +1201,7 @@ const ImageResize = () => {
                   {bgBusy && (
                     <div>
                       <div className="h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                        <div className="h-full bg-purple-600 transition-all" style={{ width: `${Math.round(bgProgress * 100)}%` }} />
+                        <div className="h-full bg-blue-600 transition-all" style={{ width: `${Math.round(bgProgress * 100)}%` }} />
                       </div>
                       <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
                         Cutting out the subject… {Math.round(bgProgress * 100)}%
@@ -1217,14 +1221,14 @@ const ImageResize = () => {
                             onClick={() => { setBgColor(c); markDirty(); }}
                             title={c === 'transparent' ? 'Transparent' : c}
                             className={`h-7 w-7 rounded-lg border-2 ${
-                              bgColor === c ? 'border-purple-600' : 'border-gray-200 dark:border-gray-600'
+                              bgColor === c ? 'border-blue-600' : 'border-gray-200 dark:border-gray-600'
                             } ${c === 'transparent' ? 'bg-checkered' : ''}`}
                             style={c === 'transparent' ? undefined : { backgroundColor: c }}
                           />
                         ))}
                         <label
                           className={`h-7 w-7 rounded-lg border-2 overflow-hidden cursor-pointer flex ${
-                            !BG_SWATCHES.includes(bgColor) ? 'border-purple-600' : 'border-gray-200 dark:border-gray-600'
+                            !BG_SWATCHES.includes(bgColor) ? 'border-blue-600' : 'border-gray-200 dark:border-gray-600'
                           }`}
                           style={{ backgroundColor: BG_SWATCHES.includes(bgColor) ? '#888' : bgColor }}
                           title="Custom colour"
@@ -1258,7 +1262,16 @@ const ImageResize = () => {
             )}
           </div>
 
-          <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">{footer}</div>
+          <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <button
+              type="button"
+              onClick={run}
+              disabled={!ready || cropOn}
+              className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-blue-600 to-cyan-500 hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity flex items-center justify-center gap-2"
+            >
+              {buttonLabel}
+            </button>
+          </div>
         </aside>
 
         {showBrush && cutoutImg && single?.img && (
