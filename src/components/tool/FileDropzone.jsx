@@ -3,15 +3,16 @@ import { Link } from 'react-router-dom';
 import { screenFiles, rejectionMessage, DESKTOP_LIMIT_MB } from '../../lib/fileValidation';
 import { isDesktop } from '../../lib/desktop';
 
-// A cloud silhouette (built from overlapping circles + a base pill, not one
-// hand-traced path) with a bold white up-arrow over its body.
+// A cloud silhouette — one dominant dome plus two low, gentle bumps that
+// only widen the base (their tops sit well below the dome's edge, so they
+// don't poke up into a second peak) — with a bold white up-arrow on top.
 const UploadGlyph = ({ className }) => (
   <svg viewBox="0 0 64 48" className={className}>
     <g className="fill-blue-600">
-      <rect x="8" y="22" width="48" height="20" rx="10" />
-      <circle cx="21" cy="21" r="13" />
-      <circle cx="34" cy="15" r="16" />
-      <circle cx="47" cy="22" r="11" />
+      <rect x="10" y="24" width="44" height="16" rx="8" />
+      <circle cx="17" cy="27" r="10" />
+      <circle cx="47" cy="27" r="10" />
+      <circle cx="32" cy="18" r="17" />
     </g>
     <path d="M32 19l8 8h-5v10h-6V27h-5l8-8z" fill="white" />
   </svg>
