@@ -3,9 +3,17 @@ import { Link } from 'react-router-dom';
 import { screenFiles, rejectionMessage, DESKTOP_LIMIT_MB } from '../../lib/fileValidation';
 import { isDesktop } from '../../lib/desktop';
 
-const UploadGlyph = () => (
-  <svg className="w-full h-full text-white" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12 4a1 1 0 01.7.29l5 5a1 1 0 01-1.4 1.42L13 7.4V19a1 1 0 01-2 0V7.4l-3.3 3.3a1 1 0 01-1.4-1.42l5-5A1 1 0 0112 4z" />
+// A cloud silhouette (built from overlapping circles + a base pill, not one
+// hand-traced path) with a bold white up-arrow over its body.
+const UploadGlyph = ({ className }) => (
+  <svg viewBox="0 0 64 48" className={className}>
+    <g className="fill-blue-600">
+      <rect x="8" y="22" width="48" height="20" rx="10" />
+      <circle cx="21" cy="21" r="13" />
+      <circle cx="34" cy="15" r="16" />
+      <circle cx="47" cy="22" r="11" />
+    </g>
+    <path d="M32 19l8 8h-5v10h-6V27h-5l8-8z" fill="white" />
   </svg>
 );
 
@@ -98,13 +106,7 @@ const FileDropzone = ({
           e.target.value = '';
         }}
       />
-      <div
-        className={`mx-auto mb-4 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/25 p-3.5 ${
-          compact ? 'w-12 h-12' : 'w-16 h-16'
-        }`}
-      >
-        <UploadGlyph />
-      </div>
+      <UploadGlyph className={`mx-auto mb-4 drop-shadow-lg ${compact ? 'w-16 h-12' : 'w-24 h-[4.5rem]'}`} />
       <h3 className={`font-bold text-gray-900 dark:text-white ${compact ? 'text-lg' : 'text-2xl'}`}>{title}</h3>
       <p className="text-gray-500 dark:text-gray-400 mt-1">
         {hint}
