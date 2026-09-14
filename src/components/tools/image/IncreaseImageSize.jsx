@@ -69,65 +69,6 @@ const IncreaseImageSize = () => {
 
   const outName = item ? `${stripExt(item.file.name)}-${Math.round(targetBytes / 1024)}kb.jpg` : 'image.jpg';
 
-  const sidebar = (
-    <>
-      <section className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Source</h3>
-          <button type="button" onClick={reset} className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">Start over</button>
-        </div>
-        {item && (
-          <p className="text-xs text-gray-400 dark:text-gray-500">{item.w}×{item.h}px · {formatBytes(item.file.size)}</p>
-        )}
-      </section>
-
-      <section className="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Make it at least</h3>
-        <div className="flex gap-2">
-          <input
-            type="number"
-            min="1"
-            value={targetVal}
-            onChange={(e) => setTargetVal(e.target.value)}
-            className="flex-1 p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-purple-500"
-          />
-          <select
-            value={targetUnit}
-            onChange={(e) => setTargetUnit(e.target.value)}
-            className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-          >
-            <option value="KB">KB</option>
-            <option value="MB">MB</option>
-          </select>
-        </div>
-        <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
-          <input type="checkbox" checked={allowEnlarge} onChange={(e) => setAllowEnlarge(e.target.checked)} className="accent-purple-600" />
-          Allow enlarging the photo to reach the size
-        </label>
-        <p className="text-[11px] text-gray-400 dark:text-gray-500">
-          This can&apos;t add detail that isn&apos;t there. It maxes out JPEG quality, then (if allowed)
-          enlarges the picture, then adds a little grain — enough to pass a form that rejects files
-          for being <em>under</em> a minimum size.
-        </p>
-      </section>
-
-      {error && (
-        <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{error}</p>
-      )}
-    </>
-  );
-
-  const footer = (
-    <button
-      type="button"
-      onClick={run}
-      disabled={!ready}
-      className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
-    >
-      {busy ? 'Working…' : 'Increase file size'}
-    </button>
-  );
-
   const grew = result && item ? Math.round((result.size / item.file.size) * 10) / 10 : 0;
   const resultView = (busy || result) ? (
     <ResultScreen
@@ -164,6 +105,89 @@ const IncreaseImageSize = () => {
     />
   ) : null;
 
+  // Dedicated editing layout: canvas card + a settings panel on the right,
+  // matching Crop Image / Resize Image's editing screen. The empty dropzone
+  // and the result screen still go through <ToolWorkspace> below.
+  if (item && !busy && !result) {
+    return (
+      <div className="grid lg:grid-cols-[minmax(0,1fr)_340px] gap-6 items-start">
+        <div className="min-w-0 rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-800 p-4 md:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <span className="text-sm font-medium text-gray-900 dark:text-white truncate max-w-[16rem]">{item.file.name}</span>
+            <button
+              type="button"
+              onClick={reset}
+              className="text-sm px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+            >
+              Choose another
+            </button>
+          </div>
+
+          <div className="rounded-xl bg-gray-100 dark:bg-gray-900 grid place-items-center p-3 min-h-[280px]">
+            <img src={item.url} alt={item.file.name} className="max-h-[340px] max-w-full object-contain" />
+          </div>
+
+          <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+            {item.w}×{item.h}px · {formatBytes(item.file.size)}
+          </p>
+
+          <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <OpenInTool getImage={() => item.file} exclude={['increase-image-size']} heading="Or send this image to" />
+          </div>
+        </div>
+
+        <aside className="lg:sticky lg:top-24 rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-800 flex flex-col overflow-hidden lg:max-h-[calc(100vh-7rem)]">
+          <div className="flex-1 lg:overflow-y-auto p-4 space-y-4">
+            <section className="space-y-3">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Make it at least</h3>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  min="1"
+                  value={targetVal}
+                  onChange={(e) => setTargetVal(e.target.value)}
+                  className="flex-1 p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500"
+                />
+                <select
+                  value={targetUnit}
+                  onChange={(e) => setTargetUnit(e.target.value)}
+                  className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                >
+                  <option value="KB">KB</option>
+                  <option value="MB">MB</option>
+                </select>
+              </div>
+              <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+                <input type="checkbox" checked={allowEnlarge} onChange={(e) => setAllowEnlarge(e.target.checked)} className="accent-blue-600" />
+                Allow enlarging the photo to reach the size
+              </label>
+              <p className="text-[11px] text-gray-400 dark:text-gray-500">
+                This can&apos;t add detail that isn&apos;t there. It maxes out JPEG quality, then (if allowed)
+                enlarges the picture, then adds a little grain — enough to pass a form that rejects files
+                for being <em>under</em> a minimum size.
+              </p>
+            </section>
+
+            {error && (
+              <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{error}</p>
+            )}
+          </div>
+
+          <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <button
+              type="button"
+              onClick={run}
+              disabled={!ready}
+              className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-blue-600 to-cyan-500 hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+            >
+              {busy ? 'Working…' : 'Increase file size'}
+            </button>
+          </div>
+        </aside>
+      </div>
+    );
+  }
+
   return (
     <ToolWorkspace
       file={item?.file || null}
@@ -173,21 +197,8 @@ const IncreaseImageSize = () => {
       dropHint="or click to browse — for forms that need a minimum KB"
       onFiles={(fs) => load(fs[0])}
       onBack={(busy || result) ? backFromResult : reset}
-      sidebar={sidebar}
-      footer={footer}
       result={resultView}
-    >
-      {item && (
-        <div className="flex flex-col items-center">
-          <div className="rounded-xl bg-gray-100 dark:bg-gray-900 grid place-items-center p-3 max-h-[60vh]">
-            <img src={item.url} alt={item.file.name} className="max-h-[54vh] max-w-full object-contain" />
-          </div>
-          <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
-            {item.file.name} · {item.w}×{item.h}px · {formatBytes(item.file.size)}
-          </p>
-        </div>
-      )}
-    </ToolWorkspace>
+    />
   );
 };
 

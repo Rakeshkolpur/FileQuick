@@ -152,6 +152,7 @@ const ImageCompress = ({ presetFormat, presetKB } = {}) => {
   const totalTo = results ? results.reduce((s, r) => s + r.size, 0) : 0;
   const saved = totalFrom && totalTo ? Math.max(0, Math.round((1 - totalTo / totalFrom) * 100)) : 0;
   const single = items.length === 1;
+  const singleItem = single ? items[0] : null;
 
   const downloadAll = async () => {
     if (!results) return;
@@ -285,6 +286,122 @@ const ImageCompress = ({ presetFormat, presetKB } = {}) => {
       ) : null)}
     />
   ) : null;
+
+  // Dedicated editing layout for a single image: canvas card + a settings
+  // panel on the right, matching Crop Image / Resize Image's editing screen.
+  // Multiple images keep the classic grid-of-thumbnails layout below, since
+  // there's no single canvas to show.
+  if (singleItem && singleItem.img && !busy && !results) {
+    return (
+      <div className="grid lg:grid-cols-[minmax(0,1fr)_340px] gap-6 items-start">
+        <div className="min-w-0 rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-800 p-4 md:p-6">
+          <input
+            ref={addRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }}
+          />
+
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <span className="text-sm font-medium text-gray-900 dark:text-white truncate max-w-[16rem]">{singleItem.file.name}</span>
+            <button
+              type="button"
+              onClick={reset}
+              className="text-sm px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+            >
+              Choose another
+            </button>
+          </div>
+
+          <div className="rounded-xl bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-3 min-h-[280px]">
+            {singleItem.preview && (
+              <img src={singleItem.preview} alt={singleItem.file.name} className="max-h-[340px] max-w-full object-contain" />
+            )}
+          </div>
+
+          <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+            {formatBytes(singleItem.file.size)} · {singleItem.w}×{singleItem.h}px
+          </p>
+
+          <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <OpenInTool getImage={() => singleItem.file} exclude={['compress-image']} heading="Or send this image to" />
+          </div>
+        </div>
+
+        <aside className="lg:sticky lg:top-24 rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-800 flex flex-col overflow-hidden lg:max-h-[calc(100vh-7rem)]">
+          <div className="flex-1 lg:overflow-y-auto p-4 space-y-4">
+            <section className="space-y-3">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Compress by</h3>
+              <Segmented
+                options={[{ value: 'quality', label: 'Quality' }, { value: 'target', label: 'Target size' }]}
+                value={mode}
+                onChange={setMode}
+                accent="blue"
+              />
+              {mode === 'quality' ? (
+                <>
+                  <RangeSlider label="Quality" value={quality} min={20} max={95} step={5} onChange={setQuality} suffix="%" accent="blue" />
+                  <p className="text-[11px] text-gray-400 dark:text-gray-500">
+                    Lower = smaller file. 60–75% is usually indistinguishable from the original. Dimensions stay the same.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      min="1"
+                      value={targetVal}
+                      onChange={(e) => setTargetVal(e.target.value)}
+                      placeholder="e.g. 200"
+                      className="flex-1 p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <select
+                      value={targetUnit}
+                      onChange={(e) => setTargetUnit(e.target.value)}
+                      className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                    >
+                      <option value="KB">KB</option>
+                      <option value="MB">MB</option>
+                    </select>
+                  </div>
+                  <p className="text-[11px] text-gray-400 dark:text-gray-500">
+                    Quality is lowered to hit your target. If the target is too small to reach that way, the image is scaled down just enough to get there.
+                  </p>
+                </>
+              )}
+            </section>
+
+            <section className="pt-3 border-t border-gray-200 dark:border-gray-700 space-y-2">
+              <button type="button" onClick={() => addRef.current?.click()} className="w-full text-xs font-medium py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600">
+                + Add more images
+              </button>
+              <p className="text-[11px] text-gray-400 dark:text-gray-500">
+                PNGs are saved as WebP (PNG can&apos;t be quality-compressed). JPG and WebP keep their format.
+              </p>
+            </section>
+
+            {error && (
+              <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{error}</p>
+            )}
+          </div>
+
+          <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <button
+              type="button"
+              onClick={run}
+              disabled={!ready}
+              className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-blue-600 to-cyan-500 hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity flex items-center justify-center gap-2"
+            >
+              {busy ? 'Compressing…' : 'Compress image'}
+            </button>
+          </div>
+        </aside>
+      </div>
+    );
+  }
 
   return (
     <ToolWorkspace
