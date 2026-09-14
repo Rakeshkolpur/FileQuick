@@ -97,6 +97,7 @@ const ImageCrop = () => {
 
   // Editing screen: which tab of the right-hand panel is open.
   const [activeTab, setActiveTab] = useState('tools');
+  const [showBox, setShowBox] = useState(false);
 
   const preset = PRESETS[presetIdx];
   const hasPreset = preset.w > 0;
@@ -414,7 +415,7 @@ const ImageCrop = () => {
             {tabBtn('download', 'Download')}
           </div>
 
-          <div className="flex-1 lg:overflow-y-auto p-4 space-y-4">
+          <div className="flex-1 lg:overflow-y-auto p-3.5 space-y-3">
             {activeTab === 'tools' ? (
               <>
                 <section className="space-y-2">
@@ -440,7 +441,7 @@ const ImageCrop = () => {
                   </div>
                 </section>
 
-                <section className="space-y-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+                <section className="space-y-2 pt-2.5 border-t border-gray-200 dark:border-gray-700">
                   <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Sized crop</h3>
                   <select
                     value={presetIdx}
@@ -458,14 +459,23 @@ const ImageCrop = () => {
                   )}
                 </section>
 
-                <section className="space-y-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Straighten</h3>
-                  <RangeSlider label="Angle" value={straighten} min={-15} max={15} onChange={(v) => { setStraighten(v); setResult(null); }} suffix="°" accent="blue" />
+                <section className="pt-2.5 border-t border-gray-200 dark:border-gray-700">
+                  <RangeSlider label="Straighten" value={straighten} min={-15} max={15} onChange={(v) => { setStraighten(v); setResult(null); }} suffix="°" accent="blue" />
                 </section>
 
                 {cropPx && (
-                  <section className="space-y-2 pt-3 border-t border-gray-200 dark:border-gray-700">
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Crop box (px)</h3>
+                  <section className="space-y-2 pt-2.5 border-t border-gray-200 dark:border-gray-700">
+                    <button
+                      type="button"
+                      onClick={() => setShowBox((v) => !v)}
+                      className="flex w-full items-center justify-between text-sm font-semibold text-gray-900 dark:text-white"
+                    >
+                      Crop box (px)
+                      <svg className={`h-4 w-4 text-gray-400 transition-transform ${showBox ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    {showBox && (
                     <div className="grid grid-cols-2 gap-2">
                       <label className="text-xs">
                         <span className="block mb-1 font-medium text-gray-600 dark:text-gray-300">Width</span>
@@ -484,6 +494,7 @@ const ImageCrop = () => {
                         <input type="number" min="0" value={cropPx.y} onChange={(e) => setBox({ y: Number(e.target.value) || 0 })} className={numField} />
                       </label>
                     </div>
+                    )}
                   </section>
                 )}
               </>
