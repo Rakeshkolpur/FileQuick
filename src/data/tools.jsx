@@ -56,7 +56,7 @@ const TOOLS = [
   { id: 'exam-photo-resizer', title: 'Exam Photo & Signature Resizer', short: 'Exam Photo & Signature', category: 'image', group: 'Optimize', icon: I.examphoto, popular: true, chrome: 'min',
     description: 'Crop, set a white or blue background, and resize a photo and signature to the exact pixels and KB size Indian exam / job forms need — SSC, UPSC, IBPS, RRB, NTA and custom.',
     load: () => import('../components/tools/image/ExamPhotoResizer.jsx') },
-  { id: 'increase-image-size', title: 'Increase Image Size (KB)', short: 'Increase Image Size', category: 'image', group: 'Optimize', icon: I.grow,
+  { id: 'increase-image-size', title: 'Increase Image Size', category: 'image', group: 'Optimize', icon: I.grow,
     description: 'Make an image file bigger to meet a minimum upload size — raises quality, enlarges the photo and adds fine grain to reach the target KB.',
     load: () => import('../components/tools/image/IncreaseImageSize.jsx') },
   { id: 'remove-background', title: 'Remove Background', category: 'image', group: 'Enhance', icon: I.bg,

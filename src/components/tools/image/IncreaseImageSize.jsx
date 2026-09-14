@@ -59,7 +59,7 @@ const IncreaseImageSize = () => {
         return;
       }
       const r = await encodeAtLeastBytes(item.img, { targetBytes, allowEnlarge });
-      setResult({ ...r, url: track(URL.createObjectURL(r.blob)) });
+      setResult(r);
     } catch (e) {
       setError(e.message || 'Could not resize the image.');
     } finally {
@@ -149,9 +149,6 @@ const IncreaseImageSize = () => {
         : 'The file stays on your device — nothing is uploaded.'}
       extra={result ? (
         <div className="space-y-3 text-left">
-          <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden bg-checkered grid place-items-center max-h-56">
-            <img src={result.url} alt="Result" className="max-h-56 max-w-full object-contain" />
-          </div>
           <p className="text-[11px] text-gray-400 dark:text-gray-500">
             {result.enlarged && `Enlarged to ${result.width}×${result.height}px. `}
             {result.grain && 'A faint grain was added to reach the size. '}
