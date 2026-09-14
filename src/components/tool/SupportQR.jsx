@@ -22,7 +22,11 @@ export const SupportModal = ({ onClose }) => (
           A small UPI tip helps keep it that way.
         </p>
       </div>
-      <img src="/support-qr.png" alt="Scan with any UPI app to support FileQuick" className="mt-3 w-full" />
+      <img
+        src={`${import.meta.env.BASE_URL}support-qr.png`}
+        alt="Scan with any UPI app to support FileQuick"
+        className="mt-3 w-full"
+      />
       <div className="p-3 pt-0">
         <button
           type="button"
