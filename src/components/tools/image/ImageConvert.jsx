@@ -163,7 +163,7 @@ const ImageConvert = () => {
   const loadToken = useRef(0);
   const addRef = useRef(null);
 
-  const [out, setOut] = useState('pdf');
+  const [out, setOut] = useState('jpeg');
   const [quality, setQuality] = useState(90);
   const [jpgBg, setJpgBg] = useState('#ffffff');
 

@@ -6,7 +6,7 @@ import OpenInTool from '../../tool/OpenInTool';
 import { formatBytes, stripExt } from '../../../lib/format';
 import { consumeHandoff } from '../../../lib/imageHandoff';
 import {
-  encodeImage, webpSupported, loadImageFromFile, OUTPUT_FORMATS, OUTPUT_FORMAT_MAP,
+  encodeImage, loadImageFromFile, OUTPUT_FORMATS, OUTPUT_FORMAT_MAP,
 } from '../../../lib/imageResize';
 import { singleImageToPdf } from '../../../lib/imagesToPdf';
 import { cutoutBackground, loadCutout, compositeOnColor } from '../../../lib/backgroundRemoval';
@@ -20,7 +20,7 @@ const BackgroundRemover = () => {
   const [original, setOriginal] = useState(null); // HTMLImageElement, source for the Restore brush
   const [showBrush, setShowBrush] = useState(false);
   const [bgColor, setBgColor] = useState('transparent');
-  const [outFmt, setOutFmt] = useState(webpSupported() ? 'webp' : 'png');
+  const [outFmt, setOutFmt] = useState('jpg');
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState(null);

@@ -269,7 +269,7 @@ const ProfilePictureMaker = () => {
   const [offset, setOffset] = useState({ x: 0, y: 0 });
 
   const [sizeIdx, setSizeIdx] = useState(0);
-  const [fmt, setFmt] = useState('png');
+  const [fmt, setFmt] = useState('jpg');
 
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
