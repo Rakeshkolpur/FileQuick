@@ -3,15 +3,18 @@ import ReactCrop, { centerCrop, makeAspectCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import ToolWorkspace from '../../tool/ToolWorkspace';
 import { ToolBackContext } from '../../ToolWrapper';
-import Segmented from '../../tool/Segmented';
 import RangeSlider from '../../tool/RangeSlider';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
 import OpenInTool from '../../tool/OpenInTool';
 import { formatBytes, stripExt } from '../../../lib/format';
 import { consumeHandoff } from '../../../lib/imageHandoff';
-import { encodeImage, outExt } from '../../../lib/imageResize';
+import { encodeImage, OUTPUT_FORMATS, OUTPUT_FORMAT_MAP } from '../../../lib/imageResize';
+import { singleImageToPdf } from '../../../lib/imagesToPdf';
 import { transformToCanvas } from '../../../lib/imageTransform';
+
+// JPG/JPEG/PDF can't hold transparency — a circular crop falls back to PNG.
+const NO_ALPHA_FORMATS = ['jpg', 'jpeg', 'pdf'];
 
 const RATIOS = [
   { label: 'Free', value: 0 },
@@ -35,12 +38,6 @@ const PRESETS = [
   { label: 'LinkedIn banner — 1584×396', w: 1584, h: 396 },
   { label: 'Passport photo — 413×531', w: 413, h: 531 },
   { label: 'A4 @ 300 dpi — 2480×3508', w: 2480, h: 3508 },
-];
-
-const FORMATS = [
-  { value: 'jpeg', label: 'JPG' },
-  { value: 'png', label: 'PNG' },
-  { value: 'webp', label: 'WebP' },
 ];
 
 const numField =
@@ -88,7 +85,7 @@ const ImageCrop = () => {
   const [crop, setCrop] = useState(null);
   const [completed, setCompleted] = useState(null);
 
-  const [format, setFormat] = useState('jpeg');
+  const [format, setFormat] = useState('jpg');
   const [quality, setQuality] = useState(92);
 
   const [result, setResult] = useState(null);
@@ -208,7 +205,9 @@ const ImageCrop = () => {
 
   const outW = hasPreset ? preset.w : cropPx?.width || 0;
   const outH = hasPreset ? preset.h : cropPx?.height || 0;
-  const effFormat = circle && format === 'jpeg' ? 'png' : format;
+  const effFormat = circle && NO_ALPHA_FORMATS.includes(format) ? 'png' : format;
+  const fmtInfo = OUTPUT_FORMAT_MAP[effFormat] || OUTPUT_FORMAT_MAP.jpg;
+  const isPdf = effFormat === 'pdf';
 
   const getCurrentImage = () => new Promise((resolve) => {
     if (!workCanvas || !cropPx) { resolve(file || null); return; }
@@ -246,14 +245,15 @@ const ImageCrop = () => {
         canvas = c2;
       }
 
-      const blob = await encodeImage(canvas, {
+      let blob = await encodeImage(canvas, {
         width: hasPreset ? preset.w : cw,
         height: hasPreset ? preset.h : ch,
-        format: effFormat,
+        format: fmtInfo.enc,
         quality: quality / 100,
         highQuality: true,
       });
-      setResult({ blob, width: hasPreset ? preset.w : cw, height: hasPreset ? preset.h : ch, size: blob.size, format: effFormat });
+      if (isPdf) blob = await singleImageToPdf(blob);
+      setResult({ blob, width: hasPreset ? preset.w : cw, height: hasPreset ? preset.h : ch, size: blob.size, format: effFormat, ext: fmtInfo.ext });
     } catch (e) {
       setError(e.message || 'Cropping failed.');
     } finally {
@@ -261,7 +261,7 @@ const ImageCrop = () => {
     }
   };
 
-  const downloadName = file ? `${stripExt(file.name)}_${outW}x${outH}.${outExt(effFormat)}` : 'cropped';
+  const downloadName = file ? `${stripExt(file.name)}_${outW}x${outH}.${fmtInfo.ext}` : 'cropped';
   const backFromResult = () => setResult(null);
 
   const resultView = (busy || result) ? (
@@ -276,13 +276,13 @@ const ImageCrop = () => {
       onDownload={() => downloadBlob(result.blob, downloadName)}
       onBack={backFromResult}
       backLabel="Back to cropping"
-      extra={result ? (
+      extra={result && result.format !== 'pdf' ? (
         <OpenInTool getImage={() => result.blob} exclude={['crop-image']} />
       ) : null}
     />
   ) : null;
 
-  const showQuality = effFormat !== 'png';
+  const showQuality = fmtInfo.enc !== 'png';
 
   // The Back button normally routes through ToolWorkspace, but the editor
   // below renders its own layout instead of <ToolWorkspace> — wire the same
@@ -502,12 +502,20 @@ const ImageCrop = () => {
               <>
                 <section className="space-y-3">
                   <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Output</h3>
-                  <Segmented
-                    options={circle ? FORMATS.filter((f) => f.value !== 'jpeg') : FORMATS}
+                  <select
                     value={effFormat}
-                    onChange={(v) => { setFormat(v); setResult(null); }}
-                    accent="blue"
-                  />
+                    onChange={(e) => { setFormat(e.target.value); setResult(null); }}
+                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm p-2"
+                  >
+                    {OUTPUT_FORMATS.filter((f) => !(circle && NO_ALPHA_FORMATS.includes(f.value))).map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                  {circle && NO_ALPHA_FORMATS.includes(format) && (
+                    <p className="text-xs text-gray-400 dark:text-gray-500">
+                      Circle crop needs transparency — exporting as PNG instead.
+                    </p>
+                  )}
                   {showQuality && (
                     <RangeSlider label="Quality" value={quality} min={40} max={100} onChange={(v) => { setQuality(v); setResult(null); }} suffix="%" accent="blue" />
                   )}
