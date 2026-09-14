@@ -1039,7 +1039,15 @@ const ImageResize = () => {
             )}
             {cropOn && workUrl ? (
               <ReactCrop crop={crop} onChange={(_, p) => setCrop(p)} onComplete={(_, p) => setCompletedCrop(p)} aspect={cropAspect || undefined}>
-                <img src={workUrl} alt="Source" className="max-h-[320px] max-w-full w-auto object-contain" />
+                {/* react-image-crop's own CSS sets `max-height: inherit` on this
+                    img with higher specificity than a Tailwind class can
+                    reach, so the cap has to go through an inline style. */}
+                <img
+                  src={workUrl}
+                  alt="Source"
+                  className="max-w-full w-auto object-contain"
+                  style={{ maxHeight: 260 }}
+                />
               </ReactCrop>
             ) : croppedPreviewUrl ? (
               <img src={croppedPreviewUrl} alt="Cropped" className={PREVIEW_IMG} />

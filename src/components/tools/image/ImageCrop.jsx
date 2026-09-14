@@ -374,7 +374,7 @@ const ImageCrop = () => {
             ) : null}
           </div>
 
-          <div className="rounded-xl bg-checkered flex items-center justify-center p-3 min-h-[260px] relative overflow-hidden">
+          <div className="rounded-xl bg-checkered flex items-center justify-center p-3 min-h-[200px] relative overflow-hidden">
             {busy && (
               <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 dark:bg-gray-900/60 rounded-xl">
                 <div className="w-10 h-10 border-4 border-t-blue-600 border-gray-300 dark:border-gray-600 rounded-full animate-spin" />
@@ -390,7 +390,15 @@ const ImageCrop = () => {
                 ruleOfThirds={grid}
                 keepSelection
               >
-                <img src={workUrl} alt="To crop" className="max-h-[320px] max-w-full w-auto object-contain select-none" />
+                {/* react-image-crop's own CSS sets `max-height: inherit` on this
+                    img with higher specificity than a Tailwind class can
+                    reach, so the cap has to go through an inline style. */}
+                <img
+                  src={workUrl}
+                  alt="To crop"
+                  className="max-w-full w-auto object-contain select-none"
+                  style={{ maxHeight: 260 }}
+                />
               </ReactCrop>
             )}
           </div>
