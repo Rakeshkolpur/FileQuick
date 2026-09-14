@@ -318,6 +318,7 @@ const ImageResize = () => {
       return;
     }
     markDirty();
+    setActiveTab('tools');
     if (cutoutImg) {
       setBgRemove(true);
       return;
@@ -441,6 +442,7 @@ const ImageResize = () => {
     setCrop(c);
     setCompletedCrop(c);
     setCropOn(true);
+    setActiveTab('tools');
   };
   const applyCrop = () => {
     setCropOn(false);
