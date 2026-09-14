@@ -3,6 +3,7 @@ const MIME = {
   jpg: 'image/jpeg',
   png: 'image/png',
   webp: 'image/webp',
+  avif: 'image/avif',
 };
 
 export const outExt = (format) => (format === 'jpeg' || format === 'jpg' ? 'jpg' : format);
@@ -18,6 +19,7 @@ export const OUTPUT_FORMATS = [
   { value: 'jpeg', label: 'JPEG' },
   { value: 'png', label: 'PNG' },
   { value: 'webp', label: 'WebP' },
+  { value: 'avif', label: 'AVIF' },
   { value: 'pdf', label: 'PDF' },
 ];
 export const OUTPUT_FORMAT_MAP = {
@@ -25,8 +27,16 @@ export const OUTPUT_FORMAT_MAP = {
   jpeg: { enc: 'jpeg', ext: 'jpeg' },
   png: { enc: 'png', ext: 'png' },
   webp: { enc: 'webp', ext: 'webp' },
+  avif: { enc: 'avif', ext: 'avif' },
   pdf: { enc: 'jpeg', ext: 'pdf' }, // a JPEG image on one PDF page
 };
+
+// The list to actually put in a <select>: drops AVIF on a browser that
+// can't really encode it (Canvas silently falls back to PNG instead of
+// erroring), so nothing in the UI produces a mislabeled file. Pass a
+// tool's own format list to filter that instead of the shared one above.
+export const availableOutputFormats = (formats = OUTPUT_FORMATS) =>
+  formats.filter((f) => f.value !== 'avif' || avifSupported());
 
 export function loadImageFromFile(file) {
   return new Promise((resolve, reject) => {
@@ -272,6 +282,25 @@ export function webpSupported() {
     }
   }
   return _webpOk;
+}
+
+// AVIF encoding isn't in every browser yet (Canvas silently falls back to
+// PNG when it isn't — no error, just the wrong file), so feature-detect it
+// the same way as WebP above rather than offering a format that quietly
+// produces something else.
+let _avifOk = null;
+export function avifSupported() {
+  if (_avifOk === null) {
+    try {
+      const c = document.createElement('canvas');
+      c.width = 1;
+      c.height = 1;
+      _avifOk = c.toDataURL('image/avif').startsWith('data:image/avif');
+    } catch (_) {
+      _avifOk = false;
+    }
+  }
+  return _avifOk;
 }
 
 /**

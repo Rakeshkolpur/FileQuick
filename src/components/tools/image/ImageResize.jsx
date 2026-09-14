@@ -20,6 +20,7 @@ import {
   outExt,
   OUTPUT_FORMATS,
   OUTPUT_FORMAT_MAP,
+  availableOutputFormats,
 } from '../../../lib/imageResize';
 import { singleImageToPdf } from '../../../lib/imagesToPdf';
 import { cutoutBackground, loadCutout, compositeOnColor } from '../../../lib/backgroundRemoval';
@@ -606,7 +607,7 @@ const ImageResize = () => {
         onChange={(e) => { setOutFmt(e.target.value); markDirty(); }}
         className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm p-2"
       >
-        {OUTPUT_FORMATS.map((o) => (
+        {availableOutputFormats(OUTPUT_FORMATS).map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>
         ))}
       </select>

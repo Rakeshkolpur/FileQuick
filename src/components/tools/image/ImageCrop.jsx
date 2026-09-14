@@ -10,7 +10,7 @@ import ResultScreen from '../../tool/ResultScreen';
 import OpenInTool from '../../tool/OpenInTool';
 import { formatBytes, stripExt } from '../../../lib/format';
 import { consumeHandoff } from '../../../lib/imageHandoff';
-import { encodeImage, outExt } from '../../../lib/imageResize';
+import { encodeImage, outExt, availableOutputFormats } from '../../../lib/imageResize';
 import { transformToCanvas } from '../../../lib/imageTransform';
 
 const RATIOS = [
@@ -41,6 +41,7 @@ const FORMATS = [
   { value: 'jpeg', label: 'JPG' },
   { value: 'png', label: 'PNG' },
   { value: 'webp', label: 'WebP' },
+  { value: 'avif', label: 'AVIF' },
 ];
 
 const numField =
@@ -503,7 +504,7 @@ const ImageCrop = () => {
                 <section className="space-y-3">
                   <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Output</h3>
                   <Segmented
-                    options={circle ? FORMATS.filter((f) => f.value !== 'jpeg') : FORMATS}
+                    options={availableOutputFormats(circle ? FORMATS.filter((f) => f.value !== 'jpeg') : FORMATS)}
                     value={effFormat}
                     onChange={(v) => { setFormat(v); setResult(null); }}
                     accent="blue"

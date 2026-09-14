@@ -25,7 +25,7 @@ import OpenInTool from '../../tool/OpenInTool';
 import { formatBytes, stripExt } from '../../../lib/format';
 import { consumeHandoff } from '../../../lib/imageHandoff';
 import { zipFiles } from '../../../lib/zip';
-import { encodeImage, outExt, isLossy, loadImageFromFile } from '../../../lib/imageResize';
+import { encodeImage, outExt, isLossy, loadImageFromFile, availableOutputFormats } from '../../../lib/imageResize';
 import { transformToCanvas } from '../../../lib/imageTransform';
 import { imagesToPdf } from '../../../lib/imagesToPdf';
 
@@ -37,6 +37,7 @@ const OUT = [
   { value: 'jpeg', label: 'JPG' },
   { value: 'png', label: 'PNG' },
   { value: 'webp', label: 'WebP' },
+  { value: 'avif', label: 'AVIF' },
 ];
 const PDF_SIZES = [
   { value: 'fit', label: 'Fit to image' },
@@ -321,7 +322,7 @@ const ImageConvert = () => {
     <>
       <section className="space-y-3">
         <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Convert to</h3>
-        <Segmented options={OUT} value={out} onChange={(v) => { setOut(v); dirty(); }} />
+        <Segmented options={availableOutputFormats(OUT)} value={out} onChange={(v) => { setOut(v); dirty(); }} />
       </section>
 
       {isPdf ? (
