@@ -50,7 +50,6 @@ const FileTile = ({ item, index, onRemove, onPreview }) => {
     >
       <div
         onClick={() => onPreview(item)}
-        onPointerDown={stop}
         role="button"
         tabIndex={0}
         className="relative block w-full aspect-[3/4] overflow-hidden rounded-md bg-gray-100 dark:bg-gray-900 ring-1 ring-black/5 cursor-zoom-in"
@@ -72,10 +71,10 @@ const FileTile = ({ item, index, onRemove, onPreview }) => {
         type="button"
         onPointerDown={stop}
         onClick={() => onRemove(item.id)}
-        className="absolute top-1 right-1 h-6 w-6 grid place-items-center rounded-lg bg-black/40 text-white opacity-0 group-hover:opacity-100 hover:bg-red-600 transition-opacity"
+        className="absolute top-1 right-1 h-6 w-6 grid place-items-center rounded-full bg-red-500 text-white shadow hover:bg-red-600 transition-colors"
         aria-label="Remove"
       >
-        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25}>
+        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" />
         </svg>
       </button>
