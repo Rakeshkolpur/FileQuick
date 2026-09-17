@@ -12,7 +12,7 @@ import {
 import {
   SortableContext,
   useSortable,
-  verticalListSortingStrategy,
+  rectSortingStrategy,
   arrayMove,
   sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable';
@@ -32,68 +32,101 @@ const isImg = (f) => f.type === 'image/jpeg' || f.type === 'image/png'
 const A4P = [595.28, 841.89];
 const A4L = [841.89, 595.28];
 
-const DragDots = ({ className = 'h-4 w-4' }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-    <circle cx="9" cy="6" r="1.6" /><circle cx="15" cy="6" r="1.6" />
-    <circle cx="9" cy="12" r="1.6" /><circle cx="15" cy="12" r="1.6" />
-    <circle cx="9" cy="18" r="1.6" /><circle cx="15" cy="18" r="1.6" />
-  </svg>
-);
+const stop = (e) => e.stopPropagation();
 
-const FileRow = ({ item, index, onRemove }) => {
+const FileTile = ({ item, index, onRemove, onPreview }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
-  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1, width: 120 };
 
   return (
-    <li
+    <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-3 rounded-xl border bg-white dark:bg-gray-800 p-2.5 ${
+      {...attributes}
+      {...listeners}
+      className={`group relative shrink-0 rounded-xl border bg-white dark:bg-gray-800 p-1.5 select-none cursor-grab active:cursor-grabbing touch-none ${
         isDragging ? 'border-purple-400 shadow-lg' : 'border-gray-200 dark:border-gray-700'
       }`}
     >
-      <button
-        type="button"
-        {...attributes}
-        {...listeners}
-        className="shrink-0 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 dark:hover:text-gray-300 touch-none"
-        aria-label="Drag to reorder"
+      <div
+        onClick={() => onPreview(item)}
+        onPointerDown={stop}
+        role="button"
+        tabIndex={0}
+        className="relative block w-full aspect-[3/4] overflow-hidden rounded-md bg-gray-100 dark:bg-gray-900 ring-1 ring-black/5 cursor-zoom-in"
+        aria-label={`Preview ${item.name}`}
       >
-        <DragDots />
-      </button>
-
-      <span className="shrink-0 w-5 text-center text-xs font-semibold text-gray-400">{index + 1}</span>
-
-      <div className="shrink-0 h-14 w-11 rounded-md overflow-hidden bg-gray-100 dark:bg-gray-900 ring-1 ring-black/5 grid place-items-center">
         {item.thumb ? (
-          <img src={item.thumb} alt="" className="h-full w-full object-contain" />
+          <img src={item.thumb} alt="" draggable={false} className="absolute inset-0 w-full h-full object-contain" />
         ) : (
-          <div className="h-4 w-4 border-2 border-gray-300 border-t-purple-500 rounded-full animate-spin" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="h-5 w-5 border-2 border-gray-300 border-t-purple-500 rounded-full animate-spin" />
+          </div>
         )}
+        <span className="absolute top-1 left-1 h-4 min-w-4 px-1 rounded bg-black/40 text-white text-[10px] font-bold flex items-center justify-center">
+          {index + 1}
+        </span>
       </div>
 
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-gray-900 dark:text-white">{item.name}</p>
-        <p className="text-[11px] text-gray-400 dark:text-gray-500">
+      <button
+        type="button"
+        onPointerDown={stop}
+        onClick={() => onRemove(item.id)}
+        className="absolute top-1 right-1 h-6 w-6 grid place-items-center rounded-lg bg-black/40 text-white opacity-0 group-hover:opacity-100 hover:bg-red-600 transition-opacity"
+        aria-label="Remove"
+      >
+        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" />
+        </svg>
+      </button>
+
+      <p className="mt-1 truncate text-[11px] font-medium text-gray-700 dark:text-gray-200" title={item.name}>{item.name}</p>
+      <p className="truncate text-[10px] text-gray-400 dark:text-gray-500">
+        {formatBytes(item.size)}
+        {item.kind === 'pdf' && ` · ${item.pages}p`}
+      </p>
+    </div>
+  );
+};
+
+const PreviewModal = ({ item, onClose }) => (
+  <div
+    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+    onClick={onClose}
+  >
+    <div
+      className="relative flex flex-col overflow-hidden rounded-2xl bg-white dark:bg-gray-800 shadow-2xl"
+      style={{ width: 500, height: 500, maxWidth: '100%', maxHeight: '100%' }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close"
+        className="absolute top-2 right-2 z-10 h-8 w-8 grid place-items-center rounded-full bg-black/50 text-white hover:bg-black/70"
+      >
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" />
+        </svg>
+      </button>
+      <div className="flex-1 grid place-items-center bg-gray-100 dark:bg-gray-900 p-3">
+        {item.thumb ? (
+          <img src={item.thumb} alt={item.name} className="max-w-full max-h-full object-contain" />
+        ) : (
+          <div className="h-8 w-8 border-4 border-gray-300 border-t-purple-500 rounded-full animate-spin" />
+        )}
+      </div>
+      <div className="px-4 py-2.5 border-t border-gray-200 dark:border-gray-700">
+        <p className="truncate text-sm font-medium text-gray-900 dark:text-white" title={item.name}>{item.name}</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500">
           {formatBytes(item.size)}
           {item.kind === 'pdf' && ` · ${item.pages} page${item.pages === 1 ? '' : 's'}`}
           {item.kind === 'img' && ' · image'}
         </p>
       </div>
-
-      <button
-        type="button"
-        onClick={() => onRemove(item.id)}
-        className="shrink-0 h-7 w-7 grid place-items-center rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-        aria-label="Remove"
-      >
-        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" />
-        </svg>
-      </button>
-    </li>
-  );
-};
+    </div>
+  </div>
+);
 
 const PDFMerge = () => {
   const [items, setItems] = useState([]); // {id,file,name,size,kind,pages,thumb}
@@ -102,6 +135,7 @@ const PDFMerge = () => {
   const [result, setResult] = useState(null); // {blob,size,pages}
   const [error, setError] = useState(null);
   const [activeId, setActiveId] = useState(null);
+  const [previewItem, setPreviewItem] = useState(null);
   const addRef = useRef(null);
   const itemsRef = useRef(items);
   useEffect(() => { itemsRef.current = items; }, [items]);
@@ -121,7 +155,7 @@ const PDFMerge = () => {
       }
       const buf = await entry.file.arrayBuffer();
       const pdf = await openPdf(buf);
-      const t = await renderThumbnail(pdf, 1, 160);
+      const t = await renderThumbnail(pdf, 1, 480);
       setItems((p) => p.map((it) => (it.id === entry.id
         ? { ...it, pages: pdf.numPages, thumb: t.dataUrl } : it)));
       pdf.destroy?.();
@@ -242,7 +276,7 @@ const PDFMerge = () => {
           <button type="button" onClick={clearAll} className={btn} disabled={!items.length}>Clear all</button>
         </div>
         <p className="text-[11px] text-gray-400 dark:text-gray-500">
-          Drag the rows to set the order. PDFs keep all their pages; each image becomes one A4 page.
+          Drag the tiles to set the order. PDFs keep all their pages; each image becomes one A4 page.
         </p>
       </section>
 
@@ -310,7 +344,7 @@ const PDFMerge = () => {
           <p className="text-sm font-medium text-gray-900 dark:text-white">
             {items.length} file{items.length === 1 ? '' : 's'} · {totalPages} page{totalPages === 1 ? '' : 's'}
           </p>
-          <p className="text-xs text-gray-400 dark:text-gray-500">Drag rows to reorder.</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500">Drag tiles to reorder. Click one to preview.</p>
         </div>
         <button
           type="button"
@@ -328,21 +362,20 @@ const PDFMerge = () => {
         onDragCancel={() => setActiveId(null)}
         onDragEnd={onDragEnd}
       >
-        <SortableContext items={items.map((it) => it.id)} strategy={verticalListSortingStrategy}>
-          <ul className="space-y-2">
+        <SortableContext items={items.map((it) => it.id)} strategy={rectSortingStrategy}>
+          <div className="flex flex-wrap gap-3">
             {items.map((it, i) => (
-              <FileRow key={it.id} item={it} index={i} onRemove={removeItem} />
+              <FileTile key={it.id} item={it} index={i} onRemove={removeItem} onPreview={setPreviewItem} />
             ))}
-          </ul>
+          </div>
         </SortableContext>
         <DragOverlay>
           {activeItem ? (
-            <div className="flex items-center gap-3 rounded-xl border-2 border-purple-400 bg-white dark:bg-gray-800 p-2.5 shadow-2xl">
-              <DragDots className="h-4 w-4 text-gray-300" />
-              <div className="h-14 w-11 rounded-md overflow-hidden bg-gray-100 dark:bg-gray-900 grid place-items-center">
+            <div style={{ width: 120 }} className="rounded-xl border-2 border-purple-400 bg-white dark:bg-gray-800 p-1.5 shadow-2xl">
+              <div className="w-full aspect-[3/4] rounded-md overflow-hidden bg-gray-100 dark:bg-gray-900 grid place-items-center">
                 {activeItem.thumb && <img src={activeItem.thumb} alt="" className="h-full w-full object-contain" />}
               </div>
-              <p className="truncate text-sm font-medium text-gray-900 dark:text-white max-w-[12rem]">{activeItem.name}</p>
+              <p className="mt-1 truncate text-[11px] font-medium text-gray-900 dark:text-white">{activeItem.name}</p>
             </div>
           ) : null}
         </DragOverlay>
@@ -354,6 +387,8 @@ const PDFMerge = () => {
           Reading files…
         </p>
       )}
+
+      {previewItem && <PreviewModal item={previewItem} onClose={() => setPreviewItem(null)} />}
     </ToolWorkspace>
   );
 };
