@@ -7,6 +7,7 @@ import {
 } from 'react-icons/lu';
 import ToolsGrid from '../ToolsGrid';
 import UploadZone from './UploadZone';
+import DownloadWidget from './DownloadWidget';
 import HowItWorks from './HowItWorks';
 import FaqAccordion from '../FaqAccordion';
 import { getHomeSections } from '../../data/tools';
@@ -102,6 +103,7 @@ const HomeV2 = () => {
               </span>
             ))}
           </div>
+          <DownloadWidget className="mt-5" />
         </div>
 
         <div className="relative lg:pr-28">
@@ -138,6 +140,7 @@ const HomeV2 = () => {
               </span>
             ))}
           </div>
+          <DownloadWidget className="mt-4 justify-center lg:hidden" />
         </div>
       </section>
 

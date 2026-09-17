@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   LuHardDriveDownload, LuWifiOff, LuInfinity, LuRefreshCw, LuFolderClock, LuShieldCheck, LuMonitor,
 } from 'react-icons/lu';
 import { usePageMeta } from '../lib/seo';
-import { DESKTOP } from '../lib/desktopApp';
+import { DESKTOP, RELEASES, releaseDownloadUrl } from '../lib/desktopApp';
 import { isDesktop, openOutputFolder, checkForUpdates } from '../lib/desktop';
+import { CHANGELOG } from '../data/changelog';
 
 const DownloadGlyph = ({ className = 'h-5 w-5' }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -29,6 +30,7 @@ const DownloadApp = () => {
   });
 
   const runningDesktop = isDesktop();
+  const [ver, setVer] = useState(DESKTOP.version);
 
   if (runningDesktop) {
     return (
@@ -107,6 +109,32 @@ const DownloadApp = () => {
           )}
         </div>
 
+        {DESKTOP.available && RELEASES.length > 1 && (
+          <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-4 dark:border-gray-700">
+            <span className="text-[13px] text-gray-500 dark:text-gray-400">Need an older build?</span>
+            <div className="inline-flex items-center overflow-hidden rounded-lg border border-gray-200 dark:border-gray-600">
+              <select
+                value={ver}
+                onChange={(e) => setVer(e.target.value)}
+                aria-label="Choose a version to download"
+                className="border-0 bg-white px-2 py-1.5 text-[12.5px] font-medium text-gray-700 focus:outline-none dark:bg-gray-800 dark:text-gray-200"
+              >
+                {RELEASES.map((r) => (
+                  <option key={r.version} value={r.version}>
+                    v{r.version}{r.version === DESKTOP.version ? ' (latest)' : ''}
+                  </option>
+                ))}
+              </select>
+              <a
+                href={releaseDownloadUrl(ver)}
+                className="border-l border-gray-200 px-3 py-1.5 text-[12.5px] font-semibold text-indigo-600 transition-colors hover:bg-indigo-50 dark:border-gray-600 dark:text-indigo-400 dark:hover:bg-indigo-500/10"
+              >
+                Download
+              </a>
+            </div>
+          </div>
+        )}
+
         <p className="mt-4 text-[12.5px] text-gray-500 dark:text-gray-400">
           By downloading you agree to the{' '}
           <Link to="/terms-of-service" className="font-medium text-indigo-600 hover:underline dark:text-indigo-400">
@@ -140,6 +168,31 @@ const DownloadApp = () => {
           </div>
         )}
       </div>
+
+      {/* recent updates */}
+      {DESKTOP.available && (
+        <div className="mt-10">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Recent updates</h2>
+          <div className="mt-3 space-y-4">
+            {CHANGELOG.slice(0, 3).map((c) => (
+              <div key={c.version} className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-sm font-bold text-gray-900 dark:text-white">v{c.version}</span>
+                  <span className="text-[12px] text-gray-400 dark:text-gray-500">{c.date}</span>
+                </div>
+                <ul className="mt-2 space-y-1 text-[13px] leading-relaxed text-gray-600 dark:text-gray-300">
+                  {c.notes.map((n) => (
+                    <li key={n} className="flex gap-2">
+                      <span className="text-indigo-500">•</span>
+                      <span>{n}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* perks */}
       <div className="mt-10 grid gap-4 sm:grid-cols-2">

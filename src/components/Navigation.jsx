@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { LuMonitorDown } from 'react-icons/lu';
 import styles from './Navigation.module.css';
 import { useTheme } from '../context/ThemeContext';
 import { NAV_CATEGORIES, getMenuColumns, getToolTint } from '../data/tools';
+import { isDesktop } from '../lib/desktop';
 import Logo from './Logo';
 import SupportLink from './tool/SupportQR';
 
@@ -212,6 +214,15 @@ const Navigation = () => {
             >
               {dark ? <SunIcon /> : <MoonIcon />}
             </button>
+            {!isDesktop() && (
+              <Link
+                to="/download"
+                onClick={closeAll}
+                className="hidden lg:inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-black/[0.08] bg-white/50 px-3.5 py-1.5 text-sm font-semibold text-gray-700 shadow-sm backdrop-blur-md transition-colors hover:border-indigo-300 hover:text-indigo-700 dark:border-white/10 dark:bg-white/[0.06] dark:text-gray-200 dark:hover:border-indigo-600"
+              >
+                <LuMonitorDown className="h-4 w-4" /> Download
+              </Link>
+            )}
             <Link
               to="/login"
               onClick={closeAll}
@@ -296,6 +307,15 @@ const Navigation = () => {
                 </div>
               );
             })}
+            {!isDesktop() && (
+              <Link
+                to="/download"
+                onClick={closeAll}
+                className="mx-3 mb-2 flex items-center justify-center gap-2 rounded-lg border border-gray-200 py-2 text-sm font-semibold text-gray-700 dark:border-gray-600 dark:text-gray-200"
+              >
+                <LuMonitorDown className="h-4 w-4" /> Download for Windows
+              </Link>
+            )}
             <div className="mt-3 flex gap-2 px-3">
               <Link
                 to="/login"

@@ -1,21 +1,26 @@
 import React, { useEffect, useState } from 'react';
-import { isDesktop, onUpdate, downloadUpdate, installUpdate, revealFile } from '../lib/desktop';
+import { isDesktop, onUpdate, downloadUpdate, installUpdate, revealFile, desktopInfo } from '../lib/desktop';
+import { notesForVersion } from '../data/changelog';
 
 const OFFLINE_MS = 10000;
+const SEEN_VERSION_KEY = 'fq_seen_version';
 
 /**
  * Desktop-only chrome: a centred "update available" popup (Download -> progress
- * bar -> Restart Now), a small toast confirming a save (the Save dialog
- * itself is where the user actually picked the folder), and a small centred
- * "you're offline" popup for tools that need a network fetch the first time
- * they run (Remove Background, OCR) — auto-dismisses after 10s, closeable
- * any time. Renders nothing on the web.
+ * bar -> Restart Now, with a "what's new" list once one exists for that
+ * version), a "what's new" popup shown once right after a restart lands on a
+ * new version, a small toast confirming a save (the Save dialog itself is
+ * where the user actually picked the folder), and a small centred "you're
+ * offline" popup for tools that need a network fetch the first time they run
+ * (Remove Background, OCR) — auto-dismisses after 10s, closeable any time.
+ * Renders nothing on the web.
  */
 const DesktopBridge = () => {
   const [toast, setToast] = useState(null); // { path } | { error } | null
   const [update, setUpdate] = useState(null); // { state, version, percent } | null
   const [dismissed, setDismissed] = useState(false);
   const [offline, setOffline] = useState(null); // { tool, at } | null
+  const [whatsNew, setWhatsNew] = useState(null); // { version, notes } | null
 
   useEffect(() => {
     if (!isDesktop()) return undefined;
@@ -41,6 +46,26 @@ const DesktopBridge = () => {
     };
   }, []);
 
+  // Once per launch: if this version differs from the one we last recorded,
+  // the user just landed here via an update (or a fresh install) — show what
+  // changed. Skipped on a genuinely first-ever launch (nothing recorded yet),
+  // so new users don't see a "what's new" before they've used the app once.
+  useEffect(() => {
+    if (!isDesktop()) return;
+    (async () => {
+      const info = await desktopInfo();
+      const version = info?.version;
+      if (!version) return;
+      let seen = null;
+      try { seen = localStorage.getItem(SEEN_VERSION_KEY); } catch { /* storage blocked */ }
+      if (seen && seen !== version) {
+        const notes = notesForVersion(version);
+        if (notes.length) setWhatsNew({ version, notes });
+      }
+      try { localStorage.setItem(SEEN_VERSION_KEY, version); } catch { /* storage blocked */ }
+    })();
+  }, []);
+
   // A fresh `at` (a new dispatch, even for the same tool) restarts the 10s clock.
   useEffect(() => {
     if (!offline) return undefined;
@@ -51,6 +76,7 @@ const DesktopBridge = () => {
   if (!isDesktop()) return null;
 
   const showPopup = update && !dismissed && ['available', 'downloading', 'ready'].includes(update.state);
+  const updateNotes = update ? notesForVersion(update.version) : [];
 
   return (
     <>
@@ -64,6 +90,16 @@ const DesktopBridge = () => {
                 <p className="mt-1.5 text-sm text-gray-600 dark:text-gray-300">
                   FileQuick {update.version ? `v${update.version}` : ''} is ready to download.
                 </p>
+                {updateNotes.length > 0 && (
+                  <ul className="mt-3 max-h-36 space-y-1.5 overflow-y-auto rounded-lg bg-gray-50 p-3 text-left text-[12.5px] text-gray-600 dark:bg-gray-900/40 dark:text-gray-300">
+                    {updateNotes.map((n) => (
+                      <li key={n} className="flex gap-2">
+                        <span className="text-indigo-500">•</span>
+                        <span>{n}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 <div className="mt-5 flex justify-center gap-2">
                   <button
                     type="button"
@@ -122,6 +158,33 @@ const DesktopBridge = () => {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* "what's new" — shown once, right after a restart lands on a new version */}
+      {whatsNew && !showPopup && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl dark:bg-gray-800">
+            <span className="mx-auto mb-2 grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 text-lg">
+              ✨
+            </span>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">What&rsquo;s new in v{whatsNew.version}</h2>
+            <ul className="mt-3 max-h-52 space-y-1.5 overflow-y-auto rounded-lg bg-gray-50 p-3 text-left text-[13px] text-gray-600 dark:bg-gray-900/40 dark:text-gray-300">
+              {whatsNew.notes.map((n) => (
+                <li key={n} className="flex gap-2">
+                  <span className="text-indigo-500">•</span>
+                  <span>{n}</span>
+                </li>
+              ))}
+            </ul>
+            <button
+              type="button"
+              onClick={() => setWhatsNew(null)}
+              className="mt-5 w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+            >
+              Got it
+            </button>
           </div>
         </div>
       )}
