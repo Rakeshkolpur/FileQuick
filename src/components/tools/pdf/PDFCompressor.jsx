@@ -7,6 +7,7 @@ import { formatBytes, stripExt } from '../../../lib/format';
 import { SERVER_UPLOAD_MB } from '../../../lib/fileValidation';
 import { openPdf } from '../../../lib/pdfjs';
 import { api } from '../../../lib/api';
+import { consumePdfHandoff } from '../../../lib/pdfHandoff';
 
 const isPdf = (f) => f && (f.type === 'application/pdf' || f.name?.toLowerCase().endsWith('.pdf'));
 
@@ -47,6 +48,8 @@ const PDFCompressor = () => {
     setResult(null);
     setFile(f);
   };
+
+  useEffect(() => consumePdfHandoff((f) => onFiles([f]), 'document'), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const reset = () => {
     setFile(null); setResult(null); setError(null);

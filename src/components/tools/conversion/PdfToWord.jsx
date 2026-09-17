@@ -6,6 +6,7 @@ import { formatBytes, stripExt } from '../../../lib/format';
 import { SERVER_UPLOAD_MB } from '../../../lib/fileValidation';
 import { api } from '../../../lib/api';
 import { openPdf, renderThumbnail } from '../../../lib/pdfjs';
+import { consumePdfHandoff } from '../../../lib/pdfHandoff';
 
 const isPdf = (f) => f && (f.type === 'application/pdf' || f.name?.toLowerCase().endsWith('.pdf'));
 
@@ -52,6 +53,8 @@ const PdfToWord = () => {
     setFile(f);
     setPhase('loading');
   };
+
+  useEffect(() => consumePdfHandoff((f) => onFiles([f]), 'document'), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!file) return;

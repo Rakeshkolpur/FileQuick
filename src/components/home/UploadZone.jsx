@@ -2,6 +2,7 @@ import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef,
 import { useNavigate } from 'react-router-dom';
 import { LuFolderOpen, LuUploadCloud } from 'react-icons/lu';
 import { screenFiles, rejectionMessage } from '../../lib/fileValidation';
+import { stashPdf } from '../../lib/pdfHandoff';
 
 // filled gradient upload cloud
 const CloudMark = () => (
@@ -58,6 +59,7 @@ const UploadZone = forwardRef(({ v2 = false, desktop = false }, ref) => {
       setError('');
       const ok = accepted[0];
       if (ok.type.startsWith('image/')) return handleImage(ok);
+      stashPdf(ok, ok.name);
       setPdfName(ok.name || 'document.pdf');
     },
     [handleImage],
