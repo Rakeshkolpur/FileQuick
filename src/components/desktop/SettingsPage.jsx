@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { LuFolderOpen, LuTrash2, LuRefreshCw } from 'react-icons/lu';
+import { LuFolderOpen, LuTrash2, LuRefreshCw, LuMessageSquare } from 'react-icons/lu';
 import { useTheme } from '../../context/ThemeContext';
 import { desktopInfo, openOutputFolder, clearHistory, checkForUpdates } from '../../lib/desktop';
 import { usePageMeta } from '../../lib/seo';
+import { FeedbackModal } from '../FeedbackForm';
 
 const Row = ({ title, text, action }) => (
   <div className="flex items-center justify-between gap-4 border-b border-gray-100 px-5 py-4 last:border-0 dark:border-white/5">
@@ -35,6 +36,7 @@ const SettingsPage = () => {
   const [info, setInfo] = useState(null);
   const [cleared, setCleared] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   useEffect(() => { desktopInfo().then(setInfo); }, []);
 
@@ -72,8 +74,15 @@ const SettingsPage = () => {
           text={checking ? 'Checking…' : 'Check GitHub for a newer version right now.'}
           action={<Btn onClick={() => { setChecking(true); checkForUpdates(); setTimeout(() => setChecking(false), 2500); }} Icon={LuRefreshCw}>Check now</Btn>}
         />
+        <Row
+          title="Feedback"
+          text="Bug, idea, or just a thought — tell us directly."
+          action={<Btn onClick={() => setFeedbackOpen(true)} Icon={LuMessageSquare}>Send feedback</Btn>}
+        />
         <Row title="Version" text={`FileQuick Desktop ${info?.version ? `v${info.version}` : ''} · ${info?.platform || ''}`} />
       </div>
+
+      {feedbackOpen && <FeedbackModal onClose={() => setFeedbackOpen(false)} />}
     </div>
   );
 };

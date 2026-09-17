@@ -4,6 +4,7 @@ import { FaGithub, FaLinkedin } from 'react-icons/fa';
 import { getToolsByCategory } from '../data/tools';
 import Logo from './Logo';
 import SupportLink from './tool/SupportQR';
+import FeedbackButton from './FeedbackForm';
 
 const SOCIAL_LINKS = [
   { label: 'GitHub', href: 'https://github.com/Rakeshkolpur', Icon: FaGithub },
@@ -67,6 +68,9 @@ const Footer = () => (
           <Link to="/contact" className="text-sm text-gray-500 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400">
             Contact
           </Link>
+          <FeedbackButton className="text-sm text-gray-500 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400">
+            Feedback
+          </FeedbackButton>
           <Link to="/privacy-policy" className="text-sm text-gray-500 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400">
             Privacy
           </Link>
