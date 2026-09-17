@@ -7,6 +7,14 @@
 // (see [[desktop-app]] release flow — package.json version, git tag vX.Y.Z).
 export const CHANGELOG = [
   {
+    version: '1.0.17',
+    date: '2026-09-17',
+    notes: [
+      'Fixed "Restart now" after an update not reopening the app — you had to relaunch it yourself',
+      'New: a "Send feedback" option (Settings, and the website footer) — opens your email app, no account needed',
+    ],
+  },
+  {
     version: '1.0.16',
     date: '2026-09-17',
     notes: [
