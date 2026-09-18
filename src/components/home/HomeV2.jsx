@@ -140,7 +140,6 @@ const HomeV2 = () => {
               </span>
             ))}
           </div>
-          <DownloadWidget className="mt-4 justify-center lg:hidden" />
         </div>
       </section>
 

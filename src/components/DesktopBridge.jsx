@@ -47,9 +47,11 @@ const DesktopBridge = () => {
   }, []);
 
   // Once per launch: if this version differs from the one we last recorded,
-  // the user just landed here via an update (or a fresh install) — show what
-  // changed. Skipped on a genuinely first-ever launch (nothing recorded yet),
-  // so new users don't see a "what's new" before they've used the app once.
+  // the user just landed here via an update — show what changed. Also fires
+  // on someone's very first launch of a build that has this tracking code at
+  // all (no `seen` recorded yet, e.g. updating from a pre-1.0.16 install that
+  // never wrote this key) — that's fine, it just means "what's new" shows
+  // once more than a hypothetical brand-new-install user would ideally see.
   useEffect(() => {
     if (!isDesktop()) return;
     (async () => {
@@ -58,7 +60,7 @@ const DesktopBridge = () => {
       if (!version) return;
       let seen = null;
       try { seen = localStorage.getItem(SEEN_VERSION_KEY); } catch { /* storage blocked */ }
-      if (seen && seen !== version) {
+      if (seen !== version) {
         const notes = notesForVersion(version);
         if (notes.length) setWhatsNew({ version, notes });
       }
