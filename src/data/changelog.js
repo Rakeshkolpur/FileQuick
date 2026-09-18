@@ -7,6 +7,14 @@
 // (see [[desktop-app]] release flow — package.json version, git tag vX.Y.Z).
 export const CHANGELOG = [
   {
+    version: '1.0.18',
+    date: '2026-09-18',
+    notes: [
+      'Fixed the "what\'s new" popup not appearing the first time you updated through it',
+      'The Windows download button no longer shows up on phones and tablets',
+    ],
+  },
+  {
     version: '1.0.17',
     date: '2026-09-17',
     notes: [
