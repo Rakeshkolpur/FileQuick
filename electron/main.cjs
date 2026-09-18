@@ -163,9 +163,14 @@ function wireUpdater() {
   ipcMain.handle('fq:download-update', () => autoUpdater.downloadUpdate().catch((err) => send('fq:update', { state: 'error', message: String(err?.message || err) })));
   // quitAndInstall(isSilent, isForceRunAfter) — both default to false, which
   // on Windows/NSIS means the installer runs silently but the app does NOT
-  // relaunch afterward (isForceRunAfter is what actually reopens it). Pass
-  // both true so "Restart now" behaves the way the popup promises.
-  ipcMain.handle('fq:install-update', () => autoUpdater.quitAndInstall(true, true));
+  // relaunch afterward (isForceRunAfter is what actually reopens it, and only
+  // takes effect when isSilent is true). Deferred with setImmediate: calling
+  // it synchronously from inside the ipcMain.handle callback is a known
+  // source of a brief "Not Responding" freeze on Windows, since the quit
+  // sequence can start before this IPC round-trip has finished unwinding.
+  ipcMain.handle('fq:install-update', () => {
+    setImmediate(() => autoUpdater.quitAndInstall(true, true));
+  });
 
   // one automatic check shortly after launch, then every 6 h
   setTimeout(() => autoUpdater.checkForUpdates().catch(() => {}), 4000);
