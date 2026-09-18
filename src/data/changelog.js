@@ -7,6 +7,13 @@
 // (see [[desktop-app]] release flow — package.json version, git tag vX.Y.Z).
 export const CHANGELOG = [
   {
+    version: '1.0.19',
+    date: '2026-09-18',
+    notes: [
+      'Reduced a brief freeze that could happen right as an update restarts the app',
+    ],
+  },
+  {
     version: '1.0.18',
     date: '2026-09-18',
     notes: [
