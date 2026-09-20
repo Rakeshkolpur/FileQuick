@@ -1,19 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { isDesktop, onUpdate, downloadUpdate, installUpdate, revealFile, desktopInfo } from '../lib/desktop';
-import { notesForVersion } from '../data/changelog';
+import { notesForVersion, fetchRemoteNotes } from '../data/changelog';
+import { DESKTOP } from '../lib/desktopApp';
 
 const OFFLINE_MS = 10000;
 const SEEN_VERSION_KEY = 'fq_seen_version';
 
 /**
- * Desktop-only chrome: a centred "update available" popup (Download -> progress
- * bar -> Restart Now, with a "what's new" list once one exists for that
- * version), a "what's new" popup shown once right after a restart lands on a
- * new version, a small toast confirming a save (the Save dialog itself is
- * where the user actually picked the folder), and a small centred "you're
- * offline" popup for tools that need a network fetch the first time they run
- * (Remove Background, OCR) — auto-dismisses after 10s, closeable any time.
- * Renders nothing on the web.
+ * Desktop-only chrome: a centred "update available" popup (What's new /
+ * Later / Download -> progress bar -> Restart Now), a "what's new" popup shown
+ * once right after a restart lands on a new version, a small toast confirming
+ * a save (the Save dialog itself is where the user actually picked the
+ * folder), and a small centred "you're offline" popup for tools that need a
+ * network fetch the first time they run (Remove Background, OCR) —
+ * auto-dismisses after 10s, closeable any time. Renders nothing on the web.
  */
 const DesktopBridge = () => {
   const [toast, setToast] = useState(null); // { path } | { error } | null
@@ -21,6 +21,10 @@ const DesktopBridge = () => {
   const [dismissed, setDismissed] = useState(false);
   const [offline, setOffline] = useState(null); // { tool, at } | null
   const [whatsNew, setWhatsNew] = useState(null); // { version, notes } | null
+  // Notes for the update being offered. The installed build can't have them
+  // bundled (the version didn't exist yet), so they're fetched from GitHub.
+  const [updateNotes, setUpdateNotes] = useState({ version: null, status: 'idle', notes: [] });
+  const [showNotes, setShowNotes] = useState(false);
 
   useEffect(() => {
     if (!isDesktop()) return undefined;
@@ -68,6 +72,24 @@ const DesktopBridge = () => {
     })();
   }, []);
 
+  // When an update is offered, look up what's in it: the bundled list first
+  // (covers a version this build already knows), otherwise GitHub.
+  const offeredVersion = update?.state === 'available' ? update.version : null;
+  useEffect(() => {
+    if (!offeredVersion) return undefined;
+    const bundled = notesForVersion(offeredVersion);
+    if (bundled.length) {
+      setUpdateNotes({ version: offeredVersion, status: 'done', notes: bundled });
+      return undefined;
+    }
+    let cancelled = false;
+    setUpdateNotes({ version: offeredVersion, status: 'loading', notes: [] });
+    fetchRemoteNotes(offeredVersion).then((notes) => {
+      if (!cancelled) setUpdateNotes({ version: offeredVersion, status: 'done', notes });
+    });
+    return () => { cancelled = true; };
+  }, [offeredVersion]);
+
   // A fresh `at` (a new dispatch, even for the same tool) restarts the 10s clock.
   useEffect(() => {
     if (!offline) return undefined;
@@ -78,7 +100,6 @@ const DesktopBridge = () => {
   if (!isDesktop()) return null;
 
   const showPopup = update && !dismissed && ['available', 'downloading', 'ready'].includes(update.state);
-  const updateNotes = update ? notesForVersion(update.version) : [];
 
   return (
     <>
@@ -92,23 +113,48 @@ const DesktopBridge = () => {
                 <p className="mt-1.5 text-sm text-gray-600 dark:text-gray-300">
                   FileQuick {update.version ? `v${update.version}` : ''} is ready to download.
                 </p>
-                {updateNotes.length > 0 && (
-                  <ul className="mt-3 max-h-36 space-y-1.5 overflow-y-auto rounded-lg bg-gray-50 p-3 text-left text-[12.5px] text-gray-600 dark:bg-gray-900/40 dark:text-gray-300">
-                    {updateNotes.map((n) => (
-                      <li key={n} className="flex gap-2">
-                        <span className="text-indigo-500">•</span>
-                        <span>{n}</span>
-                      </li>
-                    ))}
-                  </ul>
+                {showNotes && (
+                  <div className="mt-3 max-h-40 overflow-y-auto rounded-lg bg-gray-50 p-3 text-left text-[12.5px] text-gray-600 dark:bg-gray-900/40 dark:text-gray-300">
+                    {updateNotes.status === 'loading' ? (
+                      <p className="text-gray-400">Loading what&rsquo;s new&hellip;</p>
+                    ) : updateNotes.notes.length > 0 ? (
+                      <ul className="space-y-1.5">
+                        {updateNotes.notes.map((n) => (
+                          <li key={n} className="flex gap-2">
+                            <span className="text-indigo-500">•</span>
+                            <span>{n}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>
+                        Couldn&rsquo;t load the details right now.{' '}
+                        <a
+                          href={`${DESKTOP.releasesUrl}/tag/v${update.version}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-semibold text-indigo-600 underline dark:text-indigo-400"
+                        >
+                          See it on GitHub
+                        </a>
+                      </p>
+                    )}
+                  </div>
                 )}
-                <div className="mt-5 flex justify-center gap-2">
+                <div className="mt-5 flex flex-wrap justify-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setDismissed(true)}
+                    onClick={() => { setDismissed(true); setShowNotes(false); }}
                     className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:border-gray-300 dark:border-gray-600 dark:text-gray-200"
                   >
                     Later
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowNotes((v) => !v)}
+                    className="rounded-lg border border-indigo-200 px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-50 dark:border-indigo-500/40 dark:text-indigo-300 dark:hover:bg-indigo-500/10"
+                  >
+                    {showNotes ? 'Hide details' : 'What’s new'}
                   </button>
                   <button
                     type="button"
