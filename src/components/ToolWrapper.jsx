@@ -112,8 +112,9 @@ const TopBar = ({ tool, onBack, minimal }) => {
  * @param {string}  [props.toolId]    override the :toolId route param (dynamic pages)
  * @param {object}  [props.pageMeta]  { title, description, h1, robots, seoContent } override
  * @param {object}  [props.toolProps] spread onto the lazy tool component
+ * @param {boolean} [props.active]    false while kept mounted but hidden (owns no page meta then)
  */
-const ToolWrapper = ({ toolId: toolIdProp, pageMeta, toolProps } = {}) => {
+const ToolWrapper = ({ toolId: toolIdProp, pageMeta, toolProps, active = true } = {}) => {
   const params = useParams();
   const toolId = toolIdProp || params.toolId;
   const navigate = useNavigate();
@@ -128,6 +129,7 @@ const ToolWrapper = ({ toolId: toolIdProp, pageMeta, toolProps } = {}) => {
           description: toolSeo?.seoDescription || tool.description,
         }
         : null),
+    active,
   );
 
   const LazyTool = useMemo(() => (tool?.load ? React.lazy(tool.load) : null), [tool]);

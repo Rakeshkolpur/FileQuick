@@ -59,12 +59,16 @@ export function setPageMeta({ title, description, path, robots } = {}) {
   upsertMeta('name', 'twitter:description', desc);
 }
 
-export function usePageMeta(meta) {
+// `enabled: false` is for a page kept mounted but hidden (see ToolRoute): it
+// must not touch the tab title while it's out of sight, and re-applies its
+// meta when it becomes the visible page again.
+export function usePageMeta(meta, enabled = true) {
   const key = JSON.stringify(meta || {});
   useEffect(() => {
+    if (!enabled) return;
     setPageMeta(meta || {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, enabled]);
 }
 
 /**

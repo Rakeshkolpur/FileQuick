@@ -37,6 +37,7 @@ const FileDropzone = ({
   compact = false,
 }) => {
   const inputRef = useRef(null);
+  const rootRef = useRef(null);
   const [dragging, setDragging] = useState(false);
   const [rejects, setRejects] = useState([]);
 
@@ -57,6 +58,9 @@ const FileDropzone = ({
   useEffect(() => {
     if (!paste) return undefined;
     const onPaste = (e) => {
+      // A tool kept alive behind another one (display: none) must not also
+      // take the paste — only the dropzone the user can actually see.
+      if (rootRef.current && rootRef.current.getClientRects().length === 0) return;
       const picked = [...(e.clipboardData?.items || [])]
         .filter((i) => i.kind === 'file')
         .map((i) => i.getAsFile())
@@ -69,6 +73,7 @@ const FileDropzone = ({
 
   return (
     <div
+      ref={rootRef}
       role="button"
       tabIndex={0}
       onClick={() => inputRef.current?.click()}
