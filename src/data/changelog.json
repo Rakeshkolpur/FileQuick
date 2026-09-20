@@ -1,5 +1,12 @@
 [
   {
+    "version": "1.0.20",
+    "date": "2026-09-20",
+    "notes": [
+      "The update popup now has a \"What's new\" button — read what's in an update before you decide to install it"
+    ]
+  },
+  {
     "version": "1.0.19",
     "date": "2026-09-18",
     "notes": [
