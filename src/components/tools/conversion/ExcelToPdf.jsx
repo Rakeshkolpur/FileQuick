@@ -1,204 +1,35 @@
-import React, { useEffect, useState } from 'react';
-import ToolWorkspace from '../../tool/ToolWorkspace';
-import { downloadBlob } from '../../tool/DownloadButton';
-import ResultScreen from '../../tool/ResultScreen';
-import { formatBytes, stripExt } from '../../../lib/format';
-import { SERVER_UPLOAD_MB } from '../../../lib/fileValidation';
-import { api } from '../../../lib/api';
-import { isDesktop } from '../../../lib/desktop';
+import React from 'react';
+import {
+  LuSheet, LuLayers, LuLayoutTemplate, LuShieldCheck,
+} from 'react-icons/lu';
+import OfficeToPdf from './OfficeToPdf';
+import { fitXlsxToWidth } from '../../../lib/xlsxFit';
 
-const XL_RE = /\.(xlsx|xls|ods|csv|xlsm|fods|tsv)$/i;
-const isSpreadsheet = (f) => f && (
-  XL_RE.test(f.name || '')
-  || f.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-  || f.type === 'application/vnd.ms-excel'
-  || f.type === 'text/csv'
-);
-
-const ExcelToPdf = () => {
-  const [file, setFile] = useState(null);
-  const [server, setServer] = useState('checking'); // checking | ready | unavailable
-  const [result, setResult] = useState(null); // { blob, size }
-  const [working, setWorking] = useState(false);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const res = await api.get('/health', { timeout: 3500 });
-        if (alive) setServer(res.data?.excel_to_pdf ? 'ready' : 'unavailable');
-      } catch (_) {
-        if (alive) setServer('unavailable');
-      }
-    })();
-    return () => { alive = false; };
-  }, []);
-
-  const onFiles = (list) => {
-    const f = list[0];
-    if (!f) return;
-    setResult(null);
-    setError(null);
-    if (!isSpreadsheet(f)) {
-      setFile(null);
-      setError('Please choose a spreadsheet (.xlsx, .xls, .ods or .csv).');
-      return;
-    }
-    setFile(f);
-  };
-
-  const reset = () => {
-    setFile(null);
-    setResult(null);
-    setError(null);
-  };
-  const backFromResult = () => setResult(null);
-
-  const build = async () => {
-    if (!file) return;
-    setError(null);
-    setWorking(true);
-    try {
-      const fd = new FormData();
-      fd.append('file', file, file.name);
-      const res = await api.post('/convert/excel-to-pdf', fd, { responseType: 'blob', timeout: 300000 });
-      let blob = res.data;
-      if (blob?.type && blob.type.indexOf('application/pdf') === -1) {
-        const text = await blob.text();
-        throw new Error(JSON.parse(text).error || text);
-      }
-      blob = new Blob([blob], { type: 'application/pdf' });
-      setResult({ blob, size: blob.size });
-    } catch (e) {
-      console.error(e);
-      let msg;
-      if (e.response?.status === 413) msg = `That file is too large — the converter takes files up to ${SERVER_UPLOAD_MB.convert} MB.`;
-      else if (e.code === 'ERR_NETWORK') msg = 'The converter is temporarily unavailable. Please try again in a moment.';
-      else if (e.response) msg = 'Conversion server error.';
-      else msg = e.message;
-      setError(msg || 'Conversion failed.');
-    } finally {
-      setWorking(false);
-    }
-  };
-
-  const outName = `${stripExt(file?.name || 'spreadsheet')}.pdf`;
-  const primaryDisabled = working || !file || server !== 'ready';
-
-  const ServerBadge = () => {
-    const map = {
-      checking: ['bg-gray-100 dark:bg-gray-700 text-gray-500', 'Checking converter…'],
-      ready: ['bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300', 'LibreOffice engine · connected'],
-      unavailable: ['bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300', isDesktop()
-        ? 'Needs LibreOffice — install it free from libreoffice.org, then reopen FileQuick'
-        : 'Converter unavailable — try again shortly'],
-    };
-    const [cls, label] = map[server] || map.checking;
-    return (
-      <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ${cls}`}>
-        <span className="h-1.5 w-1.5 rounded-full bg-current" />{label}
-      </span>
-    );
-  };
-
-  const sidebar = (
-    <>
-      <section className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{file?.name || 'Spreadsheet'}</h3>
-          <button type="button" onClick={reset} className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-            Start over
-          </button>
-        </div>
-        <p className="text-xs text-gray-400 dark:text-gray-500">
-          {file ? formatBytes(file.size) : 'Choose a .xlsx, .xls, .ods or .csv file'}
-        </p>
-        <ServerBadge />
-      </section>
-
-      <section className="space-y-2 pt-4 border-t border-gray-200 dark:border-gray-700">
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Conversion</h3>
-        <p className="text-[11px] text-gray-500 dark:text-gray-400">
-          Your spreadsheet is converted by LibreOffice — the same engine online PDF services use.
-          Each sheet&apos;s print area, gridlines, fonts, number formats, colours and page breaks
-          are kept, and the text stays selectable. Processed on your machine and deleted right after.
-        </p>
-      </section>
-
-      {error && (
-        <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{error}</p>
-      )}
-    </>
-  );
-
-  const footer = (
-    <button
-      type="button"
-      onClick={build}
-      disabled={primaryDisabled}
-      className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity flex items-center justify-center gap-2"
-    >
-      {working ? (
-        <><svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z" /></svg> Converting…</>
-      ) : (
-        'Convert to PDF'
-      )}
-    </button>
-  );
-
-  const resultView = (working || result) ? (
-    <ResultScreen
-      working={working}
-      done={!!result}
-      title="Your PDF is ready"
-      workingLabel="Converting with LibreOffice…"
-      fileName={outName}
-      fileSize={result?.size}
-      onDownload={() => downloadBlob(result.blob, outName)}
-      onBack={backFromResult}
-      backLabel="Convert another spreadsheet"
-      note="Converted with LibreOffice — sheet layout and selectable text kept. Stays on your device."
-    />
-  ) : null;
-
-  return (
-    <ToolWorkspace
-      file={file}
-      accept=".xlsx,.xls,.ods,.csv,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
-      maxMB={SERVER_UPLOAD_MB.convert}
-      formats={`Excel / CSV up to ${SERVER_UPLOAD_MB.convert} MB — sheet layout is kept`}
-      dropTitle="Drop a spreadsheet"
-      dropHint="or click to browse — .xlsx, .xls, .ods, .csv"
-      paste={false}
-      onFiles={onFiles}
-      onBack={(working || result) ? backFromResult : reset}
-      sidebar={sidebar}
-      footer={footer}
-      result={resultView}
-    >
-      <div className="flex items-center justify-center py-10">
-        <div className="w-full max-w-sm rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 p-6 text-center">
-          <div className="mx-auto mb-4 h-14 w-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-green-600 text-white flex items-center justify-center">
-            <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4h16v16H4zM4 10h16M4 16h16M10 4v16M16 4v16" />
-            </svg>
-          </div>
-          <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{file?.name}</p>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{file ? formatBytes(file.size) : ''}</p>
-          <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">
-            Ready to convert — every sheet comes through with its columns, formatting and page breaks intact.
-          </p>
-        </div>
-      </div>
-
-      {server === 'unavailable' && (
-        <p className="mt-2 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-2">
-          The Excel&nbsp;→&nbsp;PDF converter isn&apos;t responding right now. Please try again in a little while.
-        </p>
-      )}
-    </ToolWorkspace>
-  );
+const EXCEL = {
+  kind: 'excel',
+  toolId: 'excel-to-pdf',
+  endpoint: '/convert/excel-to-pdf',
+  healthKey: 'excel_to_pdf',
+  accept: '.xlsx,.xls,.xlsm,.ods,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/vnd.oasis.opendocument.spreadsheet,text/csv',
+  formats: '.xlsx, .xls, .ods or .csv',
+  dropTitle: 'Drop Excel spreadsheets here',
+  noun: 'spreadsheet',
+  icon: LuSheet,
+  brand: ['#217346', '#2E9E5B', '#E7F5EC', '#86d3a6'],
+  option: {
+    label: 'Fit each sheet to the page width',
+    desc: 'No columns cut off onto extra pages; wide sheets turn landscape. Turn off to use the workbook’s own print settings.',
+    default: true,
+    exts: ['xlsx', 'xlsm'],
+    apply: fitXlsxToWidth,
+  },
+  features: [
+    [LuLayers, 'Every sheet', 'All the sheets in the workbook go into the PDF, one after another.'],
+    [LuLayoutTemplate, 'Your page setup', 'Print areas, page orientation, fit-to-page and headers are respected.'],
+    [LuShieldCheck, 'Private', 'Deleted from the server the moment your PDF is ready.'],
+  ],
 };
+
+const ExcelToPdf = () => <OfficeToPdf cfg={EXCEL} />;
 
 export default ExcelToPdf;
