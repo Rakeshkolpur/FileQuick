@@ -8,7 +8,7 @@
   "main": "electron-dist/main.cjs",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/gen-sitemap.mjs && vite build",
+    "build": "node scripts/gen-sitemap.mjs && vite build && node scripts/prerender.mjs",
     "seo": "node scripts/gen-sitemap.mjs",
     "lint": "eslint .",
     "preview": "vite preview",

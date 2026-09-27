@@ -9,6 +9,10 @@ import { ThemeProvider } from './context/ThemeContext.jsx';
 // paths — use HashRouter there. The web keeps clean URLs with BrowserRouter.
 const Router = window.location.protocol === 'file:' ? HashRouter : BrowserRouter;
 
+// Static pages from scripts/prerender.mjs carry the page's structured data for
+// crawlers; the app adds its own (kept current on navigation), so drop these.
+document.querySelectorAll('script[data-prerendered]').forEach((el) => el.remove());
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <Router>
