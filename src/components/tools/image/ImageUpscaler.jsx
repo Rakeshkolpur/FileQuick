@@ -3,14 +3,37 @@ import FileDropzone from '../../tool/FileDropzone';
 import { downloadBlob } from '../../tool/DownloadButton';
 import { ToolBackContext } from '../../ToolWrapper';
 import { formatBytes, stripExt } from '../../../lib/format';
-import { upscaleImage, preloadUpscaleModel, isCpuFallback } from '../../../lib/upscale';
+import {
+  upscaleImage, preloadUpscaleModel, isCpuFallback, serverUpscaleAvailable,
+} from '../../../lib/upscale';
 import { consumeHandoff } from '../../../lib/imageHandoff';
 import OpenInTool from '../../tool/OpenInTool';
 
 const FACTORS = [
+  { f: 1, label: 'Enhance', hint: 'Same size — sharper, less noise and blur' },
   { f: 2, label: '2×', hint: 'Twice the pixels — great for most photos' },
   { f: 4, label: '4×', hint: 'Four times — small or low-res shots' },
 ];
+
+const EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
+
+/** One overall % for the whole job (upload → AI → download). */
+const overall = (st, progress) => {
+  if (!st || st.phase === 'browser') return progress;
+  if (st.phase === 'upload') return 0.08 * (st.pct || 0);
+  if (st.phase === 'queued') return 0.08;
+  if (st.phase === 'ai') return 0.08 + 0.87 * (st.pct || 0);
+  if (st.phase === 'download') return 0.95 + 0.05 * (st.pct || 0);
+  return progress;
+};
+
+const statusLabel = (st, progress) => {
+  if (!st || st.phase === 'browser') return progress < 0.02 ? 'Loading the AI model…' : 'Upscaling in your browser…';
+  if (st.phase === 'upload') return `Uploading your photo… ${Math.round((st.pct || 0) * 100)}%`;
+  if (st.phase === 'queued') return 'Waiting for a free AI slot…';
+  if (st.phase === 'ai') return 'AI is rebuilding the details…';
+  return 'Downloading the result…';
+};
 
 const ImageUpscaler = () => {
   const [file, setFile] = useState(null);
@@ -20,6 +43,8 @@ const ImageUpscaler = () => {
 
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [status, setStatus] = useState(null); // server job phase
+  const [serverOk, setServerOk] = useState(null);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null); // { url, width, height, capped }
 
@@ -34,7 +59,17 @@ const ImageUpscaler = () => {
   const resultUrlRef = useRef(null);
   const registerBack = useContext(ToolBackContext);
 
-  useEffect(() => { preloadUpscaleModel(2); }, []);
+  // Our server does the work when it's available; only otherwise warm up the
+  // small in-browser model.
+  useEffect(() => {
+    let alive = true;
+    serverUpscaleAvailable().then((ok) => {
+      if (!alive) return;
+      setServerOk(ok);
+      if (!ok) preloadUpscaleModel(2);
+    });
+    return () => { alive = false; };
+  }, []);
   useEffect(() => consumeHandoff((f) => handleFile(f), 'photo'), []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => {
     if (urlRef.current) URL.revokeObjectURL(urlRef.current);
@@ -81,28 +116,28 @@ const ImageUpscaler = () => {
 
   const run = async () => {
     if (!srcUrl || busy) return;
-    setBusy(true); setError(null); setProgress(0); clearResult();
+    setBusy(true); setError(null); setProgress(0); setStatus(null); clearResult();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     // Safety net: if a device-specific quirk leaves the model stuck instead
     // of rejecting cleanly, force it to give up rather than hang the page.
     let timedOut = false;
-    const watchdog = setTimeout(() => { timedOut = true; ctrl.abort(); }, 90_000);
+    const watchdog = setTimeout(() => { timedOut = true; ctrl.abort(); }, serverOk ? 360_000 : 90_000);
     try {
-      const out = await upscaleImage(srcUrl, factor, setProgress, ctrl.signal);
+      const out = await upscaleImage(srcUrl, factor, setProgress, ctrl.signal, setStatus);
       resultUrlRef.current = out.blobUrl;
       setResult(out);
       setPos(50); setZoom(1); setPan({ x: 0, y: 0 });
     } catch (e) {
       if (e?.name === 'AbortError') {
-        if (timedOut) setError('This is taking too long on your device. Try 2× instead, or a different device.');
+        if (timedOut) setError(serverOk ? 'This is taking too long — the AI server is very busy. Please try again in a minute.' : 'This is taking too long on your device. Try 2× instead, or a different device.');
         // else: user pressed Cancel — no message needed
       } else {
         setError(e?.message || 'Upscaling failed. Try a smaller image or the 2× option.');
       }
     } finally {
       clearTimeout(watchdog);
-      clearTimeout(watchdog);
+      setStatus(null);
       setBusy(false);
       abortRef.current = null;
     }
@@ -111,7 +146,8 @@ const ImageUpscaler = () => {
   const download = async () => {
     if (!result) return;
     const blob = await fetch(result.blobUrl).then((r) => r.blob());
-    downloadBlob(blob, `${stripExt(file.name)}-upscaled-${factor}x.png`);
+    const ext = EXT[result.mime] || 'png';
+    downloadBlob(blob, `${stripExt(file.name)}-${factor === 1 ? 'enhanced' : `upscaled-${factor}x`}.${ext}`);
   };
 
   // keep the box width measured so the clipped "before" image lines up
@@ -166,7 +202,7 @@ const ImageUpscaler = () => {
           onFiles={(fs) => handleFile(fs[0])}
           title="Drop a photo to upscale"
           hint="or click to browse"
-          formats="JPG · PNG · WebP — enlarge 2× or 4×, right here in your browser"
+          formats="JPG · PNG · WebP — enhance, or enlarge 2× / 4× with AI"
         />
         {error && <p className="mt-3 text-sm text-red-600 dark:text-red-400 text-center">{error}</p>}
       </div>
@@ -183,10 +219,10 @@ const ImageUpscaler = () => {
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Upscaled {factor}×</h2>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">{factor === 1 ? 'Enhanced' : `Upscaled ${factor}×`}</h2>
               <p className="text-[13px] text-gray-500 dark:text-gray-400">
-                {outW} × {outH} px · {formatBytes(result.bytes)} · PNG
-                {result.capped && <span className="ml-1">· source scaled to fit</span>}
+                {outW} × {outH} px · {formatBytes(result.bytes)} · {(EXT[result.mime] || 'png').toUpperCase()}
+                {result.capped && <span className="ml-1">· size capped at 36 megapixels</span>}
               </p>
             </div>
             <button
@@ -219,7 +255,7 @@ const ImageUpscaler = () => {
               </div>
             </div>
             <span className="pointer-events-none absolute left-2 top-2 rounded-md bg-black/55 px-2 py-0.5 text-[11px] font-medium text-white">Before</span>
-            <span className="pointer-events-none absolute right-2 top-2 rounded-md bg-purple-600/90 px-2 py-0.5 text-[11px] font-medium text-white">After · {factor}×</span>
+            <span className="pointer-events-none absolute right-2 top-2 rounded-md bg-purple-600/90 px-2 py-0.5 text-[11px] font-medium text-white">After · {factor === 1 ? 'Enhanced' : `${factor}×`}</span>
             {/* wipe line + grip */}
             <div className="pointer-events-none absolute inset-y-0 z-10" style={{ left: `${pos}%`, transform: 'translateX(-50%)' }}>
               <div className="h-full w-0.5 bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.3)]" />
@@ -253,7 +289,7 @@ const ImageUpscaler = () => {
             <span className="text-gray-400 dark:text-gray-500">
               {zoom === 1 ? 'Drag the line to compare' : 'Drag the line to compare · drag the photo to pan'} ·
             </span>
-            {factor === 2 && (
+            {factor !== 4 && (
               <button type="button" onClick={() => { setFactor(4); backToSetup(); }} className="font-medium text-purple-600 dark:text-purple-400 hover:underline">Try 4×</button>
             )}
             {factor === 4 && (
@@ -281,7 +317,7 @@ const ImageUpscaler = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
             {FACTORS.map((o) => (
               <button
                 key={o.f}
@@ -305,17 +341,23 @@ const ImageUpscaler = () => {
 
           {busy ? (
             <div className="rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-4">
-              <div className="flex items-center justify-between text-[13px] font-medium text-gray-600 dark:text-gray-300">
-                <span>{progress < 0.02 ? 'Loading the AI model…' : 'Upscaling…'}</span>
-                <span className="tabular-nums">{Math.round(progress * 100)}%</span>
+              <div className="flex items-center justify-between gap-3 text-[13px] font-medium text-gray-600 dark:text-gray-300">
+                <span className="flex items-center gap-2">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-purple-600" />
+                  {statusLabel(status, progress)}
+                </span>
+                <span className="tabular-nums">{Math.round(overall(status, progress) * 100)}%</span>
               </div>
               <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-                <div className="h-full rounded-full bg-gradient-to-r from-purple-600 to-pink-600 transition-[width] duration-200" style={{ width: `${Math.max(4, progress * 100)}%` }} />
+                <div className="h-full rounded-full bg-gradient-to-r from-purple-600 to-pink-600 transition-[width] duration-500" style={{ width: `${Math.max(4, overall(status, progress) * 100)}%` }} />
               </div>
               <p className="mt-2 text-[11px] text-gray-400 dark:text-gray-500">
-                {isCpuFallback()
-                  ? "Your device's graphics can't run this model, so it's using a slower CPU mode — this can take a few minutes."
-                  : '4× can take up to a minute — the model is working, not frozen.'}
+                {status?.phase === 'ai' && status.secondsLeft ? `About ${status.secondsLeft} s left · ` : ''}
+                {status && status.phase !== 'browser'
+                  ? 'Working on our AI server — the page stays usable, and you can cancel any time.'
+                  : isCpuFallback()
+                    ? "Your device's graphics can't run this model, so it's using a slower CPU mode — this can take a few minutes."
+                    : '4× can take up to a minute — the model is working, not frozen.'}
               </p>
               <button type="button" onClick={() => abortRef.current?.abort()} className="mt-2 text-[12px] text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">Cancel</button>
             </div>
@@ -325,12 +367,14 @@ const ImageUpscaler = () => {
               onClick={run}
               className="w-full rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-600/25 hover:brightness-110"
             >
-              Upscale to {factor}× {srcDims ? `— ${srcDims.w * factor} × ${srcDims.h * factor} px` : ''}
+              {factor === 1 ? 'Enhance photo' : `Upscale to ${factor}×`} {srcDims ? `— ${srcDims.w * factor} × ${srcDims.h * factor} px` : ''}
             </button>
           )}
 
           <p className="text-center text-[11px] text-gray-400 dark:text-gray-500">
-            Runs entirely in your browser — the photo never leaves your device. The AI model (~a few MB) downloads once on first use.
+            {serverOk === false
+              ? 'Runs in your browser — the photo never leaves your device. The AI model (~a few MB) downloads once on first use.'
+              : 'Processed by our Real-ESRGAN AI server over a secure connection and deleted right after — nothing is kept.'}
           </p>
           {error && <p className="text-center text-sm text-red-600 dark:text-red-400">{error}</p>}
         </div>

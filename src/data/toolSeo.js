@@ -253,29 +253,30 @@ const toolSeo = {
   },
 
   'upscale-image': {
-    seoTitle: 'Image Upscaler – Increase Image Resolution Free',
+    seoTitle: 'Image Upscaler & Enhancer – Increase Image Resolution Free with AI',
     seoDescription:
-      'Upscale an image 2× or 4× online free with an AI model that adds real detail, not just stretched pixels. Improve photo resolution and quality — no upload, no watermark.',
-    h1: 'How to upscale an image without losing quality',
+      'Enhance a photo or upscale it 2× / 4× online free with Real-ESRGAN AI — adds real detail, removes noise, blur and JPEG blocks. No sign-up, no watermark, deleted right after.',
+    h1: 'How to upscale or enhance an image without losing quality',
     intro:
-      'Enlarge a photo 2× or 4× with an in-browser AI upscaler that adds real detail instead of just stretching pixels. Free, no sign-up, no watermark — and the image is never uploaded to a server.',
+      'Make a photo sharper at the same size, or enlarge it 2× or 4× with Real-ESRGAN — an AI upscaler that adds real detail instead of just stretching pixels. Free, no sign-up, no watermark.',
     body: [
       'Plain resizing spreads the same pixels over a larger area, so an enlarged photo looks soft and blocky. An AI upscaler predicts what the extra detail should be — sharp edges, clean text, believable texture — so the result looks like it was shot at the higher resolution. It is the right tool for a small product photo you need to print, an old picture you want to enlarge, or a low-res graphic for a bigger screen.',
-      'The model downloads once and then runs on your device. Large images use a lot of memory locally, so on a phone stay under roughly 2000×2000 pixels for a 4× upscale.',
-      NO_UPLOAD,
+      'Enhance keeps the photo at its own size but cleans it up: the same AI removes grain, blur and the blocky marks left by heavy JPEG compression, which is ideal for profile pictures, documents photographed on a phone, and images saved from chat apps.',
+      'The work runs on our AI server, so it is just as fast on an old phone as on a new laptop and the page never freezes — you see live progress and can cancel any time. The photo travels over a secure connection and is deleted as soon as you download the result.',
     ],
     steps: [
-      'Open the Image Upscaler and add a JPG or PNG.',
-      'Choose the scale factor — 2× or 4×.',
-      'Wait a few seconds while the AI model runs in your browser.',
-      'Download the higher-resolution image.',
+      'Open the Image Upscaler and add a JPG, PNG or WebP.',
+      'Choose Enhance (same size), 2× or 4×.',
+      'Watch the progress while the AI rebuilds the detail — usually 5 to 60 seconds.',
+      'Compare before and after, then download the image.',
     ],
     faqs: [
       { q: 'How is upscaling different from resizing?', a: 'Resizing spreads existing pixels over a bigger area and looks blurry. The upscaler predicts new detail, so edges and textures stay sharp.' },
-      { q: 'Can I increase image resolution for free?', a: 'Yes. There is no account, no credit limit and no watermark — the model downloads once and then runs on your device.' },
-      { q: 'How large an image can I upscale?', a: 'Very large images use a lot of memory because everything runs locally. On a phone, stay under about 2000×2000 pixels for a 4× upscale.' },
-      { q: 'Does it work on old or blurry photos?', a: 'It sharpens and adds plausible detail, which helps mildly soft photos a lot. Severely damaged images have limits.' },
-      { q: 'Is the image uploaded?', a: `No. ${NO_UPLOAD}` },
+      { q: 'What does Enhance do?', a: 'It keeps the size but runs the photo through the same AI, which removes noise, softness and JPEG blocks — a cleaner, sharper version of the same picture.' },
+      { q: 'Can I increase image resolution for free?', a: 'Yes. There is no account, no credit limit and no watermark.' },
+      { q: 'How large an image can I upscale?', a: 'Any size photo can go in. The result is capped at 36 megapixels (about 6000×6000), and very large photos are processed at up to 2 megapixels of detail so a job never takes more than about a minute.' },
+      { q: 'Does it work on old or blurry photos?', a: 'It sharpens and adds plausible detail, which helps soft, noisy or compressed photos a lot. Severely damaged images have limits.' },
+      { q: 'Is my photo kept?', a: 'No. It is processed on our server over a secure connection and deleted as soon as the result is downloaded (or within 30 minutes if you leave).' },
     ],
     related: [
       { id: 'resize-image', text: 'plain resize when you only need different dimensions' },

@@ -30,11 +30,15 @@ Endpoints
 import base64
 import glob
 import io
+import json
 import os
 import re
 import shutil
 import subprocess
 import tempfile
+import threading
+import time
+import uuid
 import warnings
 
 warnings.filterwarnings("ignore", message=r"The `fitz` API")
@@ -70,6 +74,18 @@ EXCEL_EXT = {".xlsx", ".xls", ".ods", ".csv", ".xlsm", ".fods", ".tsv"}
 DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+try:
+    # AI upscale / enhance (Real-ESRGAN via OpenCV DNN — see upscale_engine.py)
+    import cv2 as _cv2
+    import upscale_engine as _upscale
+    from PIL import Image as _UpImage, ImageOps as _UpImageOps
+
+    HAS_UPSCALE = _upscale.available()
+except Exception:  # noqa: BLE001
+    _cv2 = None
+    _upscale = None
+    HAS_UPSCALE = False
 
 try:
     from pdf2docx import Converter as _Pdf2DocxConverter  # noqa: N814
@@ -803,6 +819,7 @@ def health():
             "protect": HAS_PIKEPDF,
             "compress": HAS_COMPRESS,
             "fill_sign": HAS_COMPRESS,
+            "upscale": HAS_UPSCALE,
         }
     )
 
@@ -1191,11 +1208,176 @@ def pdf_fill_sign():
     })
 
 
+# --------------------------------------------------------------------------- #
+#  AI upscale / enhance — background jobs with progress
+#
+#  POST   /image/upscale                file + scale (1 = enhance, 2, 4) -> 202 { job }
+#  GET    /image/upscale/<job>          -> { state, progress, ... }
+#  GET    /image/upscale/<job>/result   -> the image (then deleted from the server)
+#  DELETE /image/upscale/<job>          -> cancel
+#
+#  A job can take up to ~1 minute on CPU, longer than a request should wait,
+#  so it runs in a background thread and the page polls for progress. Status
+#  lives on disk so any gunicorn worker can answer the poll.
+# --------------------------------------------------------------------------- #
+
+UPSCALE_DIR = os.path.join(tempfile.gettempdir(), "fq_upscale_jobs")
+_UPSCALE_SLOT = threading.Semaphore(1)  # one AI job at a time per worker process
+_JOB_RE = re.compile(r"^[0-9a-f]{32}$")
+UPSCALE_MAX_INPUT_PX = 50_000_000
+
+
+def _job_file(job_id, name):
+    return os.path.join(UPSCALE_DIR, job_id, name)
+
+
+def _write_status(job_id, **status):
+    path = _job_file(job_id, "status.json")
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(status, fh)
+    os.replace(tmp, path)
+
+
+def _read_status(job_id):
+    try:
+        with open(_job_file(job_id, "status.json"), encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return None
+
+
+def _cleanup_upscale_jobs(max_age=1800):
+    try:
+        now = time.time()
+        for name in os.listdir(UPSCALE_DIR):
+            d = os.path.join(UPSCALE_DIR, name)
+            if os.path.isdir(d) and now - os.path.getmtime(d) > max_age:
+                shutil.rmtree(d, ignore_errors=True)
+    except OSError:
+        pass
+
+
+def _run_upscale_job(job_id, img, scale, fmt, meta):
+    cancelled = lambda: os.path.exists(_job_file(job_id, "cancel"))  # noqa: E731
+    try:
+        with _UPSCALE_SLOT:
+            if cancelled():
+                raise RuntimeError("cancelled")
+            started = time.time()
+            last = [-1.0]
+
+            def progress(p):
+                if p - last[0] >= 0.02 or p >= 1:
+                    last[0] = p
+                    _write_status(job_id, **{**meta, "state": "running", "progress": round(p, 3), "started": started})
+
+            progress(0)
+            result, capped = _upscale.enhance(img, scale, progress=progress, cancelled=cancelled)
+            ext, params, mime = {
+                "jpg": (".jpg", [_cv2.IMWRITE_JPEG_QUALITY, 95], "image/jpeg"),
+                "webp": (".webp", [_cv2.IMWRITE_WEBP_QUALITY, 95], "image/webp"),
+                "png": (".png", [_cv2.IMWRITE_PNG_COMPRESSION, 3], "image/png"),
+            }[fmt]
+            ok, buf = _cv2.imencode(ext, result, params)
+            if not ok:
+                raise RuntimeError("Could not encode the result.")
+            with open(_job_file(job_id, "result" + ext), "wb") as fh:
+                fh.write(buf.tobytes())
+            _write_status(job_id, **{
+                **meta, "state": "done", "progress": 1, "ext": ext, "mime": mime, "bytes": int(buf.size),
+                "outWidth": int(result.shape[1]), "outHeight": int(result.shape[0]), "capped": bool(capped),
+                "seconds": round(time.time() - started, 1),
+            })
+    except Exception as exc:  # noqa: BLE001
+        msg = str(exc) or "Upscaling failed."
+        _write_status(job_id, **{**meta, "state": "cancelled" if msg == "cancelled" else "error", "error": msg})
+
+
+@app.post("/image/upscale")
+def image_upscale():
+    if not HAS_UPSCALE:
+        return jsonify({"error": "The AI upscaler is not installed on the server."}), 503
+    if "file" not in request.files:
+        return jsonify({"error": "No image provided (expected multipart field 'file')."}), 400
+    try:
+        scale = int(request.form.get("scale", "2"))
+    except ValueError:
+        scale = 0
+    if scale not in (1, 2, 4):
+        return jsonify({"error": "Scale must be 1, 2 or 4."}), 400
+
+    try:
+        im = _UpImage.open(io.BytesIO(request.files["file"].read()))
+        if im.width * im.height > UPSCALE_MAX_INPUT_PX:
+            return jsonify({"error": "This image is too large (over 50 megapixels)."}), 413
+        src_format = (im.format or "").upper()
+        im = _UpImageOps.exif_transpose(im)  # phone photos: apply the rotation tag
+        has_alpha = im.mode in ("RGBA", "LA", "PA") or (im.mode == "P" and "transparency" in im.info)
+        im = im.convert("RGBA" if has_alpha else "RGB")
+        import numpy as np  # noqa: PLC0415
+
+        arr = np.asarray(im)
+        img = _cv2.cvtColor(arr, _cv2.COLOR_RGBA2BGRA if has_alpha else _cv2.COLOR_RGB2BGR)
+    except Exception:  # noqa: BLE001
+        return jsonify({"error": "This file couldn't be read as an image (JPG, PNG or WebP)."}), 415
+
+    fmt = "png" if has_alpha or src_format in ("PNG", "BMP", "TIFF", "GIF") else ("webp" if src_format == "WEBP" else "jpg")
+    h, w = img.shape[:2]
+    (ow, oh), _model, capped = _upscale.plan(w, h, scale)
+    meta = {"width": w, "height": h, "scale": scale, "outWidth": ow, "outHeight": oh, "capped": capped,
+            "modelPixels": _model[0] * _model[1]}
+
+    os.makedirs(UPSCALE_DIR, exist_ok=True)
+    _cleanup_upscale_jobs()
+    job_id = uuid.uuid4().hex
+    os.makedirs(os.path.join(UPSCALE_DIR, job_id))
+    _write_status(job_id, state="queued", progress=0, **meta)
+    threading.Thread(target=_run_upscale_job, args=(job_id, img, scale, fmt, meta), daemon=True).start()
+    return jsonify({"job": job_id, **meta}), 202
+
+
+@app.get("/image/upscale/<job_id>")
+def image_upscale_status(job_id):
+    if not _JOB_RE.match(job_id):
+        return jsonify({"error": "Unknown job."}), 404
+    status = _read_status(job_id)
+    if status is None:
+        return jsonify({"error": "This job has expired — please start again."}), 404
+    return jsonify(status)
+
+
+@app.get("/image/upscale/<job_id>/result")
+def image_upscale_result(job_id):
+    if not _JOB_RE.match(job_id):
+        return jsonify({"error": "Unknown job."}), 404
+    status = _read_status(job_id)
+    if not status or status.get("state") != "done":
+        return jsonify({"error": "The result isn't ready."}), 409
+    path = _job_file(job_id, "result" + status["ext"])
+    try:
+        with open(path, "rb") as fh:
+            data = fh.read()
+    except OSError:
+        return jsonify({"error": "This job has expired — please start again."}), 404
+    shutil.rmtree(os.path.join(UPSCALE_DIR, job_id), ignore_errors=True)  # nothing kept
+    return send_bytes(data, "upscaled" + status["ext"], status["mime"])
+
+
+@app.delete("/image/upscale/<job_id>")
+def image_upscale_cancel(job_id):
+    if _JOB_RE.match(job_id) and os.path.isdir(os.path.join(UPSCALE_DIR, job_id)):
+        with open(_job_file(job_id, "cancel"), "w", encoding="utf-8") as fh:
+            fh.write("1")
+    return jsonify({"ok": True})
+
+
 if __name__ == "__main__":
     print(f"LibreOffice : {SOFFICE or 'NOT FOUND'}")
     print(f"pdf2docx    : {'ok' if HAS_PDF2DOCX else 'NOT INSTALLED'}")
     print(f"pikepdf     : {'ok' if HAS_PIKEPDF else 'NOT INSTALLED'}")
     print(f"python-pptx : {'ok' if HAS_PPTX else 'NOT INSTALLED'}")
     print(f"openpyxl    : {'ok' if HAS_XLSX else 'NOT INSTALLED'}")
+    print(f"AI upscale  : {'ok' if HAS_UPSCALE else 'NOT AVAILABLE (models/realesr-general-x4v3.onnx + opencv)'}")
     # localhost only, no debugger — this process shells out to converters.
     app.run(host="127.0.0.1", port=int(os.environ.get("PORT", 5000)), debug=False)

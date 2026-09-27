@@ -87,14 +87,146 @@ async function polish(dataUrl) {
   return new Promise((res) => c.toBlob((b) => res(b), 'image/png'));
 }
 
+/* ------------------------------------------------------------------ */
+/*  Server engine: Real-ESRGAN (general-x4v3) on our conversion server  */
+/*  — far better than the small in-browser model, and the page never   */
+/*  freezes: the work runs as a background job and we poll progress.   */
+/* ------------------------------------------------------------------ */
+
+let _serverOk = null;
+/** Does the conversion server offer AI upscaling? (checked once) */
+export function serverUpscaleAvailable() {
+  if (!_serverOk) {
+    _serverOk = import('./api')
+      .then(({ api }) => api.get('/health', { timeout: 5000 }))
+      .then((r) => !!r.data?.upscale)
+      .catch(() => false);
+  }
+  return _serverOk;
+}
+
+const abortError = () => {
+  const e = new Error('Cancelled');
+  e.name = 'AbortError';
+  return e;
+};
+const sleep = (ms, signal) => new Promise((res, rej) => {
+  const t = setTimeout(res, ms);
+  signal?.addEventListener('abort', () => { clearTimeout(t); rej(abortError()); }, { once: true });
+});
+
+async function serverUpscale(dataUrl, factor, onProgress, signal, onStatus) {
+  const { api } = await import('./api');
+  const src = await fetch(dataUrl).then((r) => r.blob());
+  const ext = /png/.test(src.type) ? '.png' : /webp/.test(src.type) ? '.webp' : '.jpg';
+  const fd = new FormData();
+  fd.append('file', src, `image${ext}`);
+  fd.append('scale', String(factor));
+
+  onStatus?.({ phase: 'upload', pct: 0 });
+  const started = await api.post('/image/upscale', fd, {
+    timeout: 120000,
+    signal,
+    onUploadProgress: (e) => { if (e.total) onStatus?.({ phase: 'upload', pct: e.loaded / e.total }); },
+  });
+  const { job } = started.data;
+  signal?.addEventListener('abort', () => { api.delete(`/image/upscale/${job}`).catch(() => {}); }, { once: true });
+
+  let status;
+  let aiStart = 0;
+  for (;;) {
+    if (signal?.aborted) throw abortError();
+    // eslint-disable-next-line no-await-in-loop
+    await sleep(800, signal);
+    // eslint-disable-next-line no-await-in-loop
+    status = (await api.get(`/image/upscale/${job}`, { timeout: 20000, signal })).data;
+    if (status.state === 'queued') onStatus?.({ phase: 'queued' });
+    else if (status.state === 'running') {
+      if (!aiStart) aiStart = Date.now();
+      const p = status.progress || 0;
+      const elapsed = (Date.now() - aiStart) / 1000;
+      const left = p > 0.05 ? Math.max(1, Math.round((elapsed / p) * (1 - p))) : null;
+      onStatus?.({ phase: 'ai', pct: p, secondsLeft: left });
+      onProgress?.(p);
+    } else if (status.state === 'done') break;
+    else throw new Error(status.error && status.error !== 'cancelled' ? status.error : 'Upscaling was stopped.');
+  }
+
+  onStatus?.({ phase: 'download', pct: 0 });
+  const res = await api.get(`/image/upscale/${job}/result`, {
+    responseType: 'blob',
+    timeout: 180000,
+    signal,
+    onDownloadProgress: (e) => { if (e.total) onStatus?.({ phase: 'download', pct: e.loaded / e.total }); },
+  });
+  const blob = new Blob([res.data], { type: status.mime });
+  onProgress?.(1);
+  return {
+    blobUrl: URL.createObjectURL(blob),
+    bytes: blob.size,
+    width: status.outWidth,
+    height: status.outHeight,
+    capped: !!status.capped,
+    mime: status.mime,
+    engine: 'server',
+  };
+}
+
 /**
  * @param {string} dataUrl source image (data/object URL)
- * @param {2|4} factor
+ * @param {1|2|4} factor 1 = enhance at the same size
  * @param {(rate:number)=>void} [onProgress] 0..1
  * @param {AbortSignal} [signal]
- * @returns {Promise<{blobUrl:string,bytes:number,width:number,height:number,capped:boolean}>}
+ * @param {(s:{phase:string,pct?:number,secondsLeft?:number})=>void} [onStatus]
+ * @returns {Promise<{blobUrl:string,bytes:number,width:number,height:number,capped:boolean,mime:string,engine:string}>}
  */
-export async function upscaleImage(dataUrl, factor, onProgress, signal) {
+export async function upscaleImage(dataUrl, factor, onProgress, signal, onStatus) {
+  if (await serverUpscaleAvailable()) {
+    try {
+      return await serverUpscale(dataUrl, factor, onProgress, signal, onStatus);
+    } catch (e) {
+      if (e?.name === 'AbortError' || e?.name === 'CanceledError' || signal?.aborted) throw abortError();
+      // A real answer from the server (bad image, too large…) is final; only
+      // an unreachable server falls back to the in-browser model.
+      const unreachable = !e?.response && /network|timeout|ECONN/i.test(`${e?.message || ''} ${e?.code || ''}`);
+      if (!unreachable) {
+        const data = e?.response?.data;
+        let msg = e?.message || 'Upscaling failed.';
+        if (data instanceof Blob) {
+          try { msg = JSON.parse(await data.text()).error || msg; } catch { /* keep */ }
+        } else if (data?.error) msg = data.error;
+        throw new Error(msg);
+      }
+    }
+  }
+  onStatus?.({ phase: 'browser' });
+  if (factor === 1) return enhanceInBrowser(dataUrl, onProgress, signal);
+  return browserUpscale(dataUrl, factor, onProgress, signal);
+}
+
+/** Browser fallback for "enhance": 2x with the small model, back to the original size. */
+async function enhanceInBrowser(dataUrl, onProgress, signal) {
+  const src = await loadImage(dataUrl);
+  const up = await browserUpscale(dataUrl, 2, onProgress, signal);
+  const big = await loadImage(up.blobUrl);
+  const c = document.createElement('canvas');
+  c.width = src.naturalWidth;
+  c.height = src.naturalHeight;
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(big, 0, 0, c.width, c.height);
+  URL.revokeObjectURL(up.blobUrl);
+  const blob = await new Promise((res) => c.toBlob((b) => res(b), 'image/png'));
+  return {
+    blobUrl: URL.createObjectURL(blob), bytes: blob.size, width: c.width, height: c.height, capped: up.capped, mime: 'image/png', engine: 'browser',
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Fallback: the small in-browser model                               */
+/* ------------------------------------------------------------------ */
+
+async function browserUpscale(dataUrl, factor, onProgress, signal) {
   const up = await getUpscaler(factor);
   const { tf } = await loadCore();
   if (_forceCpu && tf.getBackend() !== 'cpu') {
@@ -144,5 +276,7 @@ export async function upscaleImage(dataUrl, factor, onProgress, signal) {
     width: w * factor,
     height: h * factor,
     capped,
+    mime: 'image/png',
+    engine: 'browser',
   };
 }

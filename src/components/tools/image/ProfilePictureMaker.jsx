@@ -275,6 +275,7 @@ const ProfilePictureMaker = () => {
   const [busy, setBusy] = useState(false);
   const [enhancing, setEnhancing] = useState(false);
   const [enhanced, setEnhanced] = useState(false);
+  const [enhancePct, setEnhancePct] = useState(0);
   const [showCrop, setShowCrop] = useState(false);
   const [error, setError] = useState(null);
 
@@ -337,14 +338,21 @@ const ProfilePictureMaker = () => {
   // low-res selfie makes a sharper profile picture — no need to leave the tool.
   const enhance = async () => {
     if (!imgUrl || enhancing || removeBg) return;
-    setEnhancing(true); setError(null);
+    setEnhancing(true); setError(null); setEnhancePct(0);
     try {
-      const { blobUrl } = await upscaleImage(imgUrl, 2);
+      // A small selfie gets 2x the pixels; a big photo is cleaned up at its own size.
+      const factor = Math.max(img?.naturalWidth || 0, img?.naturalHeight || 0) >= 1600 ? 1 : 2;
+      const { blobUrl, mime } = await upscaleImage(imgUrl, factor, null, undefined, (st) => {
+        if (st.phase === 'upload') setEnhancePct(Math.round(8 * (st.pct || 0)));
+        else if (st.phase === 'ai') setEnhancePct(8 + Math.round(87 * (st.pct || 0)));
+        else if (st.phase === 'download') setEnhancePct(95);
+      });
       const blob = await fetch(blobUrl).then((r) => r.blob());
       const im = await loadFromUrl(blobUrl);
       urlsRef.current.push(blobUrl);
       setImg(im); setImgUrl(blobUrl);
-      setFile(new File([blob], `${stripExt(file.name)}-2x.png`, { type: 'image/png' }));
+      const ext = mime === 'image/jpeg' ? 'jpg' : mime === 'image/webp' ? 'webp' : 'png';
+      setFile(new File([blob], `${stripExt(file.name)}-enhanced.${ext}`, { type: mime || 'image/png' }));
       setCutout(null); setCutoutUrl(null);
       setResult(null); setEnhanced(true);
     } catch (e) {
@@ -585,7 +593,7 @@ const ProfilePictureMaker = () => {
               type="button"
               onClick={enhance}
               disabled={enhancing || removeBg || enhanced}
-              title={removeBg ? 'Turn off Remove BG first' : 'Sharpen a low-res photo with AI (2×)'}
+              title={removeBg ? 'Turn off Remove BG first' : 'Sharpen the photo with AI — less blur, noise and JPEG blocks (processed on our server, deleted right after)'}
               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 disabled:opacity-40 dark:bg-purple-500/15 dark:text-purple-300 dark:hover:bg-purple-500/25"
             >
               {enhancing ? (
@@ -593,7 +601,7 @@ const ProfilePictureMaker = () => {
               ) : (
                 <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 3l1.5 3.5L10 8 6.5 9.5 5 13l-1.5-3.5L0 8l3.5-1.5zM17 3l1 2 2 1-2 1-1 2-1-2-2-1 2-1zM15 12l1.5 3.5L20 17l-3.5 1.5L15 22l-1.5-3.5L10 17l3.5-1.5z" /></svg>
               )}
-              {enhanced ? 'Enhanced' : enhancing ? 'Enhancing…' : 'Enhance'}
+              {enhanced ? 'Enhanced' : enhancing ? `Enhancing${enhancePct ? ` ${enhancePct}%` : '…'}` : 'Enhance'}
             </button>
             <button
               type="button"

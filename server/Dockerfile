@@ -38,7 +38,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt gunicorn
 
-COPY convert_server.py .
+COPY convert_server.py upscale_engine.py ./
+# AI upscaler model (Real-ESRGAN general-x4v3, built by tools/make_upscale_model.py)
+COPY models ./models
 
 # Map Word font names (Bookman, Century Gothic, Palatino …) to the look-alikes above.
 COPY fonts-aliases.conf /etc/fonts/conf.d/60-filequik-aliases.conf

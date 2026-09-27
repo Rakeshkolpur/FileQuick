@@ -64,6 +64,22 @@ sudo fc-cache -f
 # then restart the conversion service
 ```
 
+### AI upscaler (Image Upscaler + "Enhance")
+
+`POST /image/upscale` runs **Real-ESRGAN general-x4v3** (BSD-3-Clause,
+Xintao Wang et al.) on the CPU through OpenCV's DNN module — no GPU or
+PyTorch. The model ships in `server/models/realesr-general-x4v3.onnx`
+(rebuild it from the official `.pth` with `python server/tools/make_upscale_model.py <pth>`).
+Jobs run in the background; the page polls `GET /image/upscale/<job>` for
+progress and fetches `/result` (deleted on download, leftovers after 30 min).
+On 2 vCPUs a 0.75-megapixel photo takes ~20 s; input to the model is capped at
+2 MP so a job stays around a minute.
+
+```bash
+pip install -r server/requirements.txt   # adds opencv-python-headless + numpy
+# restart the service; /health then reports "upscale": true
+```
+
 ### CORS
 
 `convert_server.py` currently allows all origins (fine for dev). Before going

@@ -63,7 +63,7 @@ const TOOLS = [
     description: 'Cut out the background and export a transparent PNG.',
     load: () => import('../components/tools/image/BackgroundRemover.jsx') },
   { id: 'upscale-image', title: 'Image Upscaler', category: 'image', group: 'Enhance', icon: I.upscale, popular: true,
-    description: 'Enlarge a photo 2× or 4× with an in-browser AI model — sharper detail, no upload.',
+    description: 'Enhance a photo or enlarge it 2× / 4× with Real-ESRGAN AI — real detail, less noise and blur.',
     load: () => import('../components/tools/image/ImageUpscaler.jsx') },
   { id: 'document-scanner', title: 'Document Scanner', category: 'image', group: 'Enhance', icon: I.scan, popular: true, chrome: 'min',
     description: 'Turn phone photos of documents into clean, straightened scans — bulk upload, auto edge-detect, export to PDF.',
