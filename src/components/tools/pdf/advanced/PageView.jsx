@@ -158,7 +158,9 @@ const PageView = ({
       if (cancelled) return;
 
       const tc = await p.getTextContent();
-      const ls = groupLines(tc.items, slot.index);
+      // table cell borders keep cells apart (S.No | Date | Description …)
+      const walls = tables.flatMap((t) => t.xs.map((x) => ({ x, y0: t.bottom, y1: t.top })));
+      const ls = groupLines(tc.items, slot.index, walls);
       const meta = {};
       ls.forEach((l) => {
         l.slot = slot.key;
@@ -182,7 +184,7 @@ const PageView = ({
       cancelled = true;
       try { task?.cancel(); } catch { /* done */ }
     };
-  }, [visible, scale, pdfjs, slot.kind, slot.index, slot.key, view]);
+  }, [visible, scale, pdfjs, slot.kind, slot.index, slot.key, view, tables]);
 
   /* ---- pointer: create objects / add text ---- */
   const framePt = (e) => {

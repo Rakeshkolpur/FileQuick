@@ -956,7 +956,7 @@ export function matchFamily(base, flags = {}) {
  * baseline, split where a gap is wide enough to be a new column). Coordinates
  * are PDF user space: x0/x1 along the baseline y, size = font size.
  */
-export function groupLines(items, pageIndex) {
+export function groupLines(items, pageIndex, walls = []) {
   const glyphs = [];
   items.forEach((it) => {
     if (!it.str || !it.str.trim() || !it.transform) return;
@@ -967,41 +967,71 @@ export function groupLines(items, pageIndex) {
   });
   glyphs.sort((p, q) => (Math.abs(p.y - q.y) > 0.5 ? q.y - p.y : p.x - q.x));
 
-  const lines = [];
+  // A table cell border between two pieces of text always separates them.
+  const wallBetween = (x0, x1, y) => walls.some((w) => w.x > x0 - 0.5 && w.x < x1 + 0.5 && y >= w.y0 - 2 && y <= w.y1 + 2);
+
+  // Pass 1 — runs on one baseline. Generous (2.5 em) so a stretched,
+  // justified line isn't cut into words…
+  const rows = [];
   glyphs.forEach((g) => {
     let L = null;
-    for (let i = lines.length - 1; i >= 0 && i >= lines.length - 6; i -= 1) {
-      const l = lines[i];
+    for (let i = rows.length - 1; i >= 0 && i >= rows.length - 6; i -= 1) {
+      const l = rows[i];
       const tol = 0.3 * Math.min(l.size, g.size);
-      // Up to 2.5 em apart is still the same line: justified text can open
-      // very wide gaps between words; real columns sit much further apart.
-      if (Math.abs(l.y - g.y) <= tol && g.x >= l.x1 - 0.5 * g.size && g.x - l.x1 <= 2.5 * Math.max(l.size, g.size)) {
+      if (Math.abs(l.y - g.y) <= tol && g.x >= l.x1 - 0.5 * g.size
+        && g.x - l.x1 <= 2.5 * Math.max(l.size, g.size) && !wallBetween(l.x1, g.x, g.y)) {
         L = l;
         break;
       }
     }
     if (L) {
-      const gap = g.x - L.x1;
-      if (gap > 0.18 * g.size && !L.text.endsWith(' ') && !g.str.startsWith(' ')) L.text += ' ';
-      L.text += g.str;
+      L.parts.push(g);
       L.x1 = Math.max(L.x1, g.x + g.w);
       L.size = Math.max(L.size, g.size);
-      L.fonts[g.font] = (L.fonts[g.font] || 0) + g.str.length;
-    } else {
-      lines.push({ x0: g.x, x1: g.x + g.w, y: g.y, size: g.size, text: g.str, fonts: { [g.font]: g.str.length } });
-    }
+    } else rows.push({ y: g.y, x1: g.x + g.w, size: g.size, parts: [g] });
   });
 
-  return lines.map((l, i) => {
-    const fontName = Object.entries(l.fonts).sort((p, q) => q[1] - p[1])[0][0];
+  // Pass 2 — …but cells of a table row (S.No | Date | Description) are
+  // separate. Justified text has evenly sized gaps; columns don't. Split a
+  // run wherever a gap is much wider than the run's normal word gap.
+  const pieces = [];
+  rows.forEach((row) => {
+    const { parts } = row;
+    const em = row.size;
+    const gaps = parts.slice(1).map((p, i) => p.x - (parts[i].x + parts[i].w));
+    const wordGaps = gaps.filter((v) => v > 0.18 * em).sort((p, q) => p - q);
+    const median = wordGaps.length ? wordGaps[Math.floor(wordGaps.length / 2)] : 0;
+    const max = wordGaps.length ? wordGaps[wordGaps.length - 1] : 0;
+    const evenlyJustified = wordGaps.length >= 3 && max <= 1.6 * median;
+    const limit = evenlyJustified ? Infinity : Math.max(1.2 * em, 1.6 * median);
+    let cur = [parts[0]];
+    gaps.forEach((gap, i) => {
+      if (gap > limit) { pieces.push(cur); cur = []; }
+      cur.push(parts[i + 1]);
+    });
+    pieces.push(cur);
+  });
+
+  return pieces.map((ps, i) => {
+    let text = '';
+    const fonts = {};
+    ps.forEach((g, k) => {
+      if (k) {
+        const gap = g.x - (ps[k - 1].x + ps[k - 1].w);
+        if (gap > 0.18 * g.size && !text.endsWith(' ') && !g.str.startsWith(' ')) text += ' ';
+      }
+      text += g.str;
+      fonts[g.font] = (fonts[g.font] || 0) + g.str.length;
+    });
+    const fontName = Object.entries(fonts).sort((p, q) => q[1] - p[1])[0][0];
     return {
       id: `p${pageIndex}-l${i}`,
       page: pageIndex,
-      x0: l.x0,
-      x1: l.x1,
-      y: l.y,
-      size: l.size,
-      text: l.text.replace(/\s+$/, ''),
+      x0: ps[0].x,
+      x1: Math.max(...ps.map((g) => g.x + g.w)),
+      y: ps[0].y,
+      size: Math.max(...ps.map((g) => g.size)),
+      text: text.replace(/\s+$/, ''),
       fontName,
     };
   });

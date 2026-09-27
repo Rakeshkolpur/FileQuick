@@ -37,6 +37,7 @@ const MAX_FIT = 1.8;
 const ZOOMS = [0.5, 0.67, 0.8, 1, 1.25, 1.5, 2, 2.5, 3];
 
 let seq = 0;
+const NO_TABLES = []; // stable empty list (used as an effect dependency)
 
 /** Does a font (fontkit) have every character of the text? */
 const coversAll = (fk, text) => [...text].every((ch) => /\s/.test(ch) || fk.hasGlyphForCodePoint(ch.codePointAt(0)));
@@ -713,7 +714,7 @@ const PDFTextEditor = () => {
 
   /** Ruled tables already in the PDF page (cached). */
   const tablesFor = (slot) => {
-    if (slot.kind !== 'orig' || !docRef.current) return [];
+    if (slot.kind !== 'orig' || !docRef.current) return NO_TABLES;
     const cache = docRef.current.tables;
     if (!cache.has(slot.index)) {
       let found = [];
