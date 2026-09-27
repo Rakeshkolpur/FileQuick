@@ -75,6 +75,7 @@ const KEEP_ALIVE = new Set([
   'convert-image', 'upscale-image', 'profile-picture', 'passport-photo', 'exam-photo-resizer',
   'merge-pdf', 'split-pdf', 'pdf-compressor', 'organize-pdf', 'rotate-pdf', 'crop-pdf',
   'delete-pages', 'extract-pages', 'page-numbers', 'watermark-pdf', 'remove-watermark',
+  'edit-pdf-text',
 ]);
 const MAX_ALIVE = 4; // least-recently-used tools beyond this are dropped
 
