@@ -24,7 +24,7 @@ import {
 import SignatureModal from './advanced/SignatureModal';
 import { saveDocument } from './advanced/saveDocument';
 import {
-  ORIGINAL, TOOL_DEFAULTS, TOOL_HINTS, isChanged,
+  ORIGINAL, TOOL_DEFAULTS, TOOL_HINTS, isChanged, baseY,
 } from './advanced/records';
 import { textWidth } from './advanced/measure';
 import { norm } from './advanced/geometry';
@@ -383,6 +383,8 @@ const PDFTextEditor = () => {
       justify,
       align: centred ? 'center' : 'left',
       cx,
+      ax: centred ? cx : line.x0,
+      by: line.y,
       origWidth,
       origExtra,
       underline: hasUl,
@@ -392,7 +394,7 @@ const PDFTextEditor = () => {
       gen: gen.current,
     };
     rec.init = {
-      family: rec.family, bold: rec.bold, italic: rec.italic, size: rec.size, color: rec.color, underline: hasUl,
+      family: rec.family, bold: rec.bold, italic: rec.italic, size: rec.size, color: rec.color, underline: hasUl, align: rec.align,
     };
     setEdits((mm) => ({ ...mm, [line.id]: rec }));
     setActiveId(line.id);
@@ -408,6 +410,9 @@ const PDFTextEditor = () => {
       x0: x,
       x1: x,
       y,
+      align: 'left',
+      ax: x,
+      by: y,
       origSize: d.size,
       size: d.size,
       origText: '',
@@ -423,7 +428,7 @@ const PDFTextEditor = () => {
       gen: gen.current,
     };
     rec.init = {
-      family: rec.family, bold: rec.bold, italic: rec.italic, size: rec.size, color: rec.color, underline: false,
+      family: rec.family, bold: rec.bold, italic: rec.italic, size: rec.size, color: rec.color, underline: false, align: 'left',
     };
     setEdits((m) => ({ ...m, [id]: rec }));
     setActiveId(id);
@@ -433,6 +438,64 @@ const PDFTextEditor = () => {
     pushHistory(`text:${id}`);
     patch(id, { text });
   }, [patch, pushHistory]);
+
+  /* ---- move / align / duplicate ---- */
+  const marginsRef = useRef({});
+  const onMargins = useCallback((key, m) => { marginsRef.current[key] = m; }, []);
+  const moveRec = useCallback((id, p) => patch(id, p), [patch]);
+  const beginMoveRec = useCallback(() => pushHistory(), [pushHistory]);
+
+  /** Left / centre / right of the page (left & right = the page's text margins). */
+  const alignRec = (id, a) => {
+    const r = editsRef.current[id];
+    const sl = r && slotsRef.current.find((x) => x.key === r.slot);
+    if (!sl) return;
+    const v = sl.view;
+    const m = marginsRef.current[sl.key] || { left: v[0] + 72, right: v[2] - 72 };
+    const ax = a === 'center' ? (v[0] + v[2]) / 2 : a === 'right' ? m.right : m.left;
+    pushHistory();
+    patch(id, { align: a, ax });
+  };
+
+  const duplicateRec = (id) => {
+    const r = editsRef.current[id];
+    if (!r) return;
+    pushHistory();
+    deactivate();
+    const nid = uid('new');
+    const by = baseY(r) - r.size * 1.4;
+    const copy = {
+      ...r,
+      id: nid,
+      kind: 'new',
+      y: by,
+      by,
+      x1: r.x0,
+      origText: '',
+      ulRules: null,
+      caret: null,
+      gen: gen.current,
+    };
+    copy.init = { ...r.init, align: copy.align };
+    setEdits((m) => ({ ...m, [nid]: copy }));
+    setActiveId(nid);
+  };
+  const duplicateRef = useRef(duplicateRec);
+  duplicateRef.current = duplicateRec;
+
+  const clipboard = useRef(null);
+  const pasteObject = (src, dx = 12, dy = 12) => {
+    if (!src) return;
+    pushHistory();
+    const id = uid('obj');
+    const sl = slotsRef.current.find((x) => x.key === src.slot) || slotsRef.current[0];
+    const copy = {
+      ...src, id, slot: sl.key, x: Math.min(src.x + dx, sl.w - src.w), y: Math.min(src.y + dy, sl.h - src.h),
+    };
+    setObjects((list) => [...list, copy]);
+    setSelectedId(id);
+    clipboard.current = copy;
+  };
 
   const registerEl = useCallback((id, el) => {
     if (el) els.current.set(id, el);
@@ -467,6 +530,7 @@ const PDFTextEditor = () => {
       toggleStyle(id, k === 'b' ? 'bold' : k === 'i' ? 'italic' : 'underline');
       return;
     }
+    if (mod && k === 'd') { e.preventDefault(); duplicateRef.current(id); return; }
     if (e.key === 'Escape') { e.preventDefault(); deactivate(); return; }
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -476,7 +540,8 @@ const PDFTextEditor = () => {
         ...r,
         id: nid,
         kind: 'new',
-        y: r.y - r.size * 1.25,
+        y: baseY(r) - r.size * 1.25,
+        by: baseY(r) - r.size * 1.25,
         x1: r.x0,
         origText: '',
         text: '',
@@ -486,7 +551,7 @@ const PDFTextEditor = () => {
         gen: gen.current,
       };
       rec.init = {
-        family: rec.family, bold: rec.bold, italic: rec.italic, size: rec.size, color: rec.color, underline: false,
+        family: rec.family, bold: rec.bold, italic: rec.italic, size: rec.size, color: rec.color, underline: false, align: rec.align,
       };
       setEdits((m) => ({ ...m, [nid]: rec }));
       setActiveId(nid);
@@ -610,6 +675,9 @@ const PDFTextEditor = () => {
     });
   }, [deactivate, pushHistory]);
 
+  const pasteObjectRef = useRef(null);
+  pasteObjectRef.current = pasteObject;
+
   /* ---- global keys + outside clicks ---- */
   useEffect(() => {
     if (!file || result || saving) return undefined;
@@ -622,6 +690,18 @@ const PDFTextEditor = () => {
         return;
       }
       if (typing || sigModal) return;
+      const mod = e.ctrlKey || e.metaKey;
+      const k = e.key.toLowerCase();
+      if (mod && k === 'c' && selectedRef.current) {
+        clipboard.current = objectsRef.current.find((o) => o.id === selectedRef.current) || null;
+        return;
+      }
+      if (mod && k === 'v' && clipboard.current) { e.preventDefault(); pasteObjectRef.current(clipboard.current); return; }
+      if (mod && k === 'd' && selectedRef.current) {
+        e.preventDefault();
+        pasteObjectRef.current(objectsRef.current.find((o) => o.id === selectedRef.current));
+        return;
+      }
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedRef.current) {
         e.preventDefault();
         deleteObject(selectedRef.current);
@@ -700,7 +780,11 @@ const PDFTextEditor = () => {
     return () => window.removeEventListener('beforeunload', warn);
   }, [totalChanges, result]);
 
+  const editScroll = useRef(0);
+  // The result screen is short — show it from the top, not at the footer.
+  useEffect(() => { if (saving) window.scrollTo({ top: 0 }); }, [saving]);
   const save = async () => {
+    editScroll.current = window.scrollY;
     // Ask for the computer's own fonts while we still have the click
     // (so Arial / Tahoma / Century Gothic are written with the real font).
     const fontsReady = requestLocalFonts();
@@ -775,7 +859,10 @@ const PDFTextEditor = () => {
           fileName={outName}
           fileSize={result?.size}
           onDownload={() => downloadBlob(result.blob, outName)}
-          onBack={() => setResult(null)}
+          onBack={() => {
+            setResult(null);
+            setTimeout(() => window.scrollTo({ top: editScroll.current }), 60);
+          }}
           backLabel="Back to editing"
           note={notes.length ? notes.join(' ') : 'Original text was changed in the PDF itself, not hidden under boxes. The file never left your device.'}
           extra={result ? <OpenInPdfTool getPdf={() => result.blob} exclude={['edit-pdf-text']} /> : null}
@@ -823,6 +910,8 @@ const PDFTextEditor = () => {
         <FloatingBar getAnchor={() => els.current.get(active.id)?.parentElement} avoidRef={toolbarRef}>
           <TextFormat
             rec={active}
+            onAlign={(a) => alignRec(active.id, a)}
+            onDuplicate={() => duplicateRec(active.id)}
             originalLabel={originalLabel}
             onFont={(v) => {
               const p = v === ORIGINAL
@@ -873,6 +962,7 @@ const PDFTextEditor = () => {
               }
             }}
             onDelete={() => deleteObject(selected.id)}
+            onDuplicate={() => pasteObject(selected)}
           />
         </FloatingBar>
       )}
@@ -909,6 +999,9 @@ const PDFTextEditor = () => {
               onBackground={onBackground}
               onAction={pageAction}
               onInsert={insertPage}
+              onMoveRec={moveRec}
+              onBeginMoveRec={beginMoveRec}
+              onMargins={onMargins}
             />
           ))}
           <div data-fq-keep="" className="flex justify-center">

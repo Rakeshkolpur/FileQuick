@@ -1,23 +1,32 @@
 import React, {
   useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState,
 } from 'react';
-import { styleOf, underlineOf, wordSpacingFor } from './records';
+import { LuGripVertical } from 'react-icons/lu';
+import {
+  styleOf, underlineOf, wordSpacingFor, anchorX, baseY, placeX,
+} from './records';
 import { textWidth } from './measure';
+import { deltaToFrame } from './geometry';
+
+const SNAP = 4; // pt
 
 /**
  * One edited / new line of text: a cover hiding the original pixels, and a
- * contentEditable span sitting exactly on the original baseline (measured
- * with a zero-size probe so any font's ascent is handled). Justified lines
- * keep their stretched word spacing; underlines follow the new text.
+ * contentEditable span sitting on the baseline (measured with a zero-size
+ * probe so any font's ascent is handled). Justified lines keep their
+ * stretched word spacing; underlines follow the new text. The grip on the
+ * left drags the line anywhere, snapping to the page centre and margins.
  */
 const EditBlock = ({
-  rec, scale, view, active, fontCss, onText, onKey, onActivate, registerEl,
+  rec, scale, view, R = 0, margins, active, fontCss, onText, onKey, onActivate, registerEl, onMove, onBeginMove,
 }) => {
   const probeRef = useRef(null);
   const editRef = useRef(null);
+  const drag = useRef(null);
   const [baseOff, setBaseOff] = useState(null);
   const [fontTick, setFontTick] = useState(0);
   const [textW, setTextW] = useState(0);
+  const [guide, setGuide] = useState(null); // pt x of a snap guide while dragging
   const caretDone = useRef(false);
   const fontPx = rec.size * scale;
   const { bold, italic } = styleOf(rec);
@@ -39,12 +48,10 @@ const EditBlock = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rec.justify, rec.text, rec.size, rec.origWidth, rec.origExtra, fontCss, bold, italic, fontTick]);
 
-  // Rendered text width, for the underline.
-  const ul = underlineOf(rec);
-  const needW = !!ul || rec.align === 'center';
+  // Rendered text width (for centre / right alignment and the underline).
   useLayoutEffect(() => {
-    if (needW && editRef.current) setTextW(editRef.current.offsetWidth);
-  }, [needW, rec.text, ws, fontCss, fontPx, bold, italic, baseOff, fontTick]);
+    if (editRef.current) setTextW(editRef.current.offsetWidth);
+  }, [rec.text, ws, fontCss, fontPx, bold, italic, baseOff, fontTick]);
 
   // Uncontrolled: set the text once, then the browser owns the caret.
   useEffect(() => {
@@ -78,9 +85,43 @@ const EditBlock = ({
     sel.addRange(range);
   }, [active, baseOff, rec.caret]);
 
-  // Centred lines (e.g. a heading) stay centred as the text changes.
-  const left = rec.align === 'center' ? (rec.cx - view[0]) * scale - textW / 2 : (rec.x0 - view[0]) * scale;
-  const baseY = (view[3] - rec.y) * scale;
+  /* ---- drag to move ---- */
+  const widthPt = textW / scale;
+  const startDrag = (e) => {
+    if (e.button !== undefined && e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (!active) onActivate(rec.id);
+    drag.current = { sx: e.clientX, sy: e.clientY, ax: anchorX(rec), by: baseY(rec), began: false };
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* not supported */ }
+  };
+  const moveDrag = (e) => {
+    const d = drag.current;
+    if (!d) return;
+    const f = deltaToFrame(e.clientX - d.sx, e.clientY - d.sy, R);
+    if (!d.began) {
+      if (Math.abs(f.x) + Math.abs(f.y) < 2) return;
+      d.began = true;
+      onBeginMove(rec.id);
+    }
+    let ax = d.ax + f.x / scale;
+    const by = d.by - f.y / scale;
+    // Snap: page centre, left margin, right margin.
+    const left = placeX({ ...rec, ax }, widthPt);
+    const pageMid = (view[0] + view[2]) / 2;
+    let g = null;
+    if (Math.abs(left + widthPt / 2 - pageMid) < SNAP) { ax += pageMid - (left + widthPt / 2); g = pageMid; } else if (margins && Math.abs(left - margins.left) < SNAP) { ax += margins.left - left; g = margins.left; } else if (margins && Math.abs(left + widthPt - margins.right) < SNAP) { ax += margins.right - (left + widthPt); g = margins.right; }
+    setGuide(g);
+    onMove(rec.id, { ax, by });
+  };
+  const endDrag = () => { drag.current = null; setGuide(null); };
+
+  const left = (placeX(rec, widthPt) - view[0]) * scale;
+  const base = (view[3] - baseY(rec)) * scale;
+  const origBase = (view[3] - rec.y) * scale;
+  const ul = underlineOf(rec);
+  const top = base - (baseOff ?? fontPx * 0.8);
+  const boxH = fontPx * 1.2;
 
   return (
     <>
@@ -89,7 +130,7 @@ const EditBlock = ({
           className="pointer-events-none absolute"
           style={{
             left: (rec.x0 - view[0]) * scale - 1.5,
-            top: baseY - rec.origSize * scale * 0.95 - 1.5,
+            top: origBase - rec.origSize * scale * 0.95 - 1.5,
             width: (rec.x1 - rec.x0) * scale + 3,
             height: rec.origSize * scale * 1.27 + 3,
             background: rec.bg,
@@ -110,12 +151,18 @@ const EditBlock = ({
           }}
         />
       ))}
+      {guide != null && (
+        <div
+          className="pointer-events-none absolute top-0 z-10 border-l border-dashed border-pink-500"
+          style={{ left: (guide - view[0]) * scale, height: (view[3] - view[1]) * scale }}
+        />
+      )}
       {ul && textW > 0 && (
         <div
           className="pointer-events-none absolute"
           style={{
             left,
-            top: baseY + (ul.offset - ul.t / 2) * scale,
+            top: base + (ul.offset - ul.t / 2) * scale,
             width: textW,
             height: Math.max(1, ul.t * scale),
             background: ul.color,
@@ -124,10 +171,10 @@ const EditBlock = ({
       )}
       <div
         data-fq-keep=""
-        className={`absolute whitespace-pre rounded-[2px] ${active ? 'outline outline-2 outline-offset-2 outline-blue-500/80' : 'cursor-text hover:outline hover:outline-1 hover:outline-blue-400/70'}`}
+        className={`group absolute whitespace-pre rounded-[2px] ${active ? 'outline outline-2 outline-offset-2 outline-blue-500/80' : 'cursor-text hover:outline hover:outline-1 hover:outline-blue-400/70'}`}
         style={{
           left,
-          top: baseY - (baseOff ?? fontPx * 0.8),
+          top,
           fontFamily: fontCss,
           fontSize: fontPx,
           fontWeight: bold ? 700 : 400,
@@ -158,6 +205,29 @@ const EditBlock = ({
           }}
           onDrop={(e) => e.preventDefault()}
         />
+        {/* drag grip */}
+        <span
+          data-fq-keep=""
+          data-fq-grip=""
+          title="Drag to move"
+          aria-label="Drag to move"
+          className={`absolute top-1/2 grid -translate-y-1/2 cursor-grab place-items-center rounded-md bg-blue-600 text-white shadow-md transition-opacity active:cursor-grabbing ${active ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+          style={{
+            left: -Math.max(18, Math.min(26, boxH * 0.75)) - 6,
+            width: Math.max(18, Math.min(26, boxH * 0.75)),
+            height: Math.max(22, Math.min(32, boxH)),
+            touchAction: 'none',
+            fontSize: 0,
+          }}
+          contentEditable={false}
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onPointerDown={startDrag}
+          onPointerMove={moveDrag}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+        >
+          <LuGripVertical className="h-4 w-4" />
+        </span>
       </div>
     </>
   );

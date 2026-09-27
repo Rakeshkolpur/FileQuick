@@ -6,7 +6,7 @@ import {
   LuType, LuLink, LuFormInput, LuTextCursorInput, LuCheckSquare, LuImage,
   LuFileSignature, LuPenLine, LuEraser, LuHighlighter, LuUnderline, LuStrikethrough, LuPencil,
   LuShapes, LuSquare, LuCircle, LuMinus, LuPlus, LuUndo2, LuTrash2, LuChevronDown, LuUpload,
-  LuKeyboard, LuRotateCcw, LuFileText, LuFolderOpen,
+  LuKeyboard, LuRotateCcw, LuFileText, LuFolderOpen, LuAlignLeft, LuAlignCenter, LuAlignRight, LuCopyPlus,
 } from 'react-icons/lu';
 import { FONT_LIST, POPULAR_FONTS, cssStack } from '../../../../lib/pdfAnnotate';
 import { ORIGINAL, TOOL_LABELS, styleOf } from './records';
@@ -392,8 +392,9 @@ const IconAction = ({
 
 /** Controls for the text line being edited. */
 export const TextFormat = ({
-  rec, originalLabel, onFont, onSize, onToggle, onColor, onClear, onRevert,
+  rec, originalLabel, onFont, onSize, onToggle, onColor, onClear, onRevert, onAlign, onDuplicate,
 }) => {
+  const align = rec.align || 'left';
   const { bold, italic } = styleOf(rec);
   const k = (e) => e.preventDefault();
   return (
@@ -408,6 +409,19 @@ export const TextFormat = ({
       </button>
       <ColorWell value={rec.color} onChange={onColor} title="Text colour" letter />
       <Sep />
+      <button type="button" onMouseDown={k} onClick={() => onAlign('left')} className={toggleCls(align === 'left')} title="Align left (page margin)">
+        <LuAlignLeft className="h-4 w-4" />
+      </button>
+      <button type="button" onMouseDown={k} onClick={() => onAlign('center')} className={toggleCls(align === 'center')} title="Centre on the page">
+        <LuAlignCenter className="h-4 w-4" />
+      </button>
+      <button type="button" onMouseDown={k} onClick={() => onAlign('right')} className={toggleCls(align === 'right')} title="Align right (page margin)">
+        <LuAlignRight className="h-4 w-4" />
+      </button>
+      <Sep />
+      <IconAction onClick={onDuplicate} title="Duplicate (Ctrl+D)">
+        <LuCopyPlus className="h-4 w-4" />
+      </IconAction>
       {rec.kind === 'line' && (
         <IconAction onClick={onRevert} title="Undo all changes to this line">
           <LuRotateCcw className="h-4 w-4" />
@@ -421,7 +435,9 @@ export const TextFormat = ({
 };
 
 /** Controls for a selected object. */
-export const ObjectFormat = ({ obj, onChange, onDelete }) => {
+export const ObjectFormat = ({
+  obj, onChange, onDelete, onDuplicate,
+}) => {
   const o = obj;
   return (
     <>
@@ -464,6 +480,9 @@ export const ObjectFormat = ({ obj, onChange, onDelete }) => {
         <input value={o.name || ''} onChange={(e) => onChange({ name: e.target.value })} className={`${FIELD} w-36`} title="Field name" />
       )}
       <Sep />
+      <IconAction onClick={onDuplicate} title="Duplicate (Ctrl+D) — Ctrl+C / Ctrl+V also work">
+        <LuCopyPlus className="h-4 w-4" />
+      </IconAction>
       <IconAction onClick={onDelete} title="Delete" danger>
         <LuTrash2 className="h-4 w-4" />
       </IconAction>

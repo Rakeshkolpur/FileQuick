@@ -6,8 +6,26 @@ export const isChanged = (r) => {
   if (r.kind === 'new') return r.text.trim() !== '';
   return r.text !== r.origText
     || r.family !== r.init.family || r.bold !== r.init.bold || r.italic !== r.init.italic
-    || r.size !== r.init.size || r.color !== r.init.color || !!r.underline !== !!r.init.underline;
+    || r.size !== r.init.size || r.color !== r.init.color || !!r.underline !== !!r.init.underline
+    || moved(r);
 };
+
+/**
+ * Where a line is drawn. `align` + `ax` is the anchor (left edge, centre or
+ * right edge) and `by` the baseline — both move when the text is dragged or
+ * re-aligned; x0/x1/y always stay the ORIGINAL spot (what gets removed).
+ */
+export const anchorX = (r) => r.ax ?? (r.align === 'center' ? r.cx : r.x0);
+export const baseY = (r) => r.by ?? r.y;
+export function placeX(r, width) {
+  const a = anchorX(r);
+  if (r.align === 'center') return a - width / 2;
+  if (r.align === 'right') return a - width;
+  return a;
+}
+export const moved = (r) => (r.by != null && Math.abs(r.by - r.y) > 0.01)
+  || (r.ax != null && Math.abs(r.ax - (r.align === 'center' ? r.cx : r.x0)) > 0.01)
+  || (r.align || 'left') !== (r.init.align || 'left');
 
 /** Effective bold / italic (the PDF's own font carries its style itself). */
 export const styleOf = (r) => (r.family === ORIGINAL

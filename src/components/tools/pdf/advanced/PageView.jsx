@@ -1,4 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, {
+  useEffect, useMemo, useRef, useState,
+} from 'react';
 import {
   LuTrash2, LuZoomIn, LuZoomOut, LuRotateCcw, LuRotateCw, LuPlusCircle,
 } from 'react-icons/lu';
@@ -101,6 +103,7 @@ const PageView = ({
   pdfjs, slot, scale, number, canDelete, tool, defaults, records, objects, activeId, selectedId,
   fontCssFor, onActivateLine, onActivateRec, onText, onKey, registerEl, onAddText,
   onCreate, onSelect, onChangeObj, onBeginEdit, onBackground, onAction, onInsert,
+  onMoveRec, onBeginMoveRec, onMargins,
 }) => {
   const outerRef = useRef(null);
   const canvasRef = useRef(null);
@@ -124,6 +127,16 @@ const PageView = ({
     io.observe(el);
     return () => io.disconnect();
   }, [visible]);
+
+  // The page's text margins (where its lines start / end) — used to snap
+  // dragged text and by the Left / Right alignment buttons.
+  const margins = useMemo(() => {
+    const fallback = { left: view[0] + 72, right: view[2] - 72 };
+    const ls = (lines || []).filter((l) => l.x1 - l.x0 > (view[2] - view[0]) * 0.3);
+    if (!ls.length) return fallback;
+    return { left: Math.min(...ls.map((l) => l.x0)), right: Math.max(...ls.map((l) => l.x1)) };
+  }, [lines, view]);
+  useEffect(() => { onMargins(slot.key, margins); }, [onMargins, slot.key, margins]);
 
   // Render the page (always unrotated — rotation is applied to the frame).
   useEffect(() => {
@@ -304,12 +317,16 @@ const PageView = ({
               rec={r}
               scale={scale}
               view={view}
+              R={R}
+              margins={margins}
               active={activeId === r.id}
               fontCss={fontCssFor(r)}
               onText={onText}
               onKey={onKey}
               onActivate={onActivateRec}
               registerEl={registerEl}
+              onMove={onMoveRec}
+              onBeginMove={onBeginMoveRec}
             />
           ))}
 

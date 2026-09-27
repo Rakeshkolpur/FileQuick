@@ -4,7 +4,7 @@ import {
 import { createFontLoader, isStandardFamily, winAnsiSafe, parseColor } from '../../../../lib/pdfAnnotate';
 import { removeTextInRegions, removeRules } from '../../../../lib/pdfTextEdit';
 import {
-  ORIGINAL, isChanged, styleOf, underlineOf, wordSpacingFor,
+  ORIGINAL, isChanged, styleOf, underlineOf, wordSpacingFor, placeX, baseY,
 } from './records';
 import { norm } from './geometry';
 
@@ -142,16 +142,17 @@ export async function saveDocument({
       const advOf = (tok) => font.widthOfTextAtSize(tok, r.size) + ws * (tok.match(/ /g) || []).length;
       const trailing = ws * ((str.match(/ +$/) || [''])[0].length);
       const width = toks.reduce((n, tok) => n + advOf(tok), 0) - trailing;
-      const startX = r.align === 'center' ? r.cx - width / 2 : r.x0;
+      const startX = placeX(r, width);
+      const y = baseY(r);
       let x = startX;
       toks.forEach((tok) => {
-        page.drawText(tok, { x, y: r.y, size: r.size, font, color });
+        page.drawText(tok, { x, y, size: r.size, font, color });
         x += advOf(tok);
       });
       const ul = underlineOf(r);
       if (ul) {
         page.drawRectangle({
-          x: startX, y: r.y - ul.offset - ul.t / 2, width, height: ul.t, color: parseColor(ul.color),
+          x: startX, y: y - ul.offset - ul.t / 2, width, height: ul.t, color: parseColor(ul.color),
         });
       }
     }
