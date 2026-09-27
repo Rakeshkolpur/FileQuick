@@ -397,9 +397,9 @@ const PageView = ({
           )}
         </div>
 
-        {lines && lines.length === 0 && slot.kind === 'orig' && tool === 'text' && (
-          <span className="pointer-events-none absolute left-2 top-2 rounded bg-amber-100 px-2 py-1 text-[11px] font-medium text-amber-800">
-            No editable text on this page (it looks like a scan) — click anywhere to add text.
+        {lines && lines.length === 0 && slot.kind === 'orig' && (
+          <span className="pointer-events-none absolute left-2 top-2 rounded-lg bg-amber-100/95 px-2 py-1 text-[11px] font-medium text-amber-800 shadow-sm">
+            Scanned page — its text is a picture. Use Whiteout to cover words, then Text to type new ones.
           </span>
         )}
       </div>

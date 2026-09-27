@@ -57,8 +57,9 @@ const TableGrid = ({ onPick }) => {
 /* ------------------------------ main bar ------------------------------ */
 
 const ToolButton = ({
-  icon: Icon, label, active, hasMenu, open, onClick, disabled, title,
+  icon: Icon, label, active, hasMenu, open, onClick, disabled, title, glow, tip,
 }) => (
+  <span className="relative inline-flex">
   <button
     type="button"
     title={title || label}
@@ -79,7 +80,21 @@ const ToolButton = ({
     <span className="hidden lg:inline">{label}</span>
     {hasMenu && <LuChevronDown className={`h-3 w-3 opacity-60 transition-transform ${open ? 'rotate-180' : ''}`} />}
   </button>
+  {glow && (
+    <>
+      <span className="pointer-events-none absolute inset-0 rounded-xl ring-2 ring-blue-500 animate-[fqglow_1.1s_ease-in-out_infinite]" />
+      {tip && (
+        <span className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white shadow-lg animate-[fqbob_1.1s_ease-in-out_infinite]">
+          <span className="absolute -top-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 bg-blue-600" />
+          {tip}
+        </span>
+      )}
+    </>
+  )}
+  </span>
 );
+
+const GLOW_CSS = '@keyframes fqglow{0%,100%{box-shadow:0 0 0 0 rgba(37,99,235,.55);opacity:1}50%{box-shadow:0 0 0 7px rgba(37,99,235,0);opacity:.55}}@keyframes fqbob{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,3px)}}';
 
 const MenuItem = ({
   icon: Icon, label, sub, onClick, active,
@@ -115,6 +130,7 @@ const Menu = ({ children, wide }) => (
 /** One slim bar: file · tools · undo. */
 export const MainToolbar = ({
   fileName, pages, tool, setTool, onImage, onSign, signatures, onUseSignature, onUndo, canUndo, onChooseAnother, onPickTable,
+  glow = [],
 }) => {
   const [open, setOpen] = useState(null);
   const ref = useRef(null);
@@ -138,6 +154,7 @@ export const MainToolbar = ({
 
   return (
     <div ref={ref} data-fq-keep="" className="flex items-center gap-2 px-2 py-1.5">
+      {glow.length > 0 && <style>{GLOW_CSS}</style>}
       <div className="hidden min-w-0 items-center gap-2 2xl:flex 2xl:w-52">
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-sm">
           <LuFileText className="h-4 w-4" />
@@ -151,7 +168,7 @@ export const MainToolbar = ({
       <div className="flex min-w-0 flex-1 flex-wrap items-center justify-center gap-0.5">
         <ToolButton icon={LuMousePointer2} label="Select" active={tool === 'select'} onClick={() => pick('select')} title="Select (Esc) — scroll and click without adding anything" />
         <span className="mx-0.5 h-6 w-px bg-gray-200 dark:bg-gray-700" />
-        <ToolButton icon={LuType} label="Text" active={tool === 'text'} onClick={() => pick('text')} title="Edit or add text" />
+        <ToolButton icon={LuType} label="Text" active={tool === 'text'} onClick={() => pick('text')} title="Edit or add text" glow={glow.includes('text')} tip={glow.includes('text') && !glow.includes('whiteout') ? 'Then type here' : null} />
         <ToolButton icon={LuLink} label="Links" active={tool === 'link'} onClick={() => pick('link')} />
 
         <div className="relative">
@@ -217,7 +234,7 @@ export const MainToolbar = ({
           )}
         </div>
 
-        <ToolButton icon={LuEraser} label="Whiteout" active={tool === 'whiteout'} onClick={() => pick('whiteout')} />
+        <ToolButton icon={LuEraser} label="Whiteout" active={tool === 'whiteout'} onClick={() => pick('whiteout')} glow={glow.includes('whiteout')} tip={glow.includes('whiteout') ? 'Start here' : null} />
 
         <div className="relative">
           <ToolButton icon={LuHighlighter} label="Annotate" hasMenu active={current === 'annotate'} open={open === 'annotate'} onClick={() => toggle('annotate')} />

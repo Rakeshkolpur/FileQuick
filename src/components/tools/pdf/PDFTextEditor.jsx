@@ -25,6 +25,7 @@ import {
   MainToolbar, FloatingBar, TextFormat, ObjectFormat,
 } from './advanced/Toolbar';
 import SignatureModal from './advanced/SignatureModal';
+import ScanNotice from './advanced/ScanNotice';
 import { saveDocument } from './advanced/saveDocument';
 import {
   ORIGINAL, TOOL_DEFAULTS, TOOL_HINTS, TOOL_LABELS, isChanged, baseY,
@@ -85,6 +86,8 @@ const PDFTextEditor = () => {
   const [histLen, setHistLen] = useState(0);
   const [curPage, setCurPage] = useState(0);
   const [hint, setHint] = useState(null);
+  const [scanNotice, setScanNotice] = useState(null); // { pages } when the PDF is a scan
+  const [glow, setGlow] = useState([]); // toolbar buttons blinking to guide the user
   const toolbarRef = useRef(null);
 
   const docRef = useRef(null); // { bytes, pdfjs, fonts }
@@ -151,6 +154,17 @@ const PDFTextEditor = () => {
         });
       }
       docRef.current.origSlots = list;
+      let chars = 0;
+      const probe = Math.min(3, pdfjs.numPages);
+      for (let i = 1; i <= probe; i += 1) {
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          const tc = await (await pdfjs.getPage(i)).getTextContent();
+          chars += tc.items.reduce((n, it) => n + (it.str || '').replace(/\s/g, '').length, 0);
+        } catch { /* unreadable page — ignore */ }
+      }
+      setScanNotice(chars < 5 ? { pages: pdfjs.numPages } : null);
+      setGlow([]);
       setFile(f);
       setSlots(list);
     } catch (e) {
@@ -300,7 +314,19 @@ const PDFTextEditor = () => {
     deactivate();
     setSelectedId(null);
     setToolState(t);
+    setGlow((g) => {
+      if (!g.length) return g;
+      if (t === 'whiteout' && g.includes('text')) return ['text']; // next step: type the new text
+      return [];
+    });
   }, [deactivate]);
+
+  // The guide stops blinking on its own after a while.
+  useEffect(() => {
+    if (!glow.length) return undefined;
+    const t = window.setTimeout(() => setGlow([]), 12000);
+    return () => window.clearTimeout(t);
+  }, [glow]);
 
   const activateRec = useCallback((id) => {
     if (activeRef.current && activeRef.current !== id) deactivate();
@@ -1186,6 +1212,7 @@ const PDFTextEditor = () => {
           onUndo={undo}
           canUndo={histLen > 0}
           onChooseAnother={reset}
+          glow={glow}
           onPickTable={(r, c) => {
             setDefaults((d) => ({ ...d, table: { ...d.table, rows: r, cols: c } }));
             setTool('table');
@@ -1351,6 +1378,13 @@ const PDFTextEditor = () => {
           {hint || TOOL_HINTS.text}
         </span>
       </div>
+
+      {scanNotice && (
+        <ScanNotice
+          pages={scanNotice.pages}
+          onClose={() => { setScanNotice(null); setGlow(['whiteout', 'text']); }}
+        />
+      )}
 
       {sigModal && <SignatureModal initialTab={sigModal} onDone={onSignature} onClose={() => setSigModal(null)} />}
     </div>
