@@ -25,6 +25,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       fonts-dejavu \
       fonts-noto-core \
       fonts-noto-cjk \
+      fonts-urw-base35 \
+      fonts-texgyre \
+      fonts-ebgaramond \
+      fonts-open-sans \
       libglib2.0-0 \
       libgomp1 \
     && rm -rf /var/lib/apt/lists/*
@@ -35,6 +39,10 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt gunicorn
 
 COPY convert_server.py .
+
+# Map Word font names (Bookman, Century Gothic, Palatino …) to the look-alikes above.
+COPY fonts-aliases.conf /etc/fonts/conf.d/60-filequik-aliases.conf
+RUN fc-cache -f
 
 # Warm the LibreOffice profile once at build time so the first real request is fast.
 RUN printf 'warmup' > /tmp/warmup.txt \

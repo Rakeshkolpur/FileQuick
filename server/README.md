@@ -49,6 +49,21 @@ so the browser talks to your conversion host. That host needs a bit of RAM
 (LibreOffice wants ~300–500 MB per conversion); 1 GB is comfortable for light
 traffic.
 
+### Fonts (important for Word → PDF)
+
+LibreOffice can only use fonts installed on the server. Chrome/Edge visitors
+have their real fonts packed into the .docx before upload (see
+`src/lib/docxFonts.js`), so their PDFs match exactly. For everyone else,
+install the look-alike families and the name mapping once on the VM:
+
+```bash
+sudo apt-get install -y fonts-crosextra-carlito fonts-crosextra-caladea fonts-liberation \
+  fonts-urw-base35 fonts-texgyre fonts-ebgaramond fonts-open-sans fonts-dejavu fonts-noto-core
+sudo cp server/fonts-aliases.conf /etc/fonts/conf.d/60-filequik-aliases.conf
+sudo fc-cache -f
+# then restart the conversion service
+```
+
 ### CORS
 
 `convert_server.py` currently allows all origins (fine for dev). Before going
