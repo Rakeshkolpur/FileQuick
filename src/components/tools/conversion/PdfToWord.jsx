@@ -3,7 +3,7 @@ import React, {
 } from 'react';
 import {
   LuTrash2, LuUndo2, LuCheck, LuDownload, LuLoader2, LuScanLine, LuFileText, LuRotateCcw,
-  LuWifiOff, LuType, LuTable, LuShieldCheck, LuArrowRight, LuImage,
+  LuWifiOff, LuType, LuTable, LuShieldCheck, LuArrowRight, LuImage, LuAlertTriangle,
 } from 'react-icons/lu';
 import FileDropzone from '../../tool/FileDropzone';
 import { ToolBackContext } from '../../ToolWrapper';
@@ -17,13 +17,6 @@ import { ocrLines } from '../../../lib/ocr';
 import {
   buildUploadPdf, cleanDocxFonts, detectRules, gridCells, cropCanvas, maskTables, shiftLines, inkFit, markBold,
 } from '../../../lib/pdfToWord';
-import { renderDocx } from '../../../lib/docxToPdf';
-
-const PREVIEW_CSS = `
-.p2w-preview .docx-wrapper { background: transparent; padding: 0; }
-.p2w-preview .docx-wrapper > section.docx {
-  margin: 0 auto 1.5rem; box-shadow: 0 2px 10px rgba(15,23,42,.12), 0 12px 32px -12px rgba(15,23,42,.3);
-}`;
 
 const STEPS = ['Choose pages', 'Convert', 'Download'];
 
@@ -73,9 +66,8 @@ const PdfToWord = () => {
   const [error, setError] = useState(null);
   const docRef = useRef(null); // { bytes, pdf }
   const token = useRef(0);
-  const previewRef = useRef(null);
-  const previewBox = useRef(null);
-  const [zoom, setZoom] = useState(1);
+  const [scanNotice, setScanNotice] = useState(false);
+  const noticeShown = useRef(null); // the file the scan notice was shown for
 
   useEffect(() => {
     let alive = true;
@@ -145,6 +137,13 @@ const PdfToWord = () => {
 
   const kept = pages.filter((p) => !p.deleted);
   const scannedKept = kept.filter((p) => p.scanned);
+  const anyScanned = pages.some((p) => p.scanned);
+  useEffect(() => {
+    if (file && anyScanned && noticeShown.current !== file) {
+      noticeShown.current = file;
+      setScanNotice(true);
+    }
+  }, [file, anyScanned]);
   const toggle = (index) => setPages((ps) => ps.map((p) => (p.index === index ? { ...p, deleted: !p.deleted } : p)));
 
   /* ---- convert ---- */
@@ -233,23 +232,6 @@ const PdfToWord = () => {
     }
   };
 
-  /* ---- result preview: the Word document itself ---- */
-  useEffect(() => {
-    if (!result || !previewRef.current) return undefined;
-    let alive = true;
-    (async () => {
-      try {
-        await renderDocx(await result.blob.arrayBuffer(), previewRef.current, previewRef.current);
-        if (!alive) return;
-        const fit = () => {
-          const w = previewBox.current?.clientWidth || 800;
-          setZoom(Math.min(1, (w - 32) / 820));
-        };
-        fit();
-      } catch { /* preview is optional */ }
-    })();
-    return () => { alive = false; };
-  }, [result]);
 
   const outName = `${stripExt(file?.name || 'document')}.docx`;
 
@@ -303,7 +285,7 @@ const PdfToWord = () => {
       ...(hasOcr ? [['ocr', 'Reading scanned pages (OCR)', job.detail]] : []),
       ['upload', 'Uploading', job.pct != null ? `${job.pct}%` : null],
       ['rebuild', 'Rebuilding the layout', 'Paragraphs, fonts, tables and images'],
-      ['finish', 'Final touches', 'Word font names and preview'],
+      ['finish', 'Final touches', 'Setting the right Word font names'],
     ];
     const at = order.indexOf(job.step);
     return (
@@ -338,7 +320,6 @@ const PdfToWord = () => {
   if (result) {
     return (
       <div className="mx-auto max-w-5xl">
-        <style>{PREVIEW_CSS}</style>
         <Stepper at={2} />
         <div className="overflow-hidden rounded-3xl border border-gray-200/70 bg-white shadow-[0_12px_40px_-16px_rgba(15,23,42,0.25)] dark:border-gray-700/60 dark:bg-gray-800">
           <div className="flex flex-col items-center gap-4 px-6 py-7 text-center sm:flex-row sm:text-left">
@@ -362,13 +343,10 @@ const PdfToWord = () => {
           {(result.ocrPages > 0 || result.removed > 0) && (
             <div className="flex flex-wrap gap-2 border-t border-gray-100 px-6 py-3 text-xs dark:border-gray-700/70">
               {result.ocrPages > 0 && <span className="rounded-full bg-blue-50 px-2.5 py-1 font-medium text-[#2B579A] dark:bg-blue-500/15 dark:text-blue-300">{`${result.ocrPages} scanned page${result.ocrPages === 1 ? '' : 's'} turned into editable text`}</span>}
+              {result.ocrPages > 0 && <span className="rounded-full bg-amber-50 px-2.5 py-1 font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">Please read through those pages — OCR can misread a few words</span>}
               {result.removed > 0 && <span className="rounded-full bg-gray-100 px-2.5 py-1 font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300">{`${result.removed} page${result.removed === 1 ? '' : 's'} left out`}</span>}
             </div>
           )}
-        </div>
-        <p className="mb-3 mt-6 text-center text-xs font-semibold uppercase tracking-wide text-gray-400">Preview of your Word document</p>
-        <div ref={previewBox} className="overflow-hidden rounded-3xl bg-gray-100 px-4 py-8 dark:bg-gray-900/50">
-          <div className="p2w-preview" style={{ zoom }} ref={previewRef} />
         </div>
       </div>
     );
@@ -456,6 +434,32 @@ const PdfToWord = () => {
       </div>
 
       {error && <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">{error}</p>}
+
+      {scanNotice && (
+        <div className="fixed inset-0 z-[100] grid place-items-center bg-gray-900/40 p-4 backdrop-blur-sm" onMouseDown={() => setScanNotice(false)}>
+          <div role="dialog" aria-modal="true" aria-labelledby="p2w-scan-title" className="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-black/5 dark:bg-gray-800" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="relative overflow-hidden bg-gradient-to-br from-amber-500 to-orange-500 px-6 pb-5 pt-6 text-white">
+              <span className="absolute -right-6 -top-8 h-28 w-28 rounded-full bg-white/10" />
+              <span className="relative grid h-11 w-11 place-items-center rounded-2xl bg-white/20 ring-1 ring-white/30"><LuScanLine className="h-6 w-6" /></span>
+              <h2 id="p2w-scan-title" className="relative mt-3 text-lg font-bold">This PDF is scanned</h2>
+              <p className="relative mt-1 text-sm text-white/90">
+                {scannedKept.length === pages.length ? 'Its pages are' : `${pages.filter((p) => p.scanned).length} of its pages are`} photos of paper, not real text — so the Word file won&rsquo;t be a perfect copy.
+              </p>
+            </div>
+            <ul className="space-y-2.5 px-6 py-5 text-sm text-gray-600 dark:text-gray-300">
+              <li className="flex gap-2.5"><LuCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />We&rsquo;ll read the words with OCR and rebuild the text, headings and tables so you can edit them.</li>
+              <li className="flex gap-2.5"><LuAlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />Some words may be misread, and the fonts and spacing won&rsquo;t match exactly.</li>
+              <li className="flex gap-2.5"><LuAlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />Handwriting, blurry or tilted scans, stamps and non-English text come out poorly.</li>
+              <li className="flex gap-2.5"><LuImage className="mt-0.5 h-4 w-4 shrink-0 text-[#2B579A] dark:text-blue-300" />Need it to look exactly the same? Choose &ldquo;Keep as pictures&rdquo; instead.</li>
+            </ul>
+            <div className="px-6 pb-6">
+              <button type="button" autoFocus onClick={() => setScanNotice(false)} className="w-full rounded-2xl bg-gradient-to-r from-[#2B579A] to-[#3f7bd6] py-3 text-sm font-semibold text-white shadow-lg shadow-blue-700/25 transition hover:brightness-110">
+                Got it, continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="pointer-events-none fixed inset-x-0 bottom-5 z-30 flex flex-col items-center gap-2 px-4">
         {server === 'offline' && (
