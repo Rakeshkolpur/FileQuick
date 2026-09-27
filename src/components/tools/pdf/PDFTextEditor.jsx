@@ -74,7 +74,7 @@ const PDFTextEditor = () => {
   const [objects, setObjects] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
-  const [tool, setToolState] = useState('select');
+  const [tool, setToolState] = useState('text'); // open ready to edit
   const [defaults, setDefaults] = useState(TOOL_DEFAULTS);
   const [zoom, setZoom] = useState(1);
   const [saving, setSaving] = useState(false);
@@ -117,7 +117,7 @@ const PDFTextEditor = () => {
     setObjects([]);
     setActiveId(null);
     setSelectedId(null);
-    setToolState('select');
+    setToolState('text');
     setZoom(1);
     setResult(null);
     history.current = [];
@@ -648,8 +648,8 @@ const PDFTextEditor = () => {
     }
     setObjects((list) => [...list, obj]);
     setSelectedId(id);
-    // placed once — back to the Select cursor so the next click doesn't add another
-    if (['table', 'link', 'field-text', 'field-check'].includes(o.type)) setToolState('select');
+    // placed once — back to normal text editing so the next click doesn't add another
+    if (['table', 'link', 'field-text', 'field-check'].includes(o.type)) setToolState('text');
   }, [pushHistory]);
 
   const changeObject = useCallback((id, p) => setObjects((list) => list.map((o) => (o.id === id ? { ...o, ...p } : o))), []);
