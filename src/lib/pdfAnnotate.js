@@ -1,10 +1,5 @@
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { StandardFonts, rgb } from 'pdf-lib';
 import { localFontBytes } from './localFonts';
-
-// Base render scale: fabric object coordinates live in this space (CSS pixels per
-// PDF point). Zoom is applied on top of it via fabric's own viewport zoom, so the
-// stored coordinates never change with zoom.
-export const BASE_SCALE = 1.5;
 
 const SANS = [
   StandardFonts.Helvetica, StandardFonts.HelveticaBold,
@@ -113,17 +108,6 @@ export function parseColor(value) {
   }
   return rgb(0, 0, 0);
 }
-
-export function colorOpacity(value) {
-  const m = value && value.match(/rgba\(([^)]+)\)/i);
-  if (m) {
-    const parts = m[1].split(',').map((x) => parseFloat(x));
-    return parts.length > 3 ? parts[3] : 1;
-  }
-  return 1;
-}
-
-const clr = (c) => (c && c.type ? c : undefined);
 
 export const isStandardFamily = (name) => !!(FONTS[name] || FONTS.Arial).std;
 
@@ -274,108 +258,4 @@ export function createFontLoader(pdf, { local = false } = {}) {
   };
 
   return { getFont, getLocalFont, embedBytes, ensureFontkit, isStd, covers, fallbacks };
-}
-
-/**
- * Bake annotation overlays into the original PDF without touching its existing
- * content. Each overlay:
- *   { index,
- *     png:    dataURL|null,           // freehand / arrows / rotated shapes — rasterised
- *     shapes: [ ... ],                // rect / ellipse / line / image — drawn as VECTOR
- *                                     //   so a white "cover" box has a perfectly crisp,
- *                                     //   seam-free edge that blends with the page
- *     texts:  [ { text, x, y, ... } ] // real selectable text
- *   }
- * Draw order per page: png (bottom) -> shapes -> texts (top).
- */
-export async function bakeIntoPdf(originalBytes, overlays) {
-  const pdf = await PDFDocument.load(originalBytes);
-  const pages = pdf.getPages();
-  const { getFont } = createFontLoader(pdf);
-
-  for (const ov of overlays) {
-    const page = pages[ov.index];
-    if (!page) continue;
-    const { width, height } = page.getSize();
-
-    if (ov.png) {
-      try {
-        // eslint-disable-next-line no-await-in-loop
-        const img = await pdf.embedPng(ov.png);
-        page.drawImage(img, { x: 0, y: 0, width, height });
-      } catch (err) {
-        // A broken raster layer must not lose the vector shapes / text below.
-        // eslint-disable-next-line no-console
-        console.warn('overlay image skipped:', err?.message);
-      }
-    }
-
-    for (const s of ov.shapes || []) {
-      if (s.type === 'rect') {
-        page.drawRectangle({
-          x: s.x, y: s.y, width: s.w, height: s.h,
-          color: clr(s.fill),
-          opacity: s.fillOpacity ?? 1,
-          borderColor: clr(s.stroke),
-          borderWidth: s.strokeWidth || 0,
-          borderOpacity: s.strokeOpacity ?? 1,
-        });
-      } else if (s.type === 'ellipse') {
-        page.drawEllipse({
-          x: s.cx, y: s.cy, xScale: s.rx, yScale: s.ry,
-          color: clr(s.fill),
-          opacity: s.fillOpacity ?? 1,
-          borderColor: clr(s.stroke),
-          borderWidth: s.strokeWidth || 0,
-          borderOpacity: s.strokeOpacity ?? 1,
-        });
-      } else if (s.type === 'line') {
-        page.drawLine({
-          start: { x: s.x1, y: s.y1 }, end: { x: s.x2, y: s.y2 },
-          thickness: s.thickness || 1, color: clr(s.color) || rgb(0, 0, 0),
-          opacity: s.opacity ?? 1,
-        });
-      } else if (s.type === 'image' && s.dataUrl) {
-        // eslint-disable-next-line no-await-in-loop
-        const img = await pdf.embedPng(s.dataUrl);
-        page.drawImage(img, { x: s.x, y: s.y, width: s.w, height: s.h, opacity: s.opacity ?? 1 });
-      }
-    }
-
-    for (const t of ov.texts || []) {
-      if (!t.text) continue;
-      try {
-        // eslint-disable-next-line no-await-in-loop
-        const font = await getFont(t.family, t.bold, t.italic);
-        const isStd = !!(FONTS[t.family] || FONTS.Arial).std;
-        let str = String(t.text);
-        // Standard PDF fonts only cover WinAnsi. Map the punctuation a keyboard /
-        // autocorrect commonly produces so it renders instead of throwing.
-        if (isStd) str = str.replace(/[‘’‚′]/g, "'")
-          .replace(/[“”„″]/g, '"')
-          .replace(/[–—−]/g, '-')
-          .replace(/…/g, '...')
-          .replace(/\u00A0/g, ' ')
-          .replace(/[•●]/g, '·');
-        // Keep the line on the page even if the box was dragged near an edge.
-        const y = Math.max(2, Math.min(t.y, height - t.size));
-        page.drawText(str, {
-          x: Math.max(1, t.x),
-          y,
-          size: t.size,
-          font,
-          color: t.color,
-          opacity: t.opacity ?? 1,
-          lineHeight: t.lineHeight || t.size * 1.16,
-          maxWidth: t.maxWidth || undefined,
-        });
-      } catch (err) {
-        // One bad glyph shouldn't lose the whole save — skip just this line.
-        // eslint-disable-next-line no-console
-        console.warn('drawText skipped a line:', err?.message, JSON.stringify(t.text).slice(0, 60));
-      }
-    }
-  }
-
-  return pdf.save();
 }

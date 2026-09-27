@@ -197,6 +197,14 @@ const Navigation = () => {
                 </div>
               );
             })}
+            <Link
+              to="/pdf-editor"
+              onClick={closeAll}
+              className="whitespace-nowrap px-3 py-1.5 rounded-full text-sm font-medium text-gray-700 transition-colors hover:bg-black/[0.04] hover:text-purple-600 dark:text-gray-200 dark:hover:bg-white/10 dark:hover:text-purple-300 inline-flex items-center"
+            >
+              PDF Editor
+              <span className="ml-1.5 rounded-full bg-violet-100 px-1.5 py-px text-[10px] font-bold text-violet-700 dark:bg-violet-500/20 dark:text-violet-300">NEW</span>
+            </Link>
           </div>
 
           <div className="flex items-center gap-1">
@@ -260,6 +268,14 @@ const Navigation = () => {
               className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
             >
               Home
+            </Link>
+            <Link
+              to="/pdf-editor"
+              onClick={closeAll}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+            >
+              PDF Editor
+              <span className="rounded bg-purple-600 px-1 py-px text-[9px] font-bold uppercase text-white">New</span>
             </Link>
             {NAV_CATEGORIES.map((cat) => {
               const expanded = mobileGroup === cat.slug;

@@ -3,7 +3,7 @@ import React, {
 } from 'react';
 import { PDFDocument } from 'pdf-lib';
 import {
-  LuChevronRight, LuChevronUp, LuChevronDown, LuLayers,
+  LuChevronRight, LuChevronUp, LuChevronDown,
 } from 'react-icons/lu';
 import FileDropzone from '../../tool/FileDropzone';
 import ResultScreen from '../../tool/ResultScreen';
@@ -19,7 +19,7 @@ import { requestLocalFonts } from '../../../lib/localFonts';
 import {
   collectFonts, embeddedFontFile, matchFamily, cleanFontName, measureLines, findRules, findTables,
 } from '../../../lib/pdfTextEdit';
-import ChangesPanel from './advanced/ChangesPanel';
+import { FloatingChanges } from './advanced/ChangesPanel';
 import PageView, { InsertButton } from './advanced/PageView';
 import {
   MainToolbar, FloatingBar, TextFormat, ObjectFormat,
@@ -33,7 +33,7 @@ import {
 import { textWidth } from './advanced/measure';
 import { norm } from './advanced/geometry';
 
-const MAX_FIT = 1.5;
+const MAX_FIT = 1.8;
 const ZOOMS = [0.5, 0.67, 0.8, 1, 1.25, 1.5, 2, 2.5, 3];
 
 let seq = 0;
@@ -84,7 +84,6 @@ const PDFTextEditor = () => {
   const [histLen, setHistLen] = useState(0);
   const [curPage, setCurPage] = useState(0);
   const [hint, setHint] = useState(null);
-  const [panelOpen, setPanelOpen] = useState(false);
   const toolbarRef = useRef(null);
 
   const docRef = useRef(null); // { bytes, pdfjs, fonts }
@@ -1040,7 +1039,7 @@ const PDFTextEditor = () => {
           }}
           backLabel="Back to editing"
           note={notes.length ? notes.join(' ') : 'Original text was changed in the PDF itself, not hidden under boxes. The file never left your device.'}
-          extra={result ? <OpenInPdfTool getPdf={() => result.blob} exclude={['edit-pdf-text']} /> : null}
+          extra={result ? <OpenInPdfTool getPdf={() => result.blob} exclude={['pdf-editor']} /> : null}
         />
       </div>
     );
@@ -1109,7 +1108,6 @@ const PDFTextEditor = () => {
   }
 
   const pickChange = (it) => {
-    setPanelOpen(false);
     if (it.kind === 'text') {
       els.current.get(it.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       activateRec(it.id);
@@ -1157,17 +1155,6 @@ const PDFTextEditor = () => {
       return next;
     });
   };
-  const panel = (onClose) => (
-    <ChangesPanel
-      items={changeItems}
-      activeKey={activeId || selectedId}
-      onPick={pickChange}
-      onRemove={removeChange}
-      onRaise={(it) => restack(it, 1)}
-      onLower={(it) => restack(it, -1)}
-      onClose={onClose}
-    />
-  );
 
   const setRec = (p, tag) => {
     pushHistory(tag);
@@ -1266,8 +1253,7 @@ const PDFTextEditor = () => {
 
       {error && <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">{error}</p>}
 
-      <div className="flex items-start gap-4">
-      <div ref={scrollRef} className="min-w-0 flex-1 overflow-x-auto rounded-2xl bg-gray-100 px-2 pb-28 pt-4 sm:px-4 dark:bg-gray-900/60">
+      <div ref={scrollRef} className="overflow-x-auto rounded-2xl bg-gray-100 px-2 pb-28 pt-4 sm:px-4 dark:bg-gray-900/60">
         <div className="space-y-8">
           {slots.map((s, i) => (
             <PageView
@@ -1311,28 +1297,15 @@ const PDFTextEditor = () => {
         </div>
       </div>
 
-      {/* changes / layers — beside the pages on wide screens */}
-      <aside className="sticky top-[8.5rem] hidden h-[calc(100vh-10rem)] w-72 shrink-0 xl:block">
-        {panel(null)}
-      </aside>
-      </div>
-
-      {/* …and a button + drawer on smaller screens */}
-      <button
-        type="button"
-        data-fq-keep=""
-        onClick={() => setPanelOpen((o) => !o)}
-        className="fixed bottom-24 right-4 z-30 inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white/95 px-3.5 py-2 text-sm font-semibold text-gray-700 shadow-lg backdrop-blur xl:hidden dark:border-gray-700 dark:bg-gray-800/95 dark:text-gray-200"
-      >
-        <LuLayers className="h-4 w-4 text-blue-600" />
-        Changes
-        <span className="rounded-full bg-blue-600 px-1.5 text-[11px] font-bold text-white">{changeItems.length}</span>
-      </button>
-      {panelOpen && (
-        <div className="fixed bottom-36 right-3 top-32 z-40 w-[min(20rem,calc(100vw-24px))] xl:hidden">
-          {panel(() => setPanelOpen(false))}
-        </div>
-      )}
+      {/* changes / layers — a small floating window the user can drag anywhere */}
+      <FloatingChanges
+        items={changeItems}
+        activeKey={activeId || selectedId}
+        onPick={pickChange}
+        onRemove={removeChange}
+        onRaise={(it) => restack(it, 1)}
+        onLower={(it) => restack(it, -1)}
+      />
 
       {/* page navigator */}
       {slots.length > 1 && (

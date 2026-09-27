@@ -26,6 +26,10 @@ import {
 // Old / alternate tool slugs people may have bookmarked or that show up in
 // search results. Anything not listed falls through to the tool lookup.
 const TOOL_ALIASES = {
+  'edit-pdf-text': 'pdf-editor',
+  'edit-pdf': 'pdf-editor',
+  'pdf-edit': 'pdf-editor',
+  'advanced-pdf-editor': 'pdf-editor',
   'compress-pdf': 'pdf-compressor',
   'pdf-compress': 'pdf-compressor',
   'jpg-to-pdf': 'image-to-pdf',
@@ -75,7 +79,7 @@ const KEEP_ALIVE = new Set([
   'convert-image', 'upscale-image', 'profile-picture', 'passport-photo', 'exam-photo-resizer',
   'merge-pdf', 'split-pdf', 'pdf-compressor', 'organize-pdf', 'rotate-pdf', 'crop-pdf',
   'delete-pages', 'extract-pages', 'page-numbers', 'watermark-pdf', 'remove-watermark',
-  'edit-pdf-text',
+  'pdf-editor',
 ]);
 const MAX_ALIVE = 4; // least-recently-used tools beyond this are dropped
 

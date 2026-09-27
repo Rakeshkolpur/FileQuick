@@ -90,11 +90,8 @@ const TOOLS = [
     load: () => import('../components/tools/pdf/PDFSplit.jsx') },
 
   // -- View & Edit --
-  { id: 'pdf-editor', title: 'PDF Editor', category: 'pdf', group: 'Edit', icon: I.pdf, popular: true, chrome: 'min',
-    description: 'Add text, images and shapes to a PDF, or edit existing content.',
-    load: () => import('../components/tools/pdf/PDFEditor.jsx') },
-  { id: 'edit-pdf-text', title: 'Advanced PDF Editor', short: 'Edit PDF Text', category: 'pdf', group: 'Edit', icon: I.text, popular: true, chrome: 'min',
-    description: "Click any text in a PDF and change it directly — fix typos, replace words, delete lines — in the document's own font, with no white boxes.",
+  { id: 'pdf-editor', title: 'PDF Editor', short: 'Edit PDF', category: 'pdf', group: 'Edit', icon: I.text, popular: true, chrome: 'min',
+    description: "Edit a PDF's own text in its original font, and add text, tables, images, signatures, links, shapes and form fields — all in your browser.",
     load: () => import('../components/tools/pdf/PDFTextEditor.jsx') },
   { id: 'organize-pdf', title: 'Organize PDF', category: 'pdf', group: 'Pages', icon: I.organize,
     description: 'Reorder, rotate and remove pages with drag and drop.',

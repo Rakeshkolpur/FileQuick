@@ -138,7 +138,7 @@ export const MainToolbar = ({
 
   return (
     <div ref={ref} data-fq-keep="" className="flex items-center gap-2 px-2 py-1.5">
-      <div className="hidden min-w-0 items-center gap-2 xl:flex xl:w-56">
+      <div className="hidden min-w-0 items-center gap-2 2xl:flex 2xl:w-52">
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-sm">
           <LuFileText className="h-4 w-4" />
         </span>
@@ -241,7 +241,7 @@ export const MainToolbar = ({
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-0.5 xl:w-56 xl:justify-end">
+      <div className="flex shrink-0 items-center gap-0.5 2xl:w-52 2xl:justify-end">
         <ToolButton icon={LuUndo2} label="Undo" title="Undo (Ctrl+Z)" disabled={!canUndo} onClick={onUndo} />
         <button
           type="button"
