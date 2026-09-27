@@ -7,7 +7,7 @@ export const isChanged = (r) => {
   return r.text !== r.origText
     || r.family !== r.init.family || r.bold !== r.init.bold || r.italic !== r.init.italic
     || r.size !== r.init.size || r.color !== r.init.color || !!r.underline !== !!r.init.underline
-    || moved(r);
+    || moved(r) || !!r.justify !== !!r.init.justify;
 };
 
 /**
@@ -40,6 +40,20 @@ const spacesIn = (s) => (String(s).replace(/\s+$/, '').match(/ /g) || []).length
  * original width again; if the new text is much shorter, the original extra
  * spacing is kept instead of opening huge gaps.
  */
+export function justifyFit(r, natural, nChars) {
+  const none = { ws: 0, cs: 0 };
+  if (!r.justify) return none;
+  const n = spacesIn(r.text);
+  const extra = r.origWidth - natural;
+  if (extra >= 0) return { ws: wordSpacingFor(r, natural), cs: 0 };
+  // Too wide (e.g. made bold): close up the spaces (to half a space at
+  // most), then tighten letters a little — like Word's justify.
+  const ws = n ? Math.max(-0.12 * r.size, extra / n) : 0;
+  const rest = extra - ws * n;
+  const cs = rest < 0 && nChars > 1 ? Math.max(-0.05 * r.size, rest / nChars) : 0;
+  return { ws, cs };
+}
+
 export function wordSpacingFor(r, natural) {
   if (!r.justify) return 0;
   const n = spacesIn(r.text);
@@ -76,6 +90,9 @@ export const TOOL_DEFAULTS = {
   link: { url: '' },
   'field-text': {},
   'field-check': {},
+  table: {
+    rows: 3, cols: 3, family: 'Arial', size: 11, color: '#000000', border: '#000000', bw: 0.75, headerBold: false,
+  },
   text: {
     family: 'Arial', size: 12, color: '#000000', bold: false, italic: false,
   },
@@ -95,6 +112,7 @@ export const TOOL_LABELS = {
   ellipse: 'Ellipse',
   line: 'Line',
   image: 'Image',
+  table: 'Table',
 };
 
 export const TOOL_HINTS = {
@@ -110,9 +128,22 @@ export const TOOL_HINTS = {
   rect: 'Drag to draw a rectangle.',
   ellipse: 'Drag to draw an ellipse.',
   line: 'Drag to draw a line.',
+  table: 'Click on the page to place the table, or drag to size it. Tab jumps to the next cell.',
 };
 
 /** Tools that create an object by dragging a box on the page. */
 export const DRAG_TOOLS = new Set([
-  'whiteout', 'highlight', 'underline', 'strike', 'rect', 'ellipse', 'line', 'link', 'field-text', 'field-check',
+  'whiteout', 'highlight', 'underline', 'strike', 'rect', 'ellipse', 'line', 'link', 'field-text', 'field-check', 'table',
 ]);
+
+/* ------------------------------ tables ------------------------------ */
+
+export const CELL_PAD_X = 5; // pt, like Word's 0.08" cell margins
+export const CELL_PAD_Y = 2.5;
+export const LINE_H = 1.2; // line height, em
+
+/** Actual row heights (pt): the minimum height, or what the text needs. */
+export const tableRowHeights = (o) => o.rowH.map((h, i) => Math.max(h, (o.rowAuto && o.rowAuto[i]) || 0));
+
+/** Empty rows x cols grid of strings. */
+export const emptyCells = (rows, cols) => Array.from({ length: rows }, () => Array(cols).fill(''));

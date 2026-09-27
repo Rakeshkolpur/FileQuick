@@ -3,7 +3,7 @@ import React, {
 } from 'react';
 import { LuGripVertical } from 'react-icons/lu';
 import {
-  styleOf, underlineOf, wordSpacingFor, anchorX, baseY, placeX,
+  styleOf, underlineOf, justifyFit, anchorX, baseY, placeX,
 } from './records';
 import { textWidth } from './measure';
 import { deltaToFrame } from './geometry';
@@ -42,16 +42,17 @@ const EditBlock = ({
   }, [measure, fontCss]);
 
   // Word spacing (pt) that keeps a justified line as wide as it was.
-  const ws = useMemo(() => {
-    if (!rec.justify) return 0;
-    return wordSpacingFor(rec, textWidth(rec.text, fontCss, rec.size, bold, italic));
+  const { ws, cs } = useMemo(() => {
+    if (!rec.justify) return { ws: 0, cs: 0 };
+    const t = rec.text.replace(/\s+$/, '');
+    return justifyFit(rec, textWidth(t, fontCss, rec.size, bold, italic), t.length);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rec.justify, rec.text, rec.size, rec.origWidth, rec.origExtra, fontCss, bold, italic, fontTick]);
 
   // Rendered text width (for centre / right alignment and the underline).
   useLayoutEffect(() => {
     if (editRef.current) setTextW(editRef.current.offsetWidth);
-  }, [rec.text, ws, fontCss, fontPx, bold, italic, baseOff, fontTick]);
+  }, [rec.text, ws, cs, fontCss, fontPx, bold, italic, baseOff, fontTick]);
 
   // Uncontrolled: set the text once, then the browser owns the caret.
   useEffect(() => {
@@ -180,6 +181,7 @@ const EditBlock = ({
           fontWeight: bold ? 700 : 400,
           fontStyle: italic ? 'italic' : 'normal',
           wordSpacing: ws ? ws * scale : undefined,
+          letterSpacing: cs ? cs * scale : undefined,
           fontKerning: 'normal',
           color: rec.color,
           lineHeight: 'normal',

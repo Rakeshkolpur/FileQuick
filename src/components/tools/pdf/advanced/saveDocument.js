@@ -1,11 +1,38 @@
 import {
   PDFDocument, PDFName, PDFString, BlendMode, LineCapStyle, degrees,
+  pushGraphicsState, popGraphicsState, setCharacterSpacing,
 } from 'pdf-lib';
 import { createFontLoader, isStandardFamily, winAnsiSafe, parseColor } from '../../../../lib/pdfAnnotate';
 import { removeTextInRegions, removeRules } from '../../../../lib/pdfTextEdit';
 import {
-  ORIGINAL, isChanged, styleOf, underlineOf, wordSpacingFor, placeX, baseY,
+  ORIGINAL, isChanged, styleOf, underlineOf, justifyFit, placeX, baseY,
+  tableRowHeights, CELL_PAD_X, CELL_PAD_Y, LINE_H,
 } from './records';
+
+/** Break cell text into lines that fit maxW (like CSS pre-wrap + overflow-wrap: anywhere). */
+function wrapText(text, maxW, width) {
+  const out = [];
+  String(text).split('\n').forEach((para) => {
+    const words = para.split(/(\s+)/).filter((w) => w !== '');
+    let line = '';
+    words.forEach((w) => {
+      const next = line + w;
+      if (!line || width(next.replace(/\s+$/, '')) <= maxW) { line = next; return; }
+      if (/^\s+$/.test(w)) { out.push(line.replace(/\s+$/, '')); line = ''; return; }
+      out.push(line.replace(/\s+$/, ''));
+      line = w;
+      // a single word wider than the cell breaks mid-word
+      while (width(line) > maxW && line.length > 1) {
+        let k = line.length - 1;
+        while (k > 1 && width(line.slice(0, k)) > maxW) k -= 1;
+        out.push(line.slice(0, k));
+        line = line.slice(k);
+      }
+    });
+    out.push(line.replace(/\s+$/, ''));
+  });
+  return out;
+}
 import { norm } from './geometry';
 
 const dataUrlBytes = (url) => {
@@ -135,20 +162,23 @@ export async function saveDocument({
       // eslint-disable-next-line no-await-in-loop
       const { font, str } = await fontFor(r, text);
       const color = parseColor(r.color);
-      const ws = r.justify ? wordSpacingFor(r, font.widthOfTextAtSize(str, r.size)) : 0;
+      const { ws, cs } = r.justify ? justifyFit(r, font.widthOfTextAtSize(str, r.size), str.length) : { ws: 0, cs: 0 };
       // Justified: each word (with its space, so copy/paste keeps spaces) is
       // placed with the extra spacing, exactly like the original line.
       const toks = ws ? (str.match(/\S+\s*|\s+/g) || []) : [str];
-      const advOf = (tok) => font.widthOfTextAtSize(tok, r.size) + ws * (tok.match(/ /g) || []).length;
+      const advOf = (tok) => font.widthOfTextAtSize(tok, r.size) + ws * (tok.match(/ /g) || []).length + cs * tok.length;
       const trailing = ws * ((str.match(/ +$/) || [''])[0].length);
       const width = toks.reduce((n, tok) => n + advOf(tok), 0) - trailing;
       const startX = placeX(r, width);
       const y = baseY(r);
       let x = startX;
+      // letter tightening = the PDF's character spacing (Tc) around the text
+      if (cs) page.pushOperators(pushGraphicsState(), setCharacterSpacing(cs));
       toks.forEach((tok) => {
         page.drawText(tok, { x, y, size: r.size, font, color });
         x += advOf(tok);
       });
+      if (cs) page.pushOperators(popGraphicsState());
       const ul = underlineOf(r);
       if (ul) {
         page.drawRectangle({
@@ -248,6 +278,51 @@ export async function saveDocument({
           f.addToPage(page, {
             x: X, y: Yb, width: o.w, height: o.h, borderWidth: 1, borderColor: parseColor('#0ea5e9'), backgroundColor: parseColor('#ffffff'),
           });
+          break;
+        }
+        case 'table': {
+          const hs = tableRowHeights(o);
+          const W = o.colW.reduce((a, b) => a + b, 0);
+          const Htot = hs.reduce((a, b) => a + b, 0);
+          const bc = parseColor(o.border || '#000000');
+          const bw = o.bw || 0.75;
+          let yy = Yt;
+          hs.forEach((h, i) => {
+            if (!(i === 0 && o.attach === 'bottom')) page.drawLine({ start: { x: X, y: yy }, end: { x: X + W, y: yy }, thickness: bw, color: bc });
+            yy -= h;
+          });
+          page.drawLine({ start: { x: X, y: yy }, end: { x: X + W, y: yy }, thickness: bw, color: bc });
+          let xx = X;
+          o.colW.forEach((w, j) => {
+            if (!(j === 0 && o.attach === 'right')) page.drawLine({ start: { x: xx, y: Yt }, end: { x: xx, y: Yt - Htot }, thickness: bw, color: bc });
+            xx += w;
+          });
+          page.drawLine({ start: { x: xx, y: Yt }, end: { x: xx, y: Yt - Htot }, thickness: bw, color: bc });
+
+          const color = parseColor(o.color || '#000000');
+          let top = Yt;
+          for (let r = 0; r < o.cells.length; r += 1) {
+            let left = X;
+            for (let c = 0; c < o.colW.length; c += 1) {
+              const text = (o.cells[r][c] || '').replace(/\s+$/, '');
+              if (text) {
+                const bold = !!(o.headerBold && r === 0);
+                let font = o.local ? await loader.getLocalFont(o.local, bold, false) : null;
+                if (font && !loader.covers(font, text)) font = null;
+                if (!font) font = await loader.getFont(o.family || 'Arial', bold, false);
+                const str = loader.isStd(font) ? winAnsiSafe(text) : text;
+                const lines = wrapText(str, o.colW[c] - 2 * CELL_PAD_X, (t) => font.widthOfTextAtSize(t, o.size));
+                lines.forEach((ln, k) => {
+                  if (!ln) return;
+                  // same baseline CSS uses: half-leading + ascent ≈ 0.94 em into a 1.2 em line
+                  const y = top - CELL_PAD_Y - o.size * (0.94 + LINE_H * k);
+                  page.drawText(ln, { x: left + CELL_PAD_X, y, size: o.size, font, color });
+                });
+              }
+              left += o.colW[c];
+            }
+            top -= hs[r];
+          }
           break;
         }
         case 'field-check': {

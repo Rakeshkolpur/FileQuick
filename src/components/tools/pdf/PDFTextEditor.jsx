@@ -2,7 +2,9 @@ import React, {
   useCallback, useContext, useEffect, useMemo, useRef, useState,
 } from 'react';
 import { PDFDocument } from 'pdf-lib';
-import { LuChevronRight, LuChevronUp, LuChevronDown } from 'react-icons/lu';
+import {
+  LuChevronRight, LuChevronUp, LuChevronDown, LuLayers,
+} from 'react-icons/lu';
 import FileDropzone from '../../tool/FileDropzone';
 import ResultScreen from '../../tool/ResultScreen';
 import OpenInPdfTool from '../../tool/OpenInPdfTool';
@@ -15,8 +17,9 @@ import { openPdf } from '../../../lib/pdfjs';
 import { cssStack } from '../../../lib/pdfAnnotate';
 import { requestLocalFonts } from '../../../lib/localFonts';
 import {
-  collectFonts, embeddedFontFile, matchFamily, cleanFontName, measureLines, findRules,
+  collectFonts, embeddedFontFile, matchFamily, cleanFontName, measureLines, findRules, findTables,
 } from '../../../lib/pdfTextEdit';
+import ChangesPanel from './advanced/ChangesPanel';
 import PageView, { InsertButton } from './advanced/PageView';
 import {
   MainToolbar, FloatingBar, TextFormat, ObjectFormat,
@@ -24,7 +27,8 @@ import {
 import SignatureModal from './advanced/SignatureModal';
 import { saveDocument } from './advanced/saveDocument';
 import {
-  ORIGINAL, TOOL_DEFAULTS, TOOL_HINTS, isChanged, baseY,
+  ORIGINAL, TOOL_DEFAULTS, TOOL_HINTS, TOOL_LABELS, isChanged, baseY,
+  emptyCells, tableRowHeights, CELL_PAD_Y, LINE_H,
 } from './advanced/records';
 import { textWidth } from './advanced/measure';
 import { norm } from './advanced/geometry';
@@ -80,6 +84,7 @@ const PDFTextEditor = () => {
   const [histLen, setHistLen] = useState(0);
   const [curPage, setCurPage] = useState(0);
   const [hint, setHint] = useState(null);
+  const [panelOpen, setPanelOpen] = useState(false);
   const toolbarRef = useRef(null);
 
   const docRef = useRef(null); // { bytes, pdfjs, fonts }
@@ -91,6 +96,8 @@ const PDFTextEditor = () => {
   const gen = useRef(0);
 
   const editsRef = useRef(edits);
+  const defaultsRef = useRef(defaults);
+  defaultsRef.current = defaults;
   const objectsRef = useRef(objects);
   const slotsRef = useRef(slots);
   const activeRef = useRef(activeId);
@@ -130,7 +137,7 @@ const PDFTextEditor = () => {
       }
       const pdfjs = await openPdf(bytes);
       docRef.current = {
-        bytes, pdfjs, lib, fonts: collectFonts(lib), rules: new Map(),
+        bytes, pdfjs, lib, fonts: collectFonts(lib), rules: new Map(), tables: new Map(), origSlots: null,
       };
       fontCache.current = new Map();
       setOrigFonts({});
@@ -143,6 +150,7 @@ const PDFTextEditor = () => {
           key: `o${i - 1}`, kind: 'orig', index: i - 1, w: vp.width, h: vp.height, rotate0: norm(p.rotate || 0), extra: 0, view: vp.viewBox,
         });
       }
+      docRef.current.origSlots = list;
       setFile(f);
       setSlots(list);
     } catch (e) {
@@ -273,7 +281,9 @@ const PDFTextEditor = () => {
         return next;
       });
       setActiveId(null);
-      window.getSelection()?.removeAllRanges();
+      const sel = window.getSelection();
+      const el = els.current.get(cur);
+      if (sel && el && el.contains(sel.anchorNode)) sel.removeAllRanges();
     }
     lastTag.current = null;
   }, []);
@@ -394,7 +404,7 @@ const PDFTextEditor = () => {
       gen: gen.current,
     };
     rec.init = {
-      family: rec.family, bold: rec.bold, italic: rec.italic, size: rec.size, color: rec.color, underline: hasUl, align: rec.align,
+      family: rec.family, bold: rec.bold, italic: rec.italic, size: rec.size, color: rec.color, underline: hasUl, align: rec.align, justify,
     };
     setEdits((mm) => ({ ...mm, [line.id]: rec }));
     setActiveId(line.id);
@@ -452,9 +462,15 @@ const PDFTextEditor = () => {
     if (!sl) return;
     const v = sl.view;
     const m = marginsRef.current[sl.key] || { left: v[0] + 72, right: v[2] - 72 };
-    const ax = a === 'center' ? (v[0] + v[2]) / 2 : a === 'right' ? m.right : m.left;
     pushHistory();
-    patch(id, { align: a, ax });
+    if (a === 'justify') {
+      // An originally justified line keeps its own width; others fill margin to margin.
+      if (r.init.justify) patch(id, { justify: true, align: 'left', ax: r.x0 });
+      else patch(id, { justify: true, align: 'left', ax: m.left, origWidth: m.right - m.left, origExtra: 0 });
+      return;
+    }
+    const ax = a === 'center' ? (v[0] + v[2]) / 2 : a === 'right' ? m.right : m.left;
+    patch(id, { align: a, ax, justify: false });
   };
 
   const duplicateRec = (id) => {
@@ -572,7 +588,34 @@ const PDFTextEditor = () => {
   const createObject = useCallback((slotKey, o) => {
     pushHistory();
     const id = uid('obj');
-    const obj = { id, slot: slotKey, ...o };
+    let obj = { id, slot: slotKey, ...o };
+    if (o.type === 'table') {
+      const d = defaultsRef.current.table;
+      const sl = slotsRef.current.find((x) => x.key === slotKey);
+      const minH = Math.round((d.size * LINE_H + 2 * CELL_PAD_Y) * 10) / 10;
+      const W = o.w > 20 ? o.w : Math.min(d.cols * 90, (sl ? sl.w : 600) - o.x - 36);
+      const rowH = Array(d.rows).fill(o.h > 10 ? Math.max(minH, o.h / d.rows) : minH);
+      obj = {
+        id,
+        slot: slotKey,
+        type: 'table',
+        x: o.x,
+        y: o.y,
+        colW: Array(d.cols).fill(Math.max(20, W / d.cols)),
+        rowH,
+        cells: emptyCells(d.rows, d.cols),
+        family: d.family,
+        local: null,
+        size: d.size,
+        color: d.color,
+        border: d.border,
+        bw: d.bw,
+        headerBold: d.headerBold,
+        w: Math.max(20, W / d.cols) * d.cols,
+        h: rowH.reduce((a, b) => a + b, 0),
+      };
+      setTimeout(() => document.querySelector(`[data-obj-id="${id}"] [contenteditable]`)?.focus(), 80);
+    }
     if (o.type === 'field-text' || o.type === 'field-check') {
       const n = objectsRef.current.filter((x) => x.type === o.type).length + 1;
       obj.name = `${o.type === 'field-text' ? 'Text' : 'Checkbox'} ${n}`;
@@ -600,6 +643,138 @@ const PDFTextEditor = () => {
   }, [deactivate]);
 
   const beginObjectEdit = useCallback(() => pushHistory(), [pushHistory]);
+
+  /* ---- tables ---- */
+  const tableFocus = useRef(null); // { id, r, c } — the cell being typed in
+  const updateTable = useCallback((id, fn) => setObjects((list) => list.map((o) => {
+    if (o.id !== id) return o;
+    const n = fn(o);
+    if (!n) return o;
+    return { ...n, w: n.colW.reduce((a, b) => a + b, 0), h: tableRowHeights(n).reduce((a, b) => a + b, 0) };
+  })), []);
+
+  const tableProps = useMemo(() => ({
+    fontCssFor: (o) => (o.local && o.local !== o.family && !cssStack(o.family).toLowerCase().includes(o.local.toLowerCase())
+      ? `"${o.local}", ${cssStack(o.family)}` : cssStack(o.family)),
+    onCellText: (id, r, c, text) => {
+      pushHistory(`cell:${id}:${r}:${c}`);
+      updateTable(id, (o) => ({ ...o, cells: o.cells.map((row, i) => (i === r ? row.map((t, j) => (j === c ? text : t)) : row)) }));
+    },
+    onCellFocus: (id, r, c) => {
+      tableFocus.current = { id, r, c };
+      if (activeRef.current) deactivate();
+      if (selectedRef.current !== id) setSelectedId(id);
+    },
+    onAddRow: (id) => {
+      pushHistory();
+      updateTable(id, (o) => ({
+        ...o,
+        rowH: [...o.rowH, o.rowH[o.rowH.length - 1]],
+        rowAuto: null,
+        cells: [...o.cells, Array(o.colW.length).fill('')],
+      }));
+      setSelectedId(id);
+    },
+    onAddCol: (id) => {
+      pushHistory();
+      updateTable(id, (o) => ({
+        ...o,
+        colW: [...o.colW, o.colW[o.colW.length - 1]],
+        rowAuto: null,
+        cells: o.cells.map((row) => [...row, '']),
+      }));
+      setSelectedId(id);
+    },
+    onMeasure: (id, heights) => updateTable(id, (o) => ({ ...o, rowAuto: heights })),
+  }), [pushHistory, updateTable, deactivate]);
+
+  const tableAction = (id, action) => {
+    if (action === 'addRow') { tableProps.onAddRow(id); return; }
+    if (action === 'addCol') { tableProps.onAddCol(id); return; }
+    const o = objectsRef.current.find((x) => x.id === id);
+    if (!o) return;
+    const foc = tableFocus.current && tableFocus.current.id === id ? tableFocus.current : null;
+    if (action === 'delRow') {
+      if (o.cells.length <= 1) { deleteObject(id); return; }
+      const r = foc ? Math.min(foc.r, o.cells.length - 1) : o.cells.length - 1;
+      pushHistory();
+      updateTable(id, (t) => ({
+        ...t, rowH: t.rowH.filter((_, i) => i !== r), rowAuto: null, cells: t.cells.filter((_, i) => i !== r),
+      }));
+    } else if (action === 'delCol') {
+      if (o.colW.length <= 1) { deleteObject(id); return; }
+      const c = foc ? Math.min(foc.c, o.colW.length - 1) : o.colW.length - 1;
+      pushHistory();
+      updateTable(id, (t) => ({
+        ...t, colW: t.colW.filter((_, j) => j !== c), rowAuto: null, cells: t.cells.map((row) => row.filter((_, j) => j !== c)),
+      }));
+    }
+    tableFocus.current = null;
+  };
+
+  /** Ruled tables already in the PDF page (cached). */
+  const tablesFor = (slot) => {
+    if (slot.kind !== 'orig' || !docRef.current) return [];
+    const cache = docRef.current.tables;
+    if (!cache.has(slot.index)) {
+      let found = [];
+      try { found = findTables(docRef.current.lib, slot.index); } catch { found = []; }
+      cache.set(slot.index, found);
+    }
+    return cache.get(slot.index);
+  };
+
+  /** "+" on an existing table: continue it with a row below / a column on the right. */
+  const attachTable = useCallback((slotKey, t, dir, sample) => {
+    const src = `${t.key}:${dir}`;
+    const existing = objectsRef.current.find((o) => o.slot === slotKey && o.src === src);
+    if (existing) {
+      if (dir === 'bottom') tableProps.onAddRow(existing.id); else tableProps.onAddCol(existing.id);
+      return;
+    }
+    const sl = slotsRef.current.find((x) => x.key === slotKey);
+    if (!sl) return;
+    const v = sl.view;
+    const m = sample ? matchFamily(sample.meta?.name, sample.meta || {}) : { family: 'Arial', local: null };
+    const size = sample ? Math.round(sample.size * 2) / 2 : 11;
+    const rowsH = t.ys.slice(0, -1).map((y, i) => y - t.ys[i + 1]);
+    const colsW = t.xs.slice(0, -1).map((x, i) => t.xs[i + 1] - x);
+    const minH = Math.round((size * LINE_H + 2 * CELL_PAD_Y) * 10) / 10;
+    const lastH = Math.max(minH, rowsH[rowsH.length - 1] || minH);
+    const base = {
+      type: 'table',
+      attach: dir,
+      src,
+      family: m.family,
+      local: m.local || null,
+      size,
+      color: sample?.color || '#000000',
+      border: t.color,
+      bw: t.t,
+      headerBold: false,
+    };
+    const obj = dir === 'bottom'
+      ? {
+        ...base, x: t.x0 - v[0], y: v[3] - t.bottom, colW: colsW, rowH: [lastH], cells: emptyCells(1, colsW.length),
+      }
+      : {
+        // never past the page edge: at most the space left on the right
+        ...base,
+        x: t.x1 - v[0],
+        y: v[3] - t.top,
+        colW: [Math.max(36, Math.min(colsW[colsW.length - 1] || 80, v[2] - t.x1 - 18))],
+        rowH: rowsH,
+        cells: emptyCells(rowsH.length, 1),
+      };
+    obj.w = obj.colW.reduce((a, b) => a + b, 0);
+    obj.h = obj.rowH.reduce((a, b) => a + b, 0);
+    pushHistory();
+    const id = uid('obj');
+    setObjects((list) => [...list, { id, slot: slotKey, ...obj }]);
+    if (activeRef.current) deactivate();
+    setSelectedId(id);
+    setTimeout(() => document.querySelector(`[data-obj-id="${id}"] [contenteditable]`)?.focus(), 80);
+  }, [pushHistory, tableProps, deactivate]);
 
   /** Put an image on the page the user is looking at, in the middle of the view. */
   const placeImage = useCallback((src, pxW, pxH, maxW) => {
@@ -877,6 +1052,123 @@ const PDFTextEditor = () => {
   const learnText = (p) => {
     if (active && active.kind === 'new') setDefaults((d) => ({ ...d, text: { ...d.text, ...p } }));
   };
+  /* ---- changes panel ---- */
+  const origN = docRef.current?.pdfjs?.numPages || 0;
+  const changeItems = [];
+  slots.forEach((sl, i) => {
+    const pageLabel = `Page ${i + 1}`;
+    if (sl.kind === 'blank') {
+      changeItems.push({
+        key: `ins:${sl.key}`, kind: 'inserted', icon: 'inserted', tint: 'page', pageLabel, title: 'Inserted blank page', removeLabel: 'Remove this page', slot: sl.key, pos: i,
+      });
+    }
+    if (sl.extra) {
+      changeItems.push({
+        key: `rot:${sl.key}`, kind: 'rotate', icon: 'rotate', tint: 'page', pageLabel, title: 'Rotated page', sub: `${sl.extra}°`, removeLabel: 'Undo rotation', slot: sl.key, pos: i,
+      });
+    }
+    Object.values(edits).filter((r) => r.slot === sl.key && isChanged(r)).forEach((r) => {
+      changeItems.push({
+        key: r.id,
+        kind: 'text',
+        icon: 'text',
+        tint: 'text',
+        pageLabel,
+        title: r.kind === 'line' ? (r.text.trim() ? 'Edited text' : 'Deleted text') : 'New text',
+        sub: r.text.trim() || null,
+        was: r.kind === 'line' && r.text !== r.origText ? r.origText : null,
+        removeLabel: r.kind === 'line' ? 'Undo this edit' : 'Delete this text',
+        id: r.id,
+      });
+    });
+    objects.filter((o) => o.slot === sl.key).forEach((o) => {
+      let sub = null;
+      if (o.type === 'table') sub = `${o.cells.length} × ${o.colW.length}${o.attach ? ' · continues a table' : ''}`;
+      else if (o.type === 'link') sub = o.url || 'no address yet';
+      else if (o.type === 'field-text' || o.type === 'field-check') sub = o.name;
+      changeItems.push({
+        key: o.id,
+        kind: 'obj',
+        icon: o.type,
+        tint: o.type === 'table' ? 'table' : 'obj',
+        pageLabel,
+        title: o.type === 'image' && o.w < 200 && o.h < 90 ? 'Image / signature' : (TOOL_LABELS[o.type] || 'Object'),
+        sub,
+        removeLabel: 'Delete',
+        id: o.id,
+      });
+    });
+  });
+  const keptIdx = new Set(slots.filter((sl) => sl.kind === 'orig').map((sl) => sl.index));
+  for (let i = 0; i < origN; i += 1) {
+    if (!keptIdx.has(i)) {
+      changeItems.push({
+        key: `del:${i}`, kind: 'deleted', icon: 'deleted', tint: 'page', pageLabel: 'Deleted pages', title: `Original page ${i + 1}`, removeLabel: 'Restore this page', index: i,
+      });
+    }
+  }
+
+  const pickChange = (it) => {
+    setPanelOpen(false);
+    if (it.kind === 'text') {
+      els.current.get(it.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      activateRec(it.id);
+    } else if (it.kind === 'obj') {
+      document.querySelector(`[data-obj-id="${it.id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      selectObject(it.id);
+    } else if (it.pos != null) goToPage(it.pos);
+  };
+  const removeChange = (it) => {
+    pushHistory();
+    if (it.kind === 'text') {
+      if (activeRef.current === it.id) setActiveId(null);
+      setEdits((m) => {
+        const next = { ...m };
+        delete next[it.id];
+        return next;
+      });
+    } else if (it.kind === 'obj') {
+      setObjects((list) => list.filter((o) => o.id !== it.id));
+      if (selectedRef.current === it.id) setSelectedId(null);
+    } else if (it.kind === 'rotate') {
+      setSlots((list) => list.map((sl) => (sl.key === it.slot ? { ...sl, extra: 0 } : sl)));
+    } else if (it.kind === 'inserted') {
+      setSlots((list) => list.filter((sl) => sl.key !== it.slot));
+    } else if (it.kind === 'deleted') {
+      const orig = docRef.current.origSlots[it.index];
+      setSlots((list) => {
+        const at = list.findIndex((sl) => sl.kind === 'orig' && sl.index > it.index);
+        const next = [...list];
+        next.splice(at === -1 ? list.length : at, 0, { ...orig, extra: 0 });
+        return next;
+      });
+    }
+  };
+  const restack = (it, d) => {
+    pushHistory();
+    setObjects((list) => {
+      const i = list.findIndex((o) => o.id === it.id);
+      if (i < 0) return list;
+      let j = i + d;
+      while (j >= 0 && j < list.length && list[j].slot !== list[i].slot) j += d;
+      if (j < 0 || j >= list.length) return list;
+      const next = [...list];
+      [next[i], next[j]] = [next[j], next[i]];
+      return next;
+    });
+  };
+  const panel = (onClose) => (
+    <ChangesPanel
+      items={changeItems}
+      activeKey={activeId || selectedId}
+      onPick={pickChange}
+      onRemove={removeChange}
+      onRaise={(it) => restack(it, 1)}
+      onLower={(it) => restack(it, -1)}
+      onClose={onClose}
+    />
+  );
+
   const setRec = (p, tag) => {
     pushHistory(tag);
     patch(active.id, p);
@@ -903,6 +1195,10 @@ const PDFTextEditor = () => {
           onUndo={undo}
           canUndo={histLen > 0}
           onChooseAnother={reset}
+          onPickTable={(r, c) => {
+            setDefaults((d) => ({ ...d, table: { ...d.table, rows: r, cols: c } }));
+            setTool('table');
+          }}
         />
       </div>
 
@@ -956,20 +1252,22 @@ const PDFTextEditor = () => {
               editObject(selected.id, p);
               // the next one drawn with this tool looks the same
               const keep = {};
-              ['color', 'width', 'fill'].forEach((k) => { if (k in p) keep[k] = p[k]; });
+              ['color', 'width', 'fill', 'family', 'size', 'border', 'bw', 'headerBold'].forEach((k) => { if (k in p) keep[k] = p[k]; });
               if (Object.keys(keep).length && defaults[selected.type]) {
                 setDefaults((d) => ({ ...d, [selected.type]: { ...d[selected.type], ...keep } }));
               }
             }}
             onDelete={() => deleteObject(selected.id)}
             onDuplicate={() => pasteObject(selected)}
+            onTable={(a) => tableAction(selected.id, a)}
           />
         </FloatingBar>
       )}
 
       {error && <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">{error}</p>}
 
-      <div ref={scrollRef} className="overflow-x-auto rounded-2xl bg-gray-100 px-2 pb-28 pt-4 sm:px-4 dark:bg-gray-900/60">
+      <div className="flex items-start gap-4">
+      <div ref={scrollRef} className="min-w-0 flex-1 overflow-x-auto rounded-2xl bg-gray-100 px-2 pb-28 pt-4 sm:px-4 dark:bg-gray-900/60">
         <div className="space-y-8">
           {slots.map((s, i) => (
             <PageView
@@ -1002,6 +1300,9 @@ const PDFTextEditor = () => {
               onMoveRec={moveRec}
               onBeginMoveRec={beginMoveRec}
               onMargins={onMargins}
+              tables={tablesFor(s)}
+              onAttachTable={attachTable}
+              tableProps={tableProps}
             />
           ))}
           <div data-fq-keep="" className="flex justify-center">
@@ -1009,6 +1310,29 @@ const PDFTextEditor = () => {
           </div>
         </div>
       </div>
+
+      {/* changes / layers — beside the pages on wide screens */}
+      <aside className="sticky top-[8.5rem] hidden h-[calc(100vh-10rem)] w-72 shrink-0 xl:block">
+        {panel(null)}
+      </aside>
+      </div>
+
+      {/* …and a button + drawer on smaller screens */}
+      <button
+        type="button"
+        data-fq-keep=""
+        onClick={() => setPanelOpen((o) => !o)}
+        className="fixed bottom-24 right-4 z-30 inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white/95 px-3.5 py-2 text-sm font-semibold text-gray-700 shadow-lg backdrop-blur xl:hidden dark:border-gray-700 dark:bg-gray-800/95 dark:text-gray-200"
+      >
+        <LuLayers className="h-4 w-4 text-blue-600" />
+        Changes
+        <span className="rounded-full bg-blue-600 px-1.5 text-[11px] font-bold text-white">{changeItems.length}</span>
+      </button>
+      {panelOpen && (
+        <div className="fixed bottom-36 right-3 top-32 z-40 w-[min(20rem,calc(100vw-24px))] xl:hidden">
+          {panel(() => setPanelOpen(false))}
+        </div>
+      )}
 
       {/* page navigator */}
       {slots.length > 1 && (

@@ -2,7 +2,7 @@ import React, {
   useEffect, useMemo, useRef, useState,
 } from 'react';
 import {
-  LuTrash2, LuZoomIn, LuZoomOut, LuRotateCcw, LuRotateCw, LuPlusCircle,
+  LuTrash2, LuZoomIn, LuZoomOut, LuRotateCcw, LuRotateCw, LuPlusCircle, LuPlus,
 } from 'react-icons/lu';
 import { groupLines } from '../../../../lib/pdfTextEdit';
 import EditBlock from './EditBlock';
@@ -103,7 +103,7 @@ const PageView = ({
   pdfjs, slot, scale, number, canDelete, tool, defaults, records, objects, activeId, selectedId,
   fontCssFor, onActivateLine, onActivateRec, onText, onKey, registerEl, onAddText,
   onCreate, onSelect, onChangeObj, onBeginEdit, onBackground, onAction, onInsert,
-  onMoveRec, onBeginMoveRec, onMargins,
+  onMoveRec, onBeginMoveRec, onMargins, tables = [], onAttachTable, tableProps,
 }) => {
   const outerRef = useRef(null);
   const canvasRef = useRef(null);
@@ -111,6 +111,7 @@ const PageView = ({
   const [visible, setVisible] = useState(number <= 2);
   const [lines, setLines] = useState(slot.kind === 'blank' ? [] : null);
   const [preview, setPreview] = useState(null);
+  const [hoverTable, setHoverTable] = useState(null);
 
   const view = slot.view;
   const R = norm((slot.rotate0 || 0) + (slot.extra || 0));
@@ -213,7 +214,15 @@ const PageView = ({
 
   const onMove = (e) => {
     const d = drag.current;
-    if (!d) return;
+    if (!d) {
+      if (!tables.length) return;
+      const q = framePt(e);
+      const t = tables.find((tb) => q.x >= tb.x0 - view[0] - 10 && q.x <= tb.x1 - view[0] + 26
+        && q.y >= view[3] - tb.top - 10 && q.y <= view[3] - tb.bottom + 26);
+      const key = t ? t.key : null;
+      if (key !== hoverTable) setHoverTable(key);
+      return;
+    }
     const p = framePt(e);
     if (tool === 'pen') {
       d.points.push([p.x, p.y]);
@@ -249,6 +258,7 @@ const PageView = ({
     if (tool === 'field-check') r = tiny ? { x: d.start.x, y: d.start.y, w: 14, h: 14 } : { ...r, h: r.w };
     else if (tool === 'field-text' && tiny) r = { x: d.start.x, y: d.start.y, w: 150, h: 22 };
     else if (tool === 'link' && tiny) r = { x: d.start.x, y: d.start.y - 8, w: 120, h: 16 };
+    else if (tool === 'table' && tiny) r = { x: d.start.x, y: d.start.y, w: 0, h: 0 };
     else if (tiny) return;
     if ((tool === 'underline' || tool === 'strike') && r.h < 8) r = { ...r, y: r.y - (8 - r.h) / 2, h: 8 };
     const dir = (end.x - d.start.x) * (end.y - d.start.y) < 0 ? 'up' : 'down';
@@ -269,6 +279,7 @@ const PageView = ({
         onPointerMove={onMove}
         onPointerUp={onUp}
         onPointerCancel={onUp}
+        onPointerLeave={() => { if (hoverTable) setHoverTable(null); }}
       >
         <div className="absolute left-0 top-0" style={{ width: W, height: H, transform: frameTransform(W, H, R), transformOrigin: '0 0' }}>
           {slot.kind === 'orig' && <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />}
@@ -308,8 +319,49 @@ const PageView = ({
               onSelect={onSelect}
               onChange={onChangeObj}
               onBeginEdit={onBeginEdit}
+              table={o.type === 'table' ? { ...tableProps, fontCss: tableProps.fontCssFor(o) } : null}
             />
           ))}
+
+          {/* existing PDF tables: + to continue them with a row / column */}
+          {tables.map((t) => {
+            if (t.key !== hoverTable) return null;
+            const fx0 = t.x0 - view[0];
+            const fx1 = t.x1 - view[0];
+            const ftop = view[3] - t.top;
+            const fbot = view[3] - t.bottom;
+            const taken = new Set(objects.filter((o) => o.src && o.src.startsWith(`${t.key}:`)).map((o) => o.src));
+            const sample = (lines || []).filter((l) => l.x0 >= t.x0 - 2 && l.x1 <= t.x1 + 2 && l.y <= t.top && l.y >= t.bottom)
+              .sort((a, b) => b.text.length - a.text.length)[0] || null;
+            const plus = (dir, left, top, title) => (taken.has(`${t.key}:${dir}`) ? null : (
+              <button
+                key={dir}
+                type="button"
+                data-fq-keep=""
+                title={title}
+                aria-label={title}
+                onPointerDown={(e) => e.stopPropagation()}
+                onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onClick={(e) => { e.stopPropagation(); onAttachTable(slot.key, t, dir, sample); setHoverTable(null); }}
+                className="absolute z-30 grid h-6 w-6 place-items-center rounded-full bg-blue-600 text-white shadow-lg ring-2 ring-white transition hover:scale-110 hover:bg-blue-700"
+                style={{ left, top }}
+              >
+                <LuPlus className="h-4 w-4" />
+              </button>
+            ));
+            return (
+              <React.Fragment key={t.key}>
+                <div
+                  className="pointer-events-none absolute rounded-sm outline outline-2 outline-offset-2 outline-blue-400/60"
+                  style={{
+                    left: fx0 * scale, top: ftop * scale, width: (fx1 - fx0) * scale, height: (fbot - ftop) * scale,
+                  }}
+                />
+                {plus('bottom', ((fx0 + fx1) / 2) * scale - 12, fbot * scale + 6, 'Add a row to this table')}
+                {plus('right', fx1 * scale + 6, ((ftop + fbot) / 2) * scale - 12, 'Add a column to this table')}
+              </React.Fragment>
+            );
+          })}
 
           {records.map((r) => (
             <EditBlock

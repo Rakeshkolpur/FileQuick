@@ -737,6 +737,116 @@ export function removeRules(pdf, pageIndex, targets) {
   return matched;
 }
 
+/* ------------------------------ tables ------------------------------ */
+
+/** Thin horizontal / vertical bars (and the edges of stroked boxes) from one subpath. */
+function barsOf(sub, paint) {
+  if (sub.curved || sub.pts.length < 2) return [];
+  const xs = sub.pts.map((p) => p.x);
+  const ys = sub.pts.map((p) => p.y);
+  const x0 = Math.min(...xs); const x1 = Math.max(...xs);
+  const y0 = Math.min(...ys); const y1 = Math.max(...ys);
+  const w = x1 - x0; const h = y1 - y0;
+  const c = paint.gs.ctm;
+  const lw = Math.max(0.1, paint.gs.lw * Math.sqrt(Math.abs(c[0] * c[3] - c[1] * c[2])) || 0.1);
+  const out = [];
+  if (paint.fill && sub.pts.length >= 4) {
+    const color = toHexColor(paint.gs.fill);
+    if (h > 0.05 && h <= 3.5 && w >= 3 * h) out.push({ dir: 'h', a: (y0 + y1) / 2, lo: x0, hi: x1, t: h, color });
+    else if (w > 0.05 && w <= 3.5 && h >= 3 * w) out.push({ dir: 'v', a: (x0 + x1) / 2, lo: y0, hi: y1, t: w, color });
+  }
+  if (paint.stroke && lw <= 3.5) {
+    const color = toHexColor(paint.gs.stroke);
+    for (let i = 0; i + 1 < sub.pts.length + (sub.pts.length >= 4 ? 1 : 0); i += 1) {
+      const p = sub.pts[i]; const q = sub.pts[(i + 1) % sub.pts.length];
+      if (Math.abs(p.y - q.y) < 0.3 && Math.abs(p.x - q.x) > 2) out.push({ dir: 'h', a: p.y, lo: Math.min(p.x, q.x), hi: Math.max(p.x, q.x), t: lw, color });
+      else if (Math.abs(p.x - q.x) < 0.3 && Math.abs(p.y - q.y) > 2) out.push({ dir: 'v', a: p.x, lo: Math.min(p.y, q.y), hi: Math.max(p.y, q.y), t: lw, color });
+    }
+  }
+  return out;
+}
+
+/** Join collinear touching segments (Word draws each cell border separately). */
+function mergeBars(list) {
+  const s = [...list].sort((p, q) => (Math.abs(p.a - q.a) > 0.8 ? p.a - q.a : p.lo - q.lo));
+  const out = [];
+  s.forEach((b) => {
+    const last = out[out.length - 1];
+    if (last && Math.abs(last.a - b.a) <= 0.8 && b.lo <= last.hi + 2) {
+      last.hi = Math.max(last.hi, b.hi);
+      last.t = Math.max(last.t, b.t);
+    } else out.push({ ...b });
+  });
+  return out;
+}
+
+const cluster = (vals, tol = 1.5) => {
+  const out = [];
+  [...vals].sort((a, b) => a - b).forEach((v) => {
+    if (out.length && v - out[out.length - 1].last <= tol) {
+      const c = out[out.length - 1];
+      c.sum += v; c.n += 1; c.last = v;
+    } else out.push({ sum: v, n: 1, last: v });
+  });
+  return out.map((c) => c.sum / c.n);
+};
+
+/**
+ * Ruled tables drawn on a page (grids of thin lines), in PDF user space:
+ * [{ key, x0, x1, top, bottom, xs (column lines, left→right),
+ *    ys (row lines, top→bottom), t, color }].
+ */
+export function findTables(pdf, pageIndex) {
+  let bytes;
+  try { bytes = readContents(pdf.getPage(pageIndex)); } catch { bytes = null; }
+  if (!bytes) return [];
+  const H = []; const V = [];
+  scanPaths(bytes, (paint) => paint.subs.forEach((sp) => barsOf(sp, paint).forEach((b) => (b.dir === 'h' ? H : V).push(b))));
+  const hs = mergeBars(H).filter((b) => b.hi - b.lo >= 20);
+  const vs = mergeBars(V).filter((b) => b.hi - b.lo >= 6);
+  if (hs.length < 2 || vs.length < 2) return [];
+
+  // Connected groups of crossing / touching lines = one table each.
+  const all = [...hs.map((b) => ({ ...b, dir: 'h' })), ...vs.map((b) => ({ ...b, dir: 'v' }))];
+  const parent = all.map((_, i) => i);
+  const find = (i) => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+  const touch = (h, v) => v.a >= h.lo - 2 && v.a <= h.hi + 2 && h.a >= v.lo - 2 && h.a <= v.hi + 2;
+  all.forEach((h, i) => {
+    if (h.dir !== 'h') return;
+    all.forEach((v, j) => { if (v.dir === 'v' && touch(h, v)) parent[find(i)] = find(j); });
+  });
+  const groups = new Map();
+  all.forEach((b, i) => {
+    const r = find(i);
+    if (!groups.has(r)) groups.set(r, []);
+    groups.get(r).push(b);
+  });
+
+  const tables = [];
+  groups.forEach((g) => {
+    const gh = g.filter((b) => b.dir === 'h');
+    const gv = g.filter((b) => b.dir === 'v');
+    const xs = cluster(gv.map((b) => b.a));
+    const ys = cluster(gh.map((b) => b.a)).reverse();
+    if (xs.length < 2 || ys.length < 2 || (xs.length < 3 && ys.length < 3)) return; // a lone box isn't a table
+    const ts = g.map((b) => b.t).sort((a, b) => a - b);
+    const colors = new Map();
+    g.forEach((b) => colors.set(b.color, (colors.get(b.color) || 0) + 1));
+    tables.push({
+      key: `t${pageIndex}-${tables.length}`,
+      x0: xs[0],
+      x1: xs[xs.length - 1],
+      top: ys[0],
+      bottom: ys[ys.length - 1],
+      xs,
+      ys,
+      t: ts[Math.floor(ts.length / 2)],
+      color: [...colors.entries()].sort((a, b) => b[1] - a[1])[0][0],
+    });
+  });
+  return tables;
+}
+
 /* ------------------------- the document's own fonts ------------------------- */
 
 /** All fonts on every page, keyed by /BaseFont (e.g. "ABCDEF+Calibri"). */

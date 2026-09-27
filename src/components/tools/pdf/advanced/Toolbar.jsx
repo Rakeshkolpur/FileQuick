@@ -6,7 +6,7 @@ import {
   LuType, LuLink, LuFormInput, LuTextCursorInput, LuCheckSquare, LuImage,
   LuFileSignature, LuPenLine, LuEraser, LuHighlighter, LuUnderline, LuStrikethrough, LuPencil,
   LuShapes, LuSquare, LuCircle, LuMinus, LuPlus, LuUndo2, LuTrash2, LuChevronDown, LuUpload,
-  LuKeyboard, LuRotateCcw, LuFileText, LuFolderOpen, LuAlignLeft, LuAlignCenter, LuAlignRight, LuCopyPlus,
+  LuKeyboard, LuRotateCcw, LuFileText, LuFolderOpen, LuAlignLeft, LuAlignCenter, LuAlignRight, LuAlignJustify, LuCopyPlus, LuTable,
 } from 'react-icons/lu';
 import { FONT_LIST, POPULAR_FONTS, cssStack } from '../../../../lib/pdfAnnotate';
 import { ORIGINAL, TOOL_LABELS, styleOf } from './records';
@@ -21,6 +21,37 @@ const MENU_OF = {
   rect: 'shapes',
   ellipse: 'shapes',
   line: 'shapes',
+  table: 'table',
+};
+
+/** Word-style size picker: hover the grid, click to choose rows × columns. */
+const TableGrid = ({ onPick }) => {
+  const [hov, setHov] = useState({ r: 3, c: 3 });
+  return (
+    <div className="p-1.5">
+      <div className="grid grid-cols-8 gap-1" onMouseLeave={() => setHov({ r: 3, c: 3 })}>
+        {Array.from({ length: 64 }, (_, i) => {
+          const r = Math.floor(i / 8) + 1;
+          const c = (i % 8) + 1;
+          const on = r <= hov.r && c <= hov.c;
+          return (
+            <button
+              key={i}
+              type="button"
+              aria-label={`${r} by ${c} table`}
+              onMouseDown={(e) => e.preventDefault()}
+              onMouseEnter={() => setHov({ r, c })}
+              onFocus={() => setHov({ r, c })}
+              onClick={() => onPick(r, c)}
+              className={`h-5 w-5 rounded-[4px] border transition-colors ${on ? 'border-blue-500 bg-blue-500/80' : 'border-gray-300 bg-white hover:border-blue-400 dark:border-gray-600 dark:bg-gray-700'}`}
+            />
+          );
+        })}
+      </div>
+      <p className="mt-2 text-center text-sm font-semibold text-gray-700 dark:text-gray-200">{`${hov.r} × ${hov.c} table`}</p>
+      <p className="text-center text-[11px] text-gray-400">then click on the page to place it</p>
+    </div>
+  );
 };
 
 /* ------------------------------ main bar ------------------------------ */
@@ -83,7 +114,7 @@ const Menu = ({ children, wide }) => (
 
 /** One slim bar: file · tools · undo. */
 export const MainToolbar = ({
-  fileName, pages, tool, setTool, onImage, onSign, signatures, onUseSignature, onUndo, canUndo, onChooseAnother,
+  fileName, pages, tool, setTool, onImage, onSign, signatures, onUseSignature, onUndo, canUndo, onChooseAnother, onPickTable,
 }) => {
   const [open, setOpen] = useState(null);
   const ref = useRef(null);
@@ -127,6 +158,15 @@ export const MainToolbar = ({
             <Menu>
               <MenuItem icon={LuTextCursorInput} label="Text field" sub="A box people can type into" active={tool === 'field-text'} onClick={() => pick('field-text')} />
               <MenuItem icon={LuCheckSquare} label="Checkbox" sub="A box people can tick" active={tool === 'field-check'} onClick={() => pick('field-check')} />
+            </Menu>
+          )}
+        </div>
+
+        <div className="relative">
+          <ToolButton icon={LuTable} label="Table" hasMenu active={current === 'table'} open={open === 'table'} onClick={() => toggle('table')} />
+          {open === 'table' && (
+            <Menu>
+              <TableGrid onPick={(r, c) => { setOpen(null); onPickTable(r, c); }} />
             </Menu>
           )}
         </div>
@@ -394,7 +434,7 @@ const IconAction = ({
 export const TextFormat = ({
   rec, originalLabel, onFont, onSize, onToggle, onColor, onClear, onRevert, onAlign, onDuplicate,
 }) => {
-  const align = rec.align || 'left';
+  const align = rec.justify ? 'justify' : (rec.align || 'left');
   const { bold, italic } = styleOf(rec);
   const k = (e) => e.preventDefault();
   return (
@@ -418,6 +458,9 @@ export const TextFormat = ({
       <button type="button" onMouseDown={k} onClick={() => onAlign('right')} className={toggleCls(align === 'right')} title="Align right (page margin)">
         <LuAlignRight className="h-4 w-4" />
       </button>
+      <button type="button" onMouseDown={k} onClick={() => onAlign('justify')} className={toggleCls(align === 'justify')} title="Justify (fill the line from margin to margin)">
+        <LuAlignJustify className="h-4 w-4" />
+      </button>
       <Sep />
       <IconAction onClick={onDuplicate} title="Duplicate (Ctrl+D)">
         <LuCopyPlus className="h-4 w-4" />
@@ -435,10 +478,49 @@ export const TextFormat = ({
 };
 
 /** Controls for a selected object. */
+const TextBtn = ({ onClick, title, children }) => (
+  <button
+    type="button"
+    title={title}
+    onMouseDown={(e) => e.preventDefault()}
+    onClick={onClick}
+    className="h-8 rounded-lg px-2 text-[12.5px] font-semibold text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+  >
+    {children}
+  </button>
+);
+
 export const ObjectFormat = ({
-  obj, onChange, onDelete, onDuplicate,
+  obj, onChange, onDelete, onDuplicate, onTable,
 }) => {
   const o = obj;
+  if (o.type === 'table') {
+    return (
+      <>
+        <FontSelect value={o.family} onChange={(family) => onChange({ family, local: null })} />
+        <SizeStepper value={o.size} onChange={(size) => onChange({ size })} />
+        <ColorWell value={o.color} onChange={(color) => onChange({ color })} title="Text colour" letter />
+        <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => onChange({ headerBold: !o.headerBold })} className={`h-8 rounded-lg px-2 text-[12.5px] font-bold transition-colors ${o.headerBold ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700'}`} title="Bold first row (header)">
+          Header
+        </button>
+        <Sep />
+        <ColorWell value={o.border} onChange={(border) => onChange({ border })} title="Border colour" />
+        <WidthSelect value={o.bw} onChange={(bw) => onChange({ bw })} />
+        <Sep />
+        <TextBtn onClick={() => onTable('addRow')} title="Add a row below">+ Row</TextBtn>
+        <TextBtn onClick={() => onTable('addCol')} title="Add a column on the right">+ Col</TextBtn>
+        <TextBtn onClick={() => onTable('delRow')} title="Delete the row you're in (or the last one)">− Row</TextBtn>
+        <TextBtn onClick={() => onTable('delCol')} title="Delete the column you're in (or the last one)">− Col</TextBtn>
+        <Sep />
+        <IconAction onClick={onDuplicate} title="Duplicate (Ctrl+D)">
+          <LuCopyPlus className="h-4 w-4" />
+        </IconAction>
+        <IconAction onClick={onDelete} title="Delete table" danger>
+          <LuTrash2 className="h-4 w-4" />
+        </IconAction>
+      </>
+    );
+  }
   return (
     <>
       <span className="px-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{TOOL_LABELS[o.type] || 'Object'}</span>

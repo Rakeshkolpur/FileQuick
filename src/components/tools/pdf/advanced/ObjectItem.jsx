@@ -1,6 +1,8 @@
 import React, { useRef } from 'react';
 import { LuCheck } from 'react-icons/lu';
 import { deltaToFrame, penPath } from './geometry';
+import TableBody from './TableBody';
+import { tableRowHeights } from './records';
 
 const MIN = 4; // pt
 
@@ -10,11 +12,11 @@ const MIN = 4; // pt
  * the page's unrotated frame. Drag the body to move, the corner to resize.
  */
 const ObjectItem = ({
-  obj, scale, R, selected, onSelect, onChange, onBeginEdit,
+  obj, scale, R, selected, onSelect, onChange, onBeginEdit, table,
 }) => {
   const drag = useRef(null);
   const W = obj.w * scale;
-  const H = obj.h * scale;
+  const H = (obj.type === 'table' ? tableRowHeights(obj).reduce((a, b) => a + b, 0) : obj.h) * scale;
 
   const start = (e, mode) => {
     if (e.button !== undefined && e.button !== 0) return;
@@ -41,6 +43,15 @@ const ObjectItem = ({
       const w = Math.max(MIN, d.o.w + dx);
       let h = Math.max(MIN, d.o.h + dy);
       if (d.o.type === 'image') h = w * (d.o.h / d.o.w);
+      if (d.o.type === 'table') {
+        // resizing a table scales its columns and row minimums
+        const fx = w / d.o.w;
+        const fy = h / d.o.h;
+        onChange(obj.id, {
+          w, h, colW: d.o.colW.map((c) => c * fx), rowH: d.o.rowH.map((r) => Math.max(4, r * fy)), rowAuto: null,
+        });
+        return;
+      }
       onChange(obj.id, { w, h });
     }
   };
@@ -49,6 +60,22 @@ const ObjectItem = ({
   const lw = Math.max(1, (obj.width || 1) * scale);
   let body = null;
   switch (obj.type) {
+    case 'table':
+      body = (
+        <TableBody
+          obj={obj}
+          scale={scale}
+          selected={selected}
+          fontCss={table.fontCss}
+          onCellText={table.onCellText}
+          onCellFocus={table.onCellFocus}
+          onAddRow={table.onAddRow}
+          onAddCol={table.onAddCol}
+          onMeasure={table.onMeasure}
+          onGripDown={(e) => start(e, 'move')}
+        />
+      );
+      break;
     case 'whiteout':
       body = <div className="absolute inset-0" style={{ background: obj.color }} />;
       break;
@@ -131,7 +158,7 @@ const ObjectItem = ({
       data-fq-keep=""
       data-obj-id={obj.id}
       className={`absolute ${selected ? 'outline outline-2 outline-offset-1 outline-blue-500' : 'hover:outline hover:outline-1 hover:outline-blue-400'}`}
-      style={{ left: obj.x * scale, top: obj.y * scale, width: W, height: H, cursor: 'move', touchAction: 'none' }}
+      style={{ left: obj.x * scale, top: obj.y * scale, width: W, height: H, cursor: obj.type === 'table' ? 'default' : 'move', touchAction: 'none' }}
       onPointerDown={(e) => start(e, 'move')}
       onPointerMove={move}
       onPointerUp={end}
