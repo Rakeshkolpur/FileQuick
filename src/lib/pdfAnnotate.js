@@ -217,8 +217,9 @@ export function createFontLoader(pdf, { local = false } = {}) {
       if (!(lkey in cache)) {
         cache[lkey] = null;
         try {
-          const got = await localFontBytes(familyName, bold, italic);
-          if (got) cache[lkey] = await embedBytes(got.bytes);
+          const got = await localFontBytes(familyName, bold || !!conf.bold, italic);
+          // only the right style — a Regular file must never stand in for Bold
+          if (got && (got.exact || conf.bold)) cache[lkey] = await embedBytes(got.bytes);
         } catch { cache[lkey] = null; }
       }
       if (cache[lkey]) return cache[lkey];
@@ -247,6 +248,20 @@ export function createFontLoader(pdf, { local = false } = {}) {
     return cache[key];
   };
 
+  /** Any installed family by its real name (e.g. "Bookman Old Style"), exact style only, or null. */
+  const getLocalFont = async (familyName, bold, italic) => {
+    if (!local || !familyName) return null;
+    const lkey = `name:${familyName.toLowerCase()}:${bold ? 1 : 0}${italic ? 1 : 0}`;
+    if (!(lkey in cache)) {
+      cache[lkey] = null;
+      try {
+        const got = await localFontBytes(familyName, bold, italic);
+        if (got && got.exact) cache[lkey] = await embedBytes(got.bytes);
+      } catch { cache[lkey] = null; }
+    }
+    return cache[lkey];
+  };
+
   const isStd = (font) => std.has(font);
 
   const covers = (font, text) => {
@@ -258,7 +273,7 @@ export function createFontLoader(pdf, { local = false } = {}) {
     return [...text].every((ch) => /\s/.test(ch) || fk.hasGlyphForCodePoint(ch.codePointAt(0)));
   };
 
-  return { getFont, embedBytes, ensureFontkit, isStd, covers, fallbacks };
+  return { getFont, getLocalFont, embedBytes, ensureFontkit, isStd, covers, fallbacks };
 }
 
 /**

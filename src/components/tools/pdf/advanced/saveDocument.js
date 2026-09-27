@@ -2,8 +2,10 @@ import {
   PDFDocument, PDFName, PDFString, BlendMode, LineCapStyle, degrees,
 } from 'pdf-lib';
 import { createFontLoader, isStandardFamily, winAnsiSafe, parseColor } from '../../../../lib/pdfAnnotate';
-import { removeTextInRegions } from '../../../../lib/pdfTextEdit';
-import { ORIGINAL, isChanged } from './records';
+import { removeTextInRegions, removeRules } from '../../../../lib/pdfTextEdit';
+import {
+  ORIGINAL, isChanged, styleOf, underlineOf, wordSpacingFor,
+} from './records';
 import { norm } from './geometry';
 
 const dataUrlBytes = (url) => {
@@ -64,9 +66,16 @@ export async function saveDocument({
       }
     }
     const fam = r.family === ORIGINAL ? r.fallbackFamily : r.family;
-    const bold = r.family === ORIGINAL ? r.origBold : r.bold;
-    const italic = r.family === ORIGINAL ? r.origItalic : r.italic;
-    const font = await loader.getFont(fam, bold, italic);
+    const { bold, italic } = styleOf(r);
+    // Same family as the original: the user's installed copy of the real
+    // font (e.g. "Bookman Old Style") beats any look-alike.
+    let font = null;
+    if (r.localFamily && fam === r.fallbackFamily && r.localFamily !== fam) {
+      font = await loader.getLocalFont(r.localFamily, bold, italic);
+      if (font && !loader.covers(font, text)) font = null;
+      if (font) return { font, str: text };
+    }
+    font = await loader.getFont(fam, bold, italic);
     const str = loader.isStd(font) && isStandardFamily(fam) ? winAnsiSafe(text) : text;
     if (loader.covers(font, str)) return { font, str };
     // Characters this font can't draw (e.g. Hindi in Arial's standard
@@ -107,6 +116,13 @@ export async function saveDocument({
     const regions = recs.filter((r) => r.kind === 'line')
       .map((r) => ({ id: r.id, x0: r.x0, x1: r.x1, y: r.y, size: r.origSize }));
     const matched = regions.length ? removeTextInRegions(pdf, i, regions) : new Set();
+    // Original underlines of edited lines: removed, then redrawn to fit.
+    const rules = [];
+    recs.forEach((r) => (r.ulRules || []).forEach((u, k) => rules.push({ ...u, id: `${r.id}:${k}`, bg: r.bg })));
+    const rulesGone = rules.length ? removeRules(pdf, i, rules) : new Set();
+    rules.filter((u) => !rulesGone.has(u.id)).forEach((u) => page.drawRectangle({
+      x: u.x0 - 0.5, y: u.y - u.t / 2 - 0.5, width: u.x1 - u.x0 + 1, height: u.t + 1, color: parseColor(u.bg),
+    }));
     for (const r of recs) {
       if (r.kind === 'line' && !matched.has(r.id)) {
         covered += 1;
@@ -118,7 +134,26 @@ export async function saveDocument({
       if (!text.trim()) continue;
       // eslint-disable-next-line no-await-in-loop
       const { font, str } = await fontFor(r, text);
-      page.drawText(str, { x: r.x0, y: r.y, size: r.size, font, color: parseColor(r.color) });
+      const color = parseColor(r.color);
+      const ws = r.justify ? wordSpacingFor(r, font.widthOfTextAtSize(str, r.size)) : 0;
+      // Justified: each word (with its space, so copy/paste keeps spaces) is
+      // placed with the extra spacing, exactly like the original line.
+      const toks = ws ? (str.match(/\S+\s*|\s+/g) || []) : [str];
+      const advOf = (tok) => font.widthOfTextAtSize(tok, r.size) + ws * (tok.match(/ /g) || []).length;
+      const trailing = ws * ((str.match(/ +$/) || [''])[0].length);
+      const width = toks.reduce((n, tok) => n + advOf(tok), 0) - trailing;
+      const startX = r.align === 'center' ? r.cx - width / 2 : r.x0;
+      let x = startX;
+      toks.forEach((tok) => {
+        page.drawText(tok, { x, y: r.y, size: r.size, font, color });
+        x += advOf(tok);
+      });
+      const ul = underlineOf(r);
+      if (ul) {
+        page.drawRectangle({
+          x: startX, y: r.y - ul.offset - ul.t / 2, width, height: ul.t, color: parseColor(ul.color),
+        });
+      }
     }
 
     // Objects, in the order they were placed.
@@ -241,6 +276,6 @@ export async function saveDocument({
     count,
     covered,
     // only the fonts the user actually picked (not the Unicode rescue fonts)
-    fallbacks: [...loader.fallbacks].filter((f) => changed.some((r) => r.family === f)),
+    fallbacks: [...loader.fallbacks].filter((f) => changed.some((r) => r.family === f || (r.family === ORIGINAL && r.fallbackFamily === f))),
   };
 }

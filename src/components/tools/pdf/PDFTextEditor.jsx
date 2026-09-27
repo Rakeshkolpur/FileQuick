@@ -2,7 +2,7 @@ import React, {
   useCallback, useContext, useEffect, useMemo, useRef, useState,
 } from 'react';
 import { PDFDocument } from 'pdf-lib';
-import { LuChevronRight, LuChevronUp, LuChevronDown, LuFileText } from 'react-icons/lu';
+import { LuChevronRight, LuChevronUp, LuChevronDown } from 'react-icons/lu';
 import FileDropzone from '../../tool/FileDropzone';
 import ResultScreen from '../../tool/ResultScreen';
 import OpenInPdfTool from '../../tool/OpenInPdfTool';
@@ -15,19 +15,27 @@ import { openPdf } from '../../../lib/pdfjs';
 import { cssStack } from '../../../lib/pdfAnnotate';
 import { requestLocalFonts } from '../../../lib/localFonts';
 import {
-  collectFonts, embeddedFontFile, matchFamily, cleanFontName,
+  collectFonts, embeddedFontFile, matchFamily, cleanFontName, measureLines, findRules,
 } from '../../../lib/pdfTextEdit';
 import PageView, { InsertButton } from './advanced/PageView';
-import { MainToolbar, ContextBar } from './advanced/Toolbar';
+import {
+  MainToolbar, FloatingBar, TextFormat, ObjectFormat,
+} from './advanced/Toolbar';
 import SignatureModal from './advanced/SignatureModal';
 import { saveDocument } from './advanced/saveDocument';
-import { ORIGINAL, TOOL_DEFAULTS, isChanged } from './advanced/records';
+import {
+  ORIGINAL, TOOL_DEFAULTS, TOOL_HINTS, isChanged,
+} from './advanced/records';
+import { textWidth } from './advanced/measure';
 import { norm } from './advanced/geometry';
 
 const MAX_FIT = 1.5;
 const ZOOMS = [0.5, 0.67, 0.8, 1, 1.25, 1.5, 2, 2.5, 3];
 
 let seq = 0;
+
+/** Does a font (fontkit) have every character of the text? */
+const coversAll = (fk, text) => [...text].every((ch) => /\s/.test(ch) || fk.hasGlyphForCodePoint(ch.codePointAt(0)));
 const uid = (p) => { seq += 1; return `${p}-${seq}`; };
 
 /** Read an image file into a PDF-embeddable data URL (JPEG stays JPEG, else PNG). */
@@ -71,6 +79,8 @@ const PDFTextEditor = () => {
   const [sigModal, setSigModal] = useState(null);
   const [histLen, setHistLen] = useState(0);
   const [curPage, setCurPage] = useState(0);
+  const [hint, setHint] = useState(null);
+  const toolbarRef = useRef(null);
 
   const docRef = useRef(null); // { bytes, pdfjs, fonts }
   const fontCache = useRef(new Map());
@@ -119,7 +129,9 @@ const PDFTextEditor = () => {
         throw e;
       }
       const pdfjs = await openPdf(bytes);
-      docRef.current = { bytes, pdfjs, fonts: collectFonts(lib) };
+      docRef.current = {
+        bytes, pdfjs, lib, fonts: collectFonts(lib), rules: new Map(),
+      };
       fontCache.current = new Map();
       setOrigFonts({});
       const list = [];
@@ -199,7 +211,7 @@ const PDFTextEditor = () => {
   }, []);
 
   /* ---- the PDF's own fonts ---- */
-  const resolveOriginal = useCallback((base) => {
+  const resolveOriginal = useCallback((base, style = {}) => {
     if (!base || !docRef.current) return Promise.resolve(null);
     if (fontCache.current.has(base)) return fontCache.current.get(base);
     const job = (async () => {
@@ -216,12 +228,14 @@ const PDFTextEditor = () => {
         const fk = fontkit.create(bytes);
         if (!fk.characterSet || !fk.characterSet.length) return null;
         const family = `fqorig${fontCache.current.size}`;
-        const face = new FontFace(family, bytes);
+        // Registered with its real weight/style: CSS then selects it as-is
+        // (no faux bold) and characters it lacks fall back in the same style.
+        const face = new FontFace(family, bytes, { weight: style.bold ? '700' : '400', style: style.italic ? 'italic' : 'normal' });
         await face.load();
         document.fonts.add(face);
         // "Carlito-Bold-7888" -> "Carlito Bold"
         const label = cleanFontName(base).replace(/[,-]/g, ' ').replace(/\s+\d{3,}$/, '').trim();
-        setOrigFonts((m) => ({ ...m, [base]: { family, label } }));
+        setOrigFonts((m) => ({ ...m, [base]: { family, label, fk } }));
         return { family, fk, bytes, label };
       } catch {
         return null;
@@ -231,11 +245,18 @@ const PDFTextEditor = () => {
     return job;
   }, []);
 
+  /**
+   * What the line is drawn with — the same choice the save makes: the PDF's
+   * own font while it has every character typed, else the user's installed
+   * copy of the same family (e.g. "Bookman Old Style"), else a look-alike.
+   */
   const fontCssFor = useCallback((r) => {
-    if (r.family === ORIGINAL && origFonts[r.origBase]) {
-      return `"${origFonts[r.origBase].family}", ${cssStack(r.fallbackFamily)}`;
-    }
-    return cssStack(r.family === ORIGINAL ? r.fallbackFamily : r.family);
+    const o = r.origBase && origFonts[r.origBase];
+    const fam = r.family === ORIGINAL ? r.fallbackFamily : r.family;
+    const local = r.localFamily && fam === r.fallbackFamily
+      && !cssStack(fam).toLowerCase().includes(r.localFamily.toLowerCase()) ? `"${r.localFamily}", ` : '';
+    if (r.family === ORIGINAL && o && coversAll(o.fk, r.text)) return `"${o.family}", ${local}${cssStack(fam)}`;
+    return `${local}${cssStack(fam)}`;
   }, [origFonts]);
 
   /* ---- text records ---- */
@@ -279,13 +300,65 @@ const PDFTextEditor = () => {
 
   const activateLine = async (line, caret) => {
     if (editsRef.current[line.id]) { activateRec(line.id); return; }
+    // Ask for the computer's fonts now (this is a click), so the saved line
+    // can use the real installed font — e.g. Bookman Old Style Bold.
+    requestLocalFonts();
     deactivate();
     setSelectedId(null);
     const meta = line.meta || {};
     const m = matchFamily(meta.name, meta);
-    const orig = await resolveOriginal(meta.name);
-    const useOrig = !!(orig && [...line.text].every((ch) => /\s/.test(ch) || orig.fk.hasGlyphForCodePoint(ch.codePointAt(0))));
+    const orig = await resolveOriginal(meta.name, m);
+    const useOrig = !!(orig && coversAll(orig.fk, line.text));
     const size = Math.round(line.size * 10) / 10;
+    const { lib, rules } = docRef.current;
+
+    // Justified? Compare the glyphs' own widths with how wide the line
+    // really is — Word's "Justify" puts the difference into the spaces.
+    const spaces = (line.text.match(/ /g) || []).length;
+    let origWidth = line.x1 - line.x0;
+    let origExtra = 0;
+    let justify = false;
+    if (spaces) {
+      let st = null;
+      try {
+        st = measureLines(lib, line.page, [{ id: 'm', x0: line.x0, x1: line.x1, y: line.y, size: line.size }]).get('m');
+      } catch { st = null; }
+      if (st && st.inkNatural > 0 && Number.isFinite(st.inkMaxX)) {
+        origWidth = st.inkMaxX - line.x0;
+        origExtra = (st.inkMaxX - st.minX - st.inkNatural) / spaces;
+        justify = origExtra > line.size * 0.04;
+      } else {
+        const css = useOrig ? `"${orig.family}", ${cssStack(m.family)}` : `"${m.local}", ${cssStack(m.family)}`;
+        origExtra = (origWidth - textWidth(line.text, css, line.size, m.bold, m.italic)) / spaces;
+        justify = origExtra > line.size * 0.1;
+      }
+    }
+
+    // Centred on the page (a heading)? Then it stays centred as it changes.
+    const view = slotsRef.current.find((sl) => sl.key === line.slot)?.view;
+    const cx = (line.x0 + line.x1) / 2;
+    const centred = !justify && !!view
+      && Math.abs(cx - (view[0] + view[2]) / 2) < 3
+      && line.x0 - view[0] > 36
+      && line.x1 - line.x0 < 0.8 * (view[2] - view[0]);
+
+    // Underlined? Word draws the underline as a separate thin bar.
+    if (!rules.has(line.page)) {
+      let found = [];
+      try { found = findRules(lib, line.page); } catch { found = []; }
+      rules.set(line.page, found);
+    }
+    const under = rules.get(line.page).filter((u) => u.t <= line.size * 0.2 + 0.3
+      && u.y < line.y - line.size * 0.01 && u.y > line.y - line.size * 0.45
+      && u.x1 > line.x0 + 0.5 && u.x0 < line.x1 - 0.5
+      && u.x0 > line.x0 - line.size && u.x1 < line.x1 + line.size);
+    const covered = under.reduce((n, u) => n + Math.min(u.x1, line.x1) - Math.max(u.x0, line.x0), 0);
+    const hasUl = under.length > 0 && covered >= 0.5 * (line.x1 - line.x0);
+    const ul = hasUl ? {
+      offsetEm: (line.y - under.reduce((n, u) => n + u.y, 0) / under.length) / line.size,
+      tEm: Math.max(...under.map((u) => u.t)) / line.size,
+      color: under[0].color,
+    } : null;
     const rec = {
       id: line.id,
       kind: 'line',
@@ -299,6 +372,7 @@ const PDFTextEditor = () => {
       text: line.text,
       family: useOrig ? ORIGINAL : m.family,
       fallbackFamily: m.family,
+      localFamily: m.local,
       origBase: meta.name,
       origBold: m.bold,
       origItalic: m.italic,
@@ -306,10 +380,20 @@ const PDFTextEditor = () => {
       italic: useOrig ? false : m.italic,
       color: line.color || '#000000',
       bg: line.bg || '#ffffff',
+      justify,
+      align: centred ? 'center' : 'left',
+      cx,
+      origWidth,
+      origExtra,
+      underline: hasUl,
+      ul,
+      ulRules: hasUl ? under : null,
       caret,
       gen: gen.current,
     };
-    rec.init = { family: rec.family, bold: rec.bold, italic: rec.italic, size: rec.size, color: rec.color };
+    rec.init = {
+      family: rec.family, bold: rec.bold, italic: rec.italic, size: rec.size, color: rec.color, underline: hasUl,
+    };
     setEdits((mm) => ({ ...mm, [line.id]: rec }));
     setActiveId(line.id);
   };
@@ -332,12 +416,15 @@ const PDFTextEditor = () => {
       fallbackFamily: d.family,
       bold: d.bold,
       italic: d.italic,
+      underline: !!d.underline,
       color: d.color,
       bg: '#ffffff',
       caret,
       gen: gen.current,
     };
-    rec.init = { family: rec.family, bold: rec.bold, italic: rec.italic, size: rec.size, color: rec.color };
+    rec.init = {
+      family: rec.family, bold: rec.bold, italic: rec.italic, size: rec.size, color: rec.color, underline: false,
+    };
     setEdits((m) => ({ ...m, [id]: rec }));
     setActiveId(id);
   }, [defaults.text]);
@@ -356,6 +443,10 @@ const PDFTextEditor = () => {
     const r = editsRef.current[id];
     if (!r) return;
     pushHistory();
+    if (key === 'underline') {
+      patch(id, { underline: !r.underline });
+      return;
+    }
     if (r.family === ORIGINAL) {
       // The PDF's own font can't be restyled — switch to its matched family.
       patch(id, {
@@ -373,7 +464,7 @@ const PDFTextEditor = () => {
     const k = e.key.toLowerCase();
     if (mod && ['b', 'i', 'u'].includes(k)) {
       e.preventDefault(); // stop the browser inserting <b>/<i> markup
-      if (k !== 'u') toggleStyle(id, k === 'b' ? 'bold' : 'italic');
+      toggleStyle(id, k === 'b' ? 'bold' : k === 'i' ? 'italic' : 'underline');
       return;
     }
     if (e.key === 'Escape') { e.preventDefault(); deactivate(); return; }
@@ -382,9 +473,21 @@ const PDFTextEditor = () => {
       pushHistory();
       const nid = uid('new');
       const rec = {
-        ...r, id: nid, kind: 'new', y: r.y - r.size * 1.25, x1: r.x0, origText: '', text: '', caret: null, gen: gen.current,
+        ...r,
+        id: nid,
+        kind: 'new',
+        y: r.y - r.size * 1.25,
+        x1: r.x0,
+        origText: '',
+        text: '',
+        caret: null,
+        justify: false,
+        ulRules: null,
+        gen: gen.current,
       };
-      rec.init = { family: rec.family, bold: rec.bold, italic: rec.italic, size: rec.size, color: rec.color };
+      rec.init = {
+        family: rec.family, bold: rec.bold, italic: rec.italic, size: rec.size, color: rec.color, underline: false,
+      };
       setEdits((m) => ({ ...m, [nid]: rec }));
       setActiveId(nid);
       return;
@@ -541,6 +644,14 @@ const PDFTextEditor = () => {
     return () => document.removeEventListener('mousedown', onDown);
   }, [activeId, selectedId, deactivate]);
 
+  /* ---- tool hint ---- */
+  useEffect(() => {
+    if (!file || result) return undefined;
+    setHint(TOOL_HINTS[tool] || null);
+    const t = window.setTimeout(() => setHint(null), 4000);
+    return () => window.clearTimeout(t);
+  }, [tool, file, result]);
+
   /* ---- page navigator ---- */
   useEffect(() => {
     if (!file || result) return undefined;
@@ -675,68 +786,67 @@ const PDFTextEditor = () => {
 
   const originalLabel = active && active.origBase && origFonts[active.origBase] ? origFonts[active.origBase].label : null;
 
+  // Styling a brand-new line also sets the style for the next new text.
+  const learnText = (p) => {
+    if (active && active.kind === 'new') setDefaults((d) => ({ ...d, text: { ...d.text, ...p } }));
+  };
+  const setRec = (p, tag) => {
+    pushHistory(tag);
+    patch(active.id, p);
+    learnText(p);
+  };
+
   return (
     <div className="flex flex-col">
-      {/* toolbar */}
+      {/* toolbar — one slim row */}
       <div
+        ref={toolbarRef}
         data-fq-keep=""
-        className="sticky top-16 z-30 mb-4 rounded-2xl border border-gray-200 bg-white/95 shadow-md backdrop-blur dark:border-gray-700 dark:bg-gray-800/95"
+        className="sticky top-16 z-30 mb-5 rounded-2xl border border-gray-200/70 bg-white/85 shadow-[0_8px_30px_-12px_rgba(15,23,42,0.25)] backdrop-blur-xl dark:border-gray-700/70 dark:bg-gray-800/85"
       >
-        <div className="flex items-center gap-2 border-b border-gray-100 px-3 py-1.5 dark:border-gray-700/70">
-          <LuFileText className="h-4 w-4 shrink-0 text-blue-600" />
-          <span className="min-w-0 truncate text-sm font-medium text-gray-700 dark:text-gray-200" title={file.name}>{file.name}</span>
-          <span className="text-xs text-gray-400">
-            {`${slots.length} page${slots.length === 1 ? '' : 's'}`}
-          </span>
-          <span className="ml-auto text-xs text-gray-500 dark:text-gray-400">
-            {totalChanges ? `${totalChanges} change${totalChanges === 1 ? '' : 's'}` : ''}
-          </span>
-          <button
-            type="button"
-            onClick={reset}
-            className="rounded-md px-2 py-1 text-xs font-semibold text-blue-600 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-500/10"
-          >
-            Choose another PDF
-          </button>
-        </div>
-        <div className="px-2 py-1.5">
-          <MainToolbar
-            tool={tool}
-            setTool={setTool}
-            onImage={onImage}
-            onSign={(t) => setSigModal(t)}
-            signatures={signatures}
-            onUseSignature={(s) => placeImage(s.src, s.w, s.h, 160)}
-            onUndo={undo}
-            canUndo={histLen > 0}
-          />
-        </div>
-        <div className="border-t border-gray-100 py-1 dark:border-gray-700/70">
-          <ContextBar
-            tool={tool}
-            active={active}
-            selected={selected}
-            defaults={defaults}
+        <MainToolbar
+          fileName={file.name}
+          pages={slots.length}
+          tool={tool}
+          setTool={setTool}
+          onImage={onImage}
+          onSign={(t) => setSigModal(t)}
+          signatures={signatures}
+          onUseSignature={(sg) => placeImage(sg.src, sg.w, sg.h, 160)}
+          onUndo={undo}
+          canUndo={histLen > 0}
+          onChooseAnother={reset}
+        />
+      </div>
+
+      {active && (
+        <FloatingBar getAnchor={() => els.current.get(active.id)?.parentElement} avoidRef={toolbarRef}>
+          <TextFormat
+            rec={active}
             originalLabel={originalLabel}
-            onRec={(p) => { pushHistory(`rec:${active.id}:${Object.keys(p).join()}`); patch(active.id, p); }}
-            onRecFont={(v) => {
-              pushHistory();
-              patch(active.id, v === ORIGINAL
+            onFont={(v) => {
+              const p = v === ORIGINAL
                 ? { family: ORIGINAL, bold: false, italic: false }
                 : {
                   family: v,
                   bold: active.family === ORIGINAL ? active.origBold : active.bold,
                   italic: active.family === ORIGINAL ? active.origItalic : active.italic,
-                });
+                };
+              setRec(p);
             }}
-            onToggleStyle={(k) => toggleStyle(active.id, k)}
-            onRecClear={() => {
+            onSize={(size) => setRec({ size }, `size:${active.id}`)}
+            onToggle={(k) => {
+              toggleStyle(active.id, k);
+              if (active.kind === 'new') learnText({ [k]: !active[k] });
+            }}
+            onColor={(color) => setRec({ color }, `color:${active.id}`)}
+            onClear={() => {
               pushHistory();
               const el = els.current.get(active.id);
               if (el) el.textContent = '';
               patch(active.id, { text: '' });
             }}
-            onRecRevert={() => {
+            onRevert={() => {
               pushHistory();
               const { id } = active;
               setActiveId(null);
@@ -746,12 +856,26 @@ const PDFTextEditor = () => {
                 return next;
               });
             }}
-            onObj={editObject}
-            onObjDelete={deleteObject}
-            onDefaults={(t, p) => setDefaults((d) => ({ ...d, [t]: { ...d[t], ...p } }))}
           />
-        </div>
-      </div>
+        </FloatingBar>
+      )}
+      {!active && selected && (
+        <FloatingBar getAnchor={() => document.querySelector(`[data-obj-id="${selected.id}"]`)} avoidRef={toolbarRef}>
+          <ObjectFormat
+            obj={selected}
+            onChange={(p) => {
+              editObject(selected.id, p);
+              // the next one drawn with this tool looks the same
+              const keep = {};
+              ['color', 'width', 'fill'].forEach((k) => { if (k in p) keep[k] = p[k]; });
+              if (Object.keys(keep).length && defaults[selected.type]) {
+                setDefaults((d) => ({ ...d, [selected.type]: { ...d[selected.type], ...keep } }));
+              }
+            }}
+            onDelete={() => deleteObject(selected.id)}
+          />
+        </FloatingBar>
+      )}
 
       {error && <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">{error}</p>}
 
@@ -817,8 +941,21 @@ const PDFTextEditor = () => {
           className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-500 to-green-600 px-7 py-3 text-base font-semibold text-white shadow-xl shadow-green-600/25 transition hover:brightness-105 disabled:cursor-not-allowed disabled:from-gray-400 disabled:to-gray-400 disabled:shadow-none"
         >
           Apply changes
+          {totalChanges > 0 && (
+            <span className="rounded-full bg-white/25 px-2 py-0.5 text-xs font-bold tabular-nums">{totalChanges}</span>
+          )}
           <LuChevronRight className="h-5 w-5" />
         </button>
+      </div>
+
+      {/* what the chosen tool does — shows briefly, then fades */}
+      <div
+        className={`pointer-events-none fixed inset-x-0 bottom-20 z-30 flex justify-center px-4 transition-all duration-300 ${hint ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0'}`}
+        aria-live="polite"
+      >
+        <span className="rounded-full bg-gray-900/85 px-4 py-2 text-center text-[13px] font-medium text-white shadow-lg backdrop-blur dark:bg-white/90 dark:text-gray-900">
+          {hint || TOOL_HINTS.text}
+        </span>
       </div>
 
       {sigModal && <SignatureModal initialTab={sigModal} onDone={onSignature} onClose={() => setSigModal(null)} />}

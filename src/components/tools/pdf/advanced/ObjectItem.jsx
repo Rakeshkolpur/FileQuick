@@ -129,6 +129,7 @@ const ObjectItem = ({
   return (
     <div
       data-fq-keep=""
+      data-obj-id={obj.id}
       className={`absolute ${selected ? 'outline outline-2 outline-offset-1 outline-blue-500' : 'hover:outline hover:outline-1 hover:outline-blue-400'}`}
       style={{ left: obj.x * scale, top: obj.y * scale, width: W, height: H, cursor: 'move', touchAction: 'none' }}
       onPointerDown={(e) => start(e, 'move')}

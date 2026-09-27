@@ -61,22 +61,26 @@ const RowBtn = ({ title, onClick, children, disabled }) => (
     aria-label={title}
     disabled={disabled}
     onClick={onClick}
-    className="grid h-8 w-9 place-items-center text-blue-600 transition-colors hover:bg-blue-50 disabled:opacity-30 dark:text-blue-300 dark:hover:bg-blue-500/10"
+    className="grid h-7 w-7 place-items-center rounded-full text-gray-500 transition-colors hover:bg-gray-100 hover:text-blue-600 disabled:pointer-events-none disabled:opacity-30 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-blue-300"
   >
     {children}
   </button>
 );
 
-/** Sejda-style row above each page: number · delete · zoom · rotate · insert. */
+const PILL = 'flex items-center rounded-full bg-white/90 p-0.5 shadow-sm ring-1 ring-black/5 backdrop-blur dark:bg-gray-800/90 dark:ring-white/10';
+
+/** Slim row above each page: number · delete · zoom · rotate · insert. */
 export const PageRow = ({ number, onAction, onInsert, canDelete }) => (
-  <div data-fq-keep="" className="mb-2 flex flex-wrap items-center justify-center gap-3">
-    <span className="min-w-[1.5rem] text-center text-2xl font-light text-blue-500">{number}</span>
-    <div className="flex divide-x divide-blue-200 overflow-hidden rounded-md border border-blue-300 bg-white dark:divide-blue-500/30 dark:border-blue-500/40 dark:bg-gray-800">
-      <RowBtn title="Delete page" onClick={() => onAction('delete')} disabled={!canDelete}><LuTrash2 className="h-4 w-4" /></RowBtn>
-      <RowBtn title="Zoom in" onClick={() => onAction('zoomIn')}><LuZoomIn className="h-4 w-4" /></RowBtn>
-      <RowBtn title="Zoom out" onClick={() => onAction('zoomOut')}><LuZoomOut className="h-4 w-4" /></RowBtn>
-      <RowBtn title="Rotate left" onClick={() => onAction('rotL')}><LuRotateCcw className="h-4 w-4" /></RowBtn>
-      <RowBtn title="Rotate right" onClick={() => onAction('rotR')}><LuRotateCw className="h-4 w-4" /></RowBtn>
+  <div data-fq-keep="" className="mb-2 flex flex-wrap items-center justify-center gap-2">
+    <span className={`${PILL} px-2.5 py-1 text-xs font-semibold tabular-nums text-gray-500 dark:text-gray-300`}>{`Page ${number}`}</span>
+    <div className={PILL}>
+      <RowBtn title="Zoom out" onClick={() => onAction('zoomOut')}><LuZoomOut className="h-3.5 w-3.5" /></RowBtn>
+      <RowBtn title="Zoom in" onClick={() => onAction('zoomIn')}><LuZoomIn className="h-3.5 w-3.5" /></RowBtn>
+      <span className="mx-0.5 h-4 w-px bg-gray-200 dark:bg-gray-700" />
+      <RowBtn title="Rotate left" onClick={() => onAction('rotL')}><LuRotateCcw className="h-3.5 w-3.5" /></RowBtn>
+      <RowBtn title="Rotate right" onClick={() => onAction('rotR')}><LuRotateCw className="h-3.5 w-3.5" /></RowBtn>
+      <span className="mx-0.5 h-4 w-px bg-gray-200 dark:bg-gray-700" />
+      <RowBtn title="Delete page" onClick={() => onAction('delete')} disabled={!canDelete}><LuTrash2 className="h-3.5 w-3.5" /></RowBtn>
     </div>
     <InsertButton onClick={onInsert} />
   </div>
@@ -86,9 +90,10 @@ export const InsertButton = ({ onClick }) => (
   <button
     type="button"
     onClick={onClick}
-    className="inline-flex h-8 items-center gap-1.5 rounded-md border border-blue-300 bg-white px-3 text-sm text-blue-600 transition-colors hover:bg-blue-50 dark:border-blue-500/40 dark:bg-gray-800 dark:text-blue-300 dark:hover:bg-blue-500/10"
+    title="Insert a blank page here"
+    className={`${PILL} h-8 gap-1 px-3 text-xs font-medium text-gray-500 transition-colors hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-300`}
   >
-    <LuPlusCircle className="h-4 w-4" /> Insert page here
+    <LuPlusCircle className="h-3.5 w-3.5" /> Insert page
   </button>
 );
 

@@ -29,6 +29,7 @@ import {
 // as pdf-lib's dependency) — lets us measure text in fonts that ship no
 // /Widths table, e.g. anything pdf-lib itself wrote with StandardFonts.
 import { Font as StdFont, Encodings } from '@pdf-lib/standard-fonts';
+import { FONT_LIST } from './pdfAnnotate';
 
 /* ------------------------------ tokenizer ------------------------------ */
 
@@ -421,14 +422,16 @@ const inRegion = (r, x, y) => Math.abs(y - r.y) <= Math.max(1, r.size * 0.35)
  * Returns the ids of the regions that were matched (had glyphs removed); the
  * rest weren't found in the page stream and need a visual cover instead.
  */
-export function removeTextInRegions(pdf, pageIndex, regions) {
+export function removeTextInRegions(pdf, pageIndex, regions, { dryRun = false } = {}) {
   const matched = new Set();
-  if (!regions.length) return matched;
+  // dryRun: nothing is written; per-region glyph metrics are collected instead
+  const stats = dryRun ? new Map() : null;
+  if (!regions.length) return dryRun ? stats : matched;
   const page = pdf.getPage(pageIndex);
 
   let bytes;
   try { bytes = readContents(page); } catch { bytes = null; }
-  if (!bytes) return matched;
+  if (!bytes) return dryRun ? stats : matched;
 
   const ops = parseOps(bytes);
   const resources = pageResources(page.node);
@@ -470,7 +473,7 @@ export function removeTextInRegions(pdf, pageIndex, regions) {
     if (!f || !f.width || !f.bytes || !gs.size || !Th) {
       const p = apply(toUser(), 0, 0);
       const hit = regions.find((r) => inRegion(r, p.x, p.y));
-      if (hit && gs.Tr !== 3) {
+      if (hit && gs.Tr !== 3 && !dryRun) {
         matched.add(hit.id);
         edits.push({
           start: o.start,
@@ -509,7 +512,20 @@ export function removeTextInRegions(pdf, pageIndex, regions) {
         const adv = (w * f.scale * gs.size + gs.Tc + (f.isSpace(code) ? gs.Tw : 0)) * Th;
         const c = apply(toUser(), adv / 2, 0);
         const hit = regions.find((r) => inRegion(r, c.x, c.y));
-        if (hit) {
+        if (hit && stats) {
+          // natural = the glyph's own width, without Tc/Tw/TJ spacing
+          const m = toUser();
+          const st = stats.get(hit.id) || { natural: 0, minX: Infinity, maxX: -Infinity };
+          st.natural += w * f.scale * gs.size * Th * Math.hypot(m[0], m[1]);
+          st.minX = Math.min(st.minX, apply(m, 0, 0).x);
+          st.maxX = Math.max(st.maxX, apply(m, adv, 0).x);
+          if (!f.isSpace(code)) {
+            // up to the last visible glyph — trailing spaces don't count
+            st.inkNatural = st.natural;
+            st.inkMaxX = apply(m, w * f.scale * gs.size * Th, 0).x;
+          }
+          stats.set(hit.id, st);
+        } else if (hit) {
           matched.add(hit.id);
           removed = true;
           pushNum((-adv / (gs.size * Th)) * 1000);
@@ -572,6 +588,7 @@ export function removeTextInRegions(pdf, pageIndex, regions) {
     }
   }
 
+  if (dryRun) return stats;
   if (!edits.length) return matched;
 
   edits.sort((x, y) => x.start - y.start);
@@ -586,6 +603,137 @@ export function removeTextInRegions(pdf, pageIndex, regions) {
 
   const stream = pdf.context.flateStream(concatBytes(parts));
   page.node.set(PDFName.of('Contents'), pdf.context.register(stream));
+  return matched;
+}
+
+/**
+ * How the original glyphs of each line were laid out: their natural width
+ * (sum of glyph widths) and the actual extent. Extra space beyond the natural
+ * width is justification. Map id -> { natural, minX, maxX }.
+ */
+export const measureLines = (pdf, pageIndex, regions) => removeTextInRegions(pdf, pageIndex, regions, { dryRun: true });
+
+/* ------------------------------ rules (underlines) ------------------------------ */
+
+const toHexColor = (c) => `#${c.map((v) => Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, '0')).join('')}`;
+
+function colorFrom(args) {
+  const v = args.filter((t) => t.t === 'num').map((t) => t.v);
+  if (v.length === 1) return [v[0], v[0], v[0]];
+  if (v.length === 3) return v;
+  if (v.length === 4) return [(1 - v[0]) * (1 - v[3]), (1 - v[1]) * (1 - v[3]), (1 - v[2]) * (1 - v[3])];
+  return null;
+}
+
+/**
+ * Replay the page's path operators and call onPaint for every painted path
+ * with its subpaths in user space. Word draws underlines this way — a thin
+ * filled rectangle or a stroked horizontal line under the text.
+ */
+function scanPaths(bytes, onPaint) {
+  const ops = parseOps(bytes);
+  let gs = { ctm: ID, fill: [0, 0, 0], stroke: [0, 0, 0], lw: 1 };
+  const stack = [];
+  let subs = [];
+  let cur = null;
+  const nums = (a) => a.filter((t) => t.t === 'num').map((t) => t.v);
+  for (const o of ops) {
+    const a = o.args;
+    switch (o.op) {
+      case 'q': stack.push(gs); break;
+      case 'Q': if (stack.length) gs = stack.pop(); break;
+      case 'cm': { const m = nums(a); if (m.length === 6) gs = { ...gs, ctm: mul(m, gs.ctm) }; break; }
+      case 'w': gs = { ...gs, lw: nums(a)[0] ?? gs.lw }; break;
+      case 'g': case 'rg': case 'k': case 'sc': case 'scn': { const c = colorFrom(a); if (c) gs = { ...gs, fill: c }; break; }
+      case 'G': case 'RG': case 'K': case 'SC': case 'SCN': { const c = colorFrom(a); if (c) gs = { ...gs, stroke: c }; break; }
+      case 're': {
+        const [x, y, w, h] = nums(a);
+        if (h === undefined) break;
+        const p = (px, py) => apply(gs.ctm, px, py);
+        subs.push({ pts: [p(x, y), p(x + w, y), p(x + w, y + h), p(x, y + h)] });
+        cur = null;
+        break;
+      }
+      case 'm': { const [x, y] = nums(a); cur = { pts: [apply(gs.ctm, x, y)] }; subs.push(cur); break; }
+      case 'l': { const [x, y] = nums(a); if (cur) cur.pts.push(apply(gs.ctm, x, y)); break; }
+      case 'c': case 'v': case 'y': {
+        const v = nums(a);
+        if (cur) { cur.curved = true; cur.pts.push(apply(gs.ctm, v[v.length - 2], v[v.length - 1])); }
+        break;
+      }
+      case 'f': case 'F': case 'f*': case 'S': case 's': case 'B': case 'B*': case 'b': case 'b*': case 'n':
+        if (subs.length && o.op !== 'n') {
+          onPaint({ o, subs, fill: /^[fFbB]/.test(o.op), stroke: /^[SsbB]/.test(o.op), gs });
+        }
+        subs = [];
+        cur = null;
+        break;
+      default: break;
+    }
+  }
+}
+
+/** A thin horizontal bar (underline-like) from one subpath, or null. */
+function ruleOf(sub, paint) {
+  if (sub.curved || sub.pts.length < 2) return null;
+  const xs = sub.pts.map((p) => p.x);
+  const ys = sub.pts.map((p) => p.y);
+  const x0 = Math.min(...xs); const x1 = Math.max(...xs);
+  const y0 = Math.min(...ys); const y1 = Math.max(...ys);
+  const w = x1 - x0;
+  if (paint.fill && sub.pts.length >= 4) {
+    const h = y1 - y0;
+    if (h > 0.05 && h <= 3.5 && w >= 3 * h) return { x0, x1, y: (y0 + y1) / 2, t: h, color: toHexColor(paint.gs.fill) };
+  }
+  if (paint.stroke && y1 - y0 < 0.3) {
+    const c = paint.gs.ctm;
+    const t = Math.max(0.1, paint.gs.lw * Math.sqrt(Math.abs(c[0] * c[3] - c[1] * c[2])) || 0.1);
+    if (t <= 3.5 && w >= 3 * t) return { x0, x1, y: (y0 + y1) / 2, t, color: toHexColor(paint.gs.stroke) };
+  }
+  return null;
+}
+
+/** Every underline-like bar drawn directly on a page: [{ x0, x1, y, t, color }]. */
+export function findRules(pdf, pageIndex) {
+  const out = [];
+  let bytes;
+  try { bytes = readContents(pdf.getPage(pageIndex)); } catch { bytes = null; }
+  if (!bytes) return out;
+  scanPaths(bytes, (paint) => {
+    paint.subs.forEach((sp) => { const r = ruleOf(sp, paint); if (r) out.push(r); });
+  });
+  return out;
+}
+
+/**
+ * Remove the given bars from a page (their paint operator becomes 'n', so
+ * the path is simply not drawn). Only paths made entirely of target bars are
+ * touched. Returns the ids of the targets removed.
+ */
+export function removeRules(pdf, pageIndex, targets) {
+  const matched = new Set();
+  if (!targets.length) return matched;
+  const page = pdf.getPage(pageIndex);
+  let bytes;
+  try { bytes = readContents(page); } catch { bytes = null; }
+  if (!bytes) return matched;
+  const edits = [];
+  const same = (r, t) => Math.abs(r.x0 - t.x0) < 0.75 && Math.abs(r.x1 - t.x1) < 0.75 && Math.abs(r.y - t.y) < 0.75;
+  scanPaths(bytes, (paint) => {
+    const hits = paint.subs.map((sp) => { const r = ruleOf(sp, paint); return r && targets.find((t) => same(r, t)); });
+    if (!hits.length || hits.some((h) => !h)) return;
+    hits.forEach((h) => matched.add(h.id));
+    edits.push({ start: paint.o.start, end: paint.o.end });
+  });
+  if (!edits.length) return matched;
+  const parts = [];
+  let pos = 0;
+  edits.sort((x, y) => x.start - y.start).forEach((e) => {
+    parts.push(bytes.subarray(pos, e.start), enc.encode(' n '));
+    pos = e.end;
+  });
+  parts.push(bytes.subarray(pos));
+  page.node.set(PDFName.of('Contents'), pdf.context.register(pdf.context.flateStream(concatBytes(parts))));
   return matched;
 }
 
@@ -634,7 +782,11 @@ export function embeddedFontFile(fontDict) {
 
 /* --------------------------- font name matching --------------------------- */
 
+// Legacy / metric-clone names -> the editor family they stand for.
 const FAMILY_HINTS = [
+  [/franklingothic/, 'Franklin Gothic Medium'],
+  [/bookman/, 'Bookman Old Style'],
+  [/centuryschoolbook/, 'Century'],
   [/arial|arimo|liberationsans/, 'Arial'],
   [/helvetica/, 'Helvetica'],
   [/calibri|carlito/, 'Calibri'],
@@ -644,7 +796,7 @@ const FAMILY_HINTS = [
   [/tahoma/, 'Tahoma'],
   [/trebuchet/, 'Trebuchet MS'],
   [/georgia/, 'Georgia'],
-  [/palatino|bookantiqua/, 'Palatino Linotype'],
+  [/palatino/, 'Palatino Linotype'],
   [/garamond/, 'Garamond'],
   [/times|tinos|liberationserif/, 'Times New Roman'],
   [/courier|cousine|liberationmono/, 'Courier New'],
@@ -654,6 +806,22 @@ const FAMILY_HINTS = [
 /** Strip the 6-letter subset prefix: "ABCDEF+Calibri-Bold" -> "Calibri-Bold". */
 export const cleanFontName = (base) => String(base || '').replace(/^[A-Z]{6}\+/, '');
 
+const squash = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+// Every editor family, longest first so "Arial Narrow" wins over "Arial".
+const LIST_HINTS = FONT_LIST.map((f) => [squash(f), f]).sort((a, b) => b[0].length - a[0].length);
+
+/**
+ * The real family name behind a PDF font name, as installed fonts call it:
+ * "ABCDEF+BookmanOldStyle-Bold" -> "Bookman Old Style",
+ * "TimesNewRomanPS-BoldMT" -> "Times New Roman", "SegoeUI" -> "Segoe UI".
+ */
+export function realFamilyName(base) {
+  let s = cleanFontName(base).split(',')[0].split('-')[0];
+  s = s.replace(/(PSMT|PS|MT)$/, '');
+  for (let i = 0; i < 3; i += 1) s = s.replace(/(Bold|Italic|Oblique|Regular)$/, '');
+  return s.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').trim();
+}
+
 /**
  * Best editor font family + style for an original PDF font, from its name
  * and pdf.js' font flags.
@@ -662,10 +830,13 @@ export function matchFamily(base, flags = {}) {
   const n = cleanFontName(base).toLowerCase().replace(/[\s_-]/g, '');
   const bold = /bold|black|heavy|semibold|demi/.test(n) || !!flags.bold || !!flags.black;
   const italic = /italic|oblique/.test(n) || !!flags.italic;
-  const hit = FAMILY_HINTS.find(([re]) => re.test(n));
-  let family = hit ? hit[1] : null;
+  const real = realFamilyName(base);
+  let family = (LIST_HINTS.find(([k]) => k === squash(real)) || [])[1] || null;
+  if (!family) { const hint = FAMILY_HINTS.find(([re]) => re.test(n)); family = hint ? hint[1] : null; }
+  if (!family) family = (LIST_HINTS.find(([k]) => k.length > 4 && n.includes(k)) || [])[1] || null;
   if (!family) family = flags.isMonospace ? 'Courier New' : flags.isSerifFont ? 'Times New Roman' : 'Arial';
-  return { family, bold, italic };
+  // local: the exact installed family to use when the user has it
+  return { family, bold, italic, local: real || family };
 }
 
 /* --------------------------- lines from pdf.js --------------------------- */
@@ -692,7 +863,9 @@ export function groupLines(items, pageIndex) {
     for (let i = lines.length - 1; i >= 0 && i >= lines.length - 6; i -= 1) {
       const l = lines[i];
       const tol = 0.3 * Math.min(l.size, g.size);
-      if (Math.abs(l.y - g.y) <= tol && g.x >= l.x1 - 0.5 * g.size && g.x - l.x1 <= 1.2 * Math.max(l.size, g.size)) {
+      // Up to 2.5 em apart is still the same line: justified text can open
+      // very wide gaps between words; real columns sit much further apart.
+      if (Math.abs(l.y - g.y) <= tol && g.x >= l.x1 - 0.5 * g.size && g.x - l.x1 <= 2.5 * Math.max(l.size, g.size)) {
         L = l;
         break;
       }
