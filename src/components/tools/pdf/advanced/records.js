@@ -99,6 +99,7 @@ export const TOOL_DEFAULTS = {
 };
 
 export const TOOL_LABELS = {
+  select: 'Select',
   text: 'Text',
   link: 'Link',
   'field-text': 'Text field',
@@ -116,6 +117,7 @@ export const TOOL_LABELS = {
 };
 
 export const TOOL_HINTS = {
+  select: 'Scroll freely and select things. Pick Text to edit words, or any tool above.',
   text: 'Click any text to edit it, or click an empty spot to add new text.',
   link: 'Drag a box over the text or area that should open a web address.',
   'field-text': 'Drag a box where people should type (a fillable field).',

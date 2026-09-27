@@ -73,7 +73,7 @@ const PDFTextEditor = () => {
   const [objects, setObjects] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
-  const [tool, setToolState] = useState('text');
+  const [tool, setToolState] = useState('select');
   const [defaults, setDefaults] = useState(TOOL_DEFAULTS);
   const [zoom, setZoom] = useState(1);
   const [saving, setSaving] = useState(false);
@@ -114,7 +114,7 @@ const PDFTextEditor = () => {
     setObjects([]);
     setActiveId(null);
     setSelectedId(null);
-    setToolState('text');
+    setToolState('select');
     setZoom(1);
     setResult(null);
     history.current = [];
@@ -622,6 +622,8 @@ const PDFTextEditor = () => {
     }
     setObjects((list) => [...list, obj]);
     setSelectedId(id);
+    // placed once — back to the Select cursor so the next click doesn't add another
+    if (['table', 'link', 'field-text', 'field-check'].includes(o.type)) setToolState('select');
   }, [pushHistory]);
 
   const changeObject = useCallback((id, p) => setObjects((list) => list.map((o) => (o.id === id ? { ...o, ...p } : o))), []);
@@ -881,7 +883,8 @@ const PDFTextEditor = () => {
         e.preventDefault();
         deleteObject(selectedRef.current);
       } else if (e.key === 'Escape') {
-        setSelectedId(null);
+        if (selectedRef.current) setSelectedId(null);
+        else setToolState('select');
       }
     };
     window.addEventListener('keydown', onKeyDown);

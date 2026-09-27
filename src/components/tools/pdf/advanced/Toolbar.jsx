@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import {
   LuType, LuLink, LuFormInput, LuTextCursorInput, LuCheckSquare, LuImage,
   LuFileSignature, LuPenLine, LuEraser, LuHighlighter, LuUnderline, LuStrikethrough, LuPencil,
-  LuShapes, LuSquare, LuCircle, LuMinus, LuPlus, LuUndo2, LuTrash2, LuChevronDown, LuUpload,
+  LuShapes, LuSquare, LuCircle, LuMinus, LuPlus, LuUndo2, LuTrash2, LuChevronDown, LuUpload, LuMousePointer2,
   LuKeyboard, LuRotateCcw, LuFileText, LuFolderOpen, LuAlignLeft, LuAlignCenter, LuAlignRight, LuAlignJustify, LuCopyPlus, LuTable,
 } from 'react-icons/lu';
 import { FONT_LIST, POPULAR_FONTS, cssStack } from '../../../../lib/pdfAnnotate';
@@ -149,6 +149,8 @@ export const MainToolbar = ({
       </div>
 
       <div className="flex min-w-0 flex-1 flex-wrap items-center justify-center gap-0.5">
+        <ToolButton icon={LuMousePointer2} label="Select" active={tool === 'select'} onClick={() => pick('select')} title="Select (Esc) — scroll and click without adding anything" />
+        <span className="mx-0.5 h-6 w-px bg-gray-200 dark:bg-gray-700" />
         <ToolButton icon={LuType} label="Text" active={tool === 'text'} onClick={() => pick('text')} title="Edit or add text" />
         <ToolButton icon={LuLink} label="Links" active={tool === 'link'} onClick={() => pick('link')} />
 
