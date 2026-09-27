@@ -79,8 +79,34 @@ export async function ocrImage(source, onProgress) {
   progressCb = onProgress || null;
   try {
     const w = await getWorker();
+    await w.setParameters({ tessedit_pageseg_mode: '6' }); // the engine's default, as before
     const { data } = await w.recognize(source);
     return (data.text || '').replace(/\n{3,}/g, '\n\n').trim();
+  } finally {
+    progressCb = null;
+  }
+}
+
+/**
+ * OCR with layout: every recognised line with its box and baseline (in the
+ * source image's pixels), so the text can be rebuilt where it was.
+ */
+export async function ocrLines(source, onProgress, { psm = '3', minConf = 25 } = {}) {
+  progressCb = onProgress || null;
+  try {
+    const w = await getWorker();
+    // 3 = find the layout on a full page; 6 = one block (a table cell)
+    await w.setParameters({ tessedit_pageseg_mode: psm });
+    const { data } = await w.recognize(source);
+    return (data.lines || [])
+      .map((l) => ({
+        text: (l.text || '').replace(/\s+$/, ''),
+        conf: l.confidence,
+        bbox: l.bbox,
+        baseline: l.baseline,
+        words: (l.words || []).map((wd) => ({ text: wd.text, bbox: wd.bbox, conf: wd.confidence })),
+      }))
+      .filter((l) => l.text.trim() && l.conf > minConf);
   } finally {
     progressCb = null;
   }
