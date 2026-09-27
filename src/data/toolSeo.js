@@ -508,6 +508,40 @@ const toolSeo = {
     ],
   },
 
+  'edit-pdf-text': {
+    seoTitle: 'Edit PDF Text Online Free – Change Text in a PDF Directly',
+    seoDescription:
+      'Edit existing text in a PDF online free — click any line, fix typos, change words or delete lines, in the document\'s own font. No white boxes, no sign-up, nothing uploaded.',
+    h1: 'How to edit the text in a PDF',
+    intro:
+      'Click any line of text in your PDF and type — fix a typo, change a name, a date or an amount, or delete a line. The new text is written in the document\'s own font, exactly where the old text was.',
+    body: [
+      'Most free "PDF editors" can only put things on top of a page: they hide the old words under a white rectangle and lay new text over it, which shows up as a patch on coloured backgrounds and leaves the old text in the file for anyone to copy out. This editor rewrites the PDF itself — the original characters are removed from the page, so backgrounds, lines and images behind them stay intact.',
+      'When the PDF embeds its own font, your new text uses that same font; otherwise it uses a closely matched one (Arial, Calibri, Times and so on), which you can change per line along with size, bold, italic and colour. Press Enter to start a new line, or use "Add text" to write anywhere on a page.',
+      'It works on PDFs made from documents (Word, Google Docs, invoices, statements). A scanned page is only an image and has no text to edit — you can still add text on top of it.',
+      `${B} The saved PDF has no watermark and no page limit.`,
+    ],
+    steps: [
+      'Open the Advanced PDF Editor and load your PDF.',
+      'Click the line you want to change — it becomes editable in place.',
+      'Type, delete or restyle the text; press Enter for a new line.',
+      'Click Save PDF and download the edited file.',
+    ],
+    faqs: [
+      { q: 'Can I edit existing text in a PDF for free?', a: 'Yes. Click any line and change it directly — no account, no watermark and no page limit.' },
+      { q: 'Will the edited text match the original font?', a: 'If the PDF contains its own font, the new text uses it. If not — or if you type a character that font doesn\'t include — a closely matched font is used instead, and you can pick another.' },
+      { q: 'Is the old text really removed?', a: 'Yes. The original characters are taken out of the page\'s content rather than covered with a white box, so they can\'t be copied back out and coloured backgrounds stay clean.' },
+      { q: 'Can I edit a scanned PDF?', a: 'A scan is a picture of text, so there is nothing to edit directly. You can add new text on top of it, or run Extract Text first.' },
+      { q: 'Are my documents private?', a: `Yes. ${B}` },
+    ],
+    related: [
+      { id: 'pdf-editor', text: 'add images, shapes, highlights and signatures on top of a PDF' },
+      { id: 'fill-sign', text: 'fill in forms and sign' },
+      { id: 'unlock-pdf', text: 'remove a password before editing' },
+      { id: 'extract-text', text: 'get text out of a scanned PDF' },
+    ],
+  },
+
   'organize-pdf': {
     seoTitle: 'Organize PDF – Rearrange & Reorder PDF Pages',
     seoDescription:

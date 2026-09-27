@@ -23,6 +23,9 @@ const MONO = [
 // by a few KB per font.
 const EMBED = {
   Carlito: {
+    // pdf-lib/fontkit's subsetter corrupts Carlito — most glyphs come out
+    // blank (e.g. 36 vs 388 ink px rendering the same line). Embed it whole.
+    subset: false,
     regular: () => import('../assets/fonts/Carlito-Regular.ttf?url'),
     bold: () => import('../assets/fonts/Carlito-Bold.ttf?url'),
   },
@@ -93,21 +96,23 @@ export function colorOpacity(value) {
 
 const clr = (c) => (c && c.type ? c : undefined);
 
+export const isStandardFamily = (name) => !!(FONTS[name] || FONTS.Arial).std;
+
+/** Standard PDF fonts only cover WinAnsi — map common keyboard/autocorrect punctuation into it. */
+export const winAnsiSafe = (s) => String(s)
+  .replace(/[‘’‚′]/g, "'")
+  .replace(/[“”„″]/g, '"')
+  .replace(/[–—−]/g, '-')
+  .replace(/…/g, '...')
+  .replace(/\u00A0/g, ' ')
+  .replace(/[•●]/g, '·');
+
 /**
- * Bake annotation overlays into the original PDF without touching its existing
- * content. Each overlay:
- *   { index,
- *     png:    dataURL|null,           // freehand / arrows / rotated shapes — rasterised
- *     shapes: [ ... ],                // rect / ellipse / line / image — drawn as VECTOR
- *                                     //   so a white "cover" box has a perfectly crisp,
- *                                     //   seam-free edge that blends with the page
- *     texts:  [ { text, x, y, ... } ] // real selectable text
- *   }
- * Draw order per page: png (bottom) -> shapes -> texts (top).
+ * Per-document font loader: `getFont(family, bold, italic)` returns an embedded
+ * pdf-lib font for one of FONT_LIST (standard base font, or a bundled real
+ * font file loaded on first use). Cached per document.
  */
-export async function bakeIntoPdf(originalBytes, overlays) {
-  const pdf = await PDFDocument.load(originalBytes);
-  const pages = pdf.getPages();
+export function createFontLoader(pdf) {
   const cache = {};
   let fontkitReady = false;
 
@@ -136,10 +141,30 @@ export async function bakeIntoPdf(originalBytes, overlays) {
       await ensureFontkit();
       const mod = await loader();
       const bytes = await fetch(mod.default).then((r) => r.arrayBuffer());
-      cache[key] = await pdf.embedFont(bytes, { subset: true });
+      cache[key] = await pdf.embedFont(bytes, { subset: fam.subset !== false });
     }
     return cache[key];
   };
+
+  return { getFont, ensureFontkit };
+}
+
+/**
+ * Bake annotation overlays into the original PDF without touching its existing
+ * content. Each overlay:
+ *   { index,
+ *     png:    dataURL|null,           // freehand / arrows / rotated shapes — rasterised
+ *     shapes: [ ... ],                // rect / ellipse / line / image — drawn as VECTOR
+ *                                     //   so a white "cover" box has a perfectly crisp,
+ *                                     //   seam-free edge that blends with the page
+ *     texts:  [ { text, x, y, ... } ] // real selectable text
+ *   }
+ * Draw order per page: png (bottom) -> shapes -> texts (top).
+ */
+export async function bakeIntoPdf(originalBytes, overlays) {
+  const pdf = await PDFDocument.load(originalBytes);
+  const pages = pdf.getPages();
+  const { getFont } = createFontLoader(pdf);
 
   for (const ov of overlays) {
     const page = pages[ov.index];
