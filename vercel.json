@@ -328,15 +328,15 @@
   "rewrites": [
     {
       "source": "/:p(login|signup|document-tools|all-tools|recent-files|favorites|settings|convert|ai)",
-      "destination": "/index.html"
+      "destination": "/"
     },
     {
       "source": "/compress-:k(image|pdf)-to-:size(\\d+[km]b)",
-      "destination": "/index.html"
+      "destination": "/"
     },
     {
       "source": "/:f(png|webp)-to-:size(\\d+[km]b)",
-      "destination": "/index.html"
+      "destination": "/"
     }
   ],
   "headers": [

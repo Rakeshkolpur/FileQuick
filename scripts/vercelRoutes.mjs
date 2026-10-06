@@ -28,12 +28,13 @@ export function buildRedirects() {
 }
 
 // Routes the app renders that have no pre-rendered file: they get the app
-// shell (index.html). Everything else that isn't a real file is a 404.
+// shell ("/" = index.html; with cleanUrls a rewrite to "/index.html" 404s).
+// Everything else that isn't a real file is a 404.
 export function buildRewrites() {
   return [
-    { source: '/:p(login|signup|document-tools|all-tools|recent-files|favorites|settings|convert|ai)', destination: '/index.html' },
+    { source: '/:p(login|signup|document-tools|all-tools|recent-files|favorites|settings|convert|ai)', destination: '/' },
     // ad-hoc sizes (noindex) — the listed sizes are pre-rendered files
-    { source: `/compress-:k(image|pdf)-to-:size${SIZE}`, destination: '/index.html' },
-    { source: `/:f(png|webp)-to-:size${SIZE}`, destination: '/index.html' },
+    { source: `/compress-:k(image|pdf)-to-:size${SIZE}`, destination: '/' },
+    { source: `/:f(png|webp)-to-:size${SIZE}`, destination: '/' },
   ];
 }
