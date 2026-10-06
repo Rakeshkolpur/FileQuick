@@ -8,8 +8,8 @@
   "main": "electron-dist/main.cjs",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/gen-sitemap.mjs && vite build && node scripts/prerender.mjs",
-    "seo": "node scripts/gen-sitemap.mjs",
+    "build": "vite build && node scripts/prerender.mjs",
+    "seo:sync": "node scripts/sync-vercel.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "server": "python server/convert_server.py",

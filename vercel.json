@@ -3,29 +3,380 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "cleanUrls": true,
+  "redirects": [
+    {
+      "source": "/tool",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/tools",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/tool/:id",
+      "destination": "/:id",
+      "permanent": true
+    },
+    {
+      "source": "/tools/:id",
+      "destination": "/:id",
+      "permanent": true
+    },
+    {
+      "source": "/category/:c(image|pdf|convert|ai)",
+      "destination": "/:c",
+      "permanent": true
+    },
+    {
+      "source": "/edit-pdf-text",
+      "destination": "/pdf-editor",
+      "permanent": true
+    },
+    {
+      "source": "/edit-pdf",
+      "destination": "/pdf-editor",
+      "permanent": true
+    },
+    {
+      "source": "/pdf-edit",
+      "destination": "/pdf-editor",
+      "permanent": true
+    },
+    {
+      "source": "/advanced-pdf-editor",
+      "destination": "/pdf-editor",
+      "permanent": true
+    },
+    {
+      "source": "/add-text-to-pdf",
+      "destination": "/pdf-editor",
+      "permanent": true
+    },
+    {
+      "source": "/add-image-to-pdf",
+      "destination": "/pdf-editor",
+      "permanent": true
+    },
+    {
+      "source": "/sign-pdf",
+      "destination": "/fill-sign",
+      "permanent": true
+    },
+    {
+      "source": "/esign-pdf",
+      "destination": "/fill-sign",
+      "permanent": true
+    },
+    {
+      "source": "/e-sign-pdf",
+      "destination": "/fill-sign",
+      "permanent": true
+    },
+    {
+      "source": "/add-signature-to-pdf",
+      "destination": "/fill-sign",
+      "permanent": true
+    },
+    {
+      "source": "/fill-pdf",
+      "destination": "/fill-sign",
+      "permanent": true
+    },
+    {
+      "source": "/fill-and-sign-pdf",
+      "destination": "/fill-sign",
+      "permanent": true
+    },
+    {
+      "source": "/compress-pdf",
+      "destination": "/pdf-compressor",
+      "permanent": true
+    },
+    {
+      "source": "/pdf-compress",
+      "destination": "/pdf-compressor",
+      "permanent": true
+    },
+    {
+      "source": "/reduce-pdf-size",
+      "destination": "/pdf-compressor",
+      "permanent": true
+    },
+    {
+      "source": "/pdf-size-reducer",
+      "destination": "/pdf-compressor",
+      "permanent": true
+    },
+    {
+      "source": "/rotate-pdf-pages",
+      "destination": "/rotate-pdf",
+      "permanent": true
+    },
+    {
+      "source": "/delete-pdf-pages",
+      "destination": "/delete-pages",
+      "permanent": true
+    },
+    {
+      "source": "/remove-pdf-pages",
+      "destination": "/delete-pages",
+      "permanent": true
+    },
+    {
+      "source": "/reorder-pdf-pages",
+      "destination": "/organize-pdf",
+      "permanent": true
+    },
+    {
+      "source": "/reorder-pdf",
+      "destination": "/organize-pdf",
+      "permanent": true
+    },
+    {
+      "source": "/rearrange-pdf-pages",
+      "destination": "/organize-pdf",
+      "permanent": true
+    },
+    {
+      "source": "/add-watermark",
+      "destination": "/watermark-pdf",
+      "permanent": true
+    },
+    {
+      "source": "/jpg-to-pdf",
+      "destination": "/image-to-pdf",
+      "permanent": true
+    },
+    {
+      "source": "/jpeg-to-pdf",
+      "destination": "/image-to-pdf",
+      "permanent": true
+    },
+    {
+      "source": "/png-to-pdf",
+      "destination": "/image-to-pdf",
+      "permanent": true
+    },
+    {
+      "source": "/images-to-pdf",
+      "destination": "/image-to-pdf",
+      "permanent": true
+    },
+    {
+      "source": "/pdf-to-jpeg",
+      "destination": "/pdf-to-jpg",
+      "permanent": true
+    },
+    {
+      "source": "/pdf-to-image",
+      "destination": "/pdf-to-jpg",
+      "permanent": true
+    },
+    {
+      "source": "/pdf-to-png",
+      "destination": "/pdf-to-jpg",
+      "permanent": true
+    },
+    {
+      "source": "/ppt-to-pdf",
+      "destination": "/powerpoint-to-pdf",
+      "permanent": true
+    },
+    {
+      "source": "/pptx-to-pdf",
+      "destination": "/powerpoint-to-pdf",
+      "permanent": true
+    },
+    {
+      "source": "/xls-to-pdf",
+      "destination": "/excel-to-pdf",
+      "permanent": true
+    },
+    {
+      "source": "/xlsx-to-pdf",
+      "destination": "/excel-to-pdf",
+      "permanent": true
+    },
+    {
+      "source": "/txt-to-pdf",
+      "destination": "/text-to-pdf",
+      "permanent": true
+    },
+    {
+      "source": "/background-remover",
+      "destination": "/remove-background",
+      "permanent": true
+    },
+    {
+      "source": "/remove-bg",
+      "destination": "/remove-background",
+      "permanent": true
+    },
+    {
+      "source": "/increase-image-size-in-kb",
+      "destination": "/increase-image-size",
+      "permanent": true
+    },
+    {
+      "source": "/increase-photo-size",
+      "destination": "/increase-image-size",
+      "permanent": true
+    },
+    {
+      "source": "/increase-jpg-size",
+      "destination": "/increase-image-size",
+      "permanent": true
+    },
+    {
+      "source": "/make-image-bigger-kb",
+      "destination": "/increase-image-size",
+      "permanent": true
+    },
+    {
+      "source": "/passport-photo-resizer",
+      "destination": "/passport-photo",
+      "permanent": true
+    },
+    {
+      "source": "/passport-photo-maker",
+      "destination": "/passport-photo",
+      "permanent": true
+    },
+    {
+      "source": "/passport-size-photo-maker",
+      "destination": "/passport-photo",
+      "permanent": true
+    },
+    {
+      "source": "/photo-signature-resizer",
+      "destination": "/exam-photo-resizer",
+      "permanent": true
+    },
+    {
+      "source": "/exam-photo",
+      "destination": "/exam-photo-resizer",
+      "permanent": true
+    },
+    {
+      "source": "/photo-resizer-in-kb",
+      "destination": "/exam-photo-resizer",
+      "permanent": true
+    },
+    {
+      "source": "/resize-image-in-kb",
+      "destination": "/exam-photo-resizer",
+      "permanent": true
+    },
+    {
+      "source": "/exam-photo-signature",
+      "destination": "/exam-photo-resizer",
+      "permanent": true
+    },
+    {
+      "source": "/photo-background-changer",
+      "destination": "/exam-photo-resizer",
+      "permanent": true
+    },
+    {
+      "source": "/sbi-photo-resizer",
+      "destination": "/ibps-photo-resizer",
+      "permanent": true
+    },
+    {
+      "source": "/bank-exam-photo-resizer",
+      "destination": "/ibps-photo-resizer",
+      "permanent": true
+    },
+    {
+      "source": "/railway-photo-resizer",
+      "destination": "/rrb-photo-resizer",
+      "permanent": true
+    },
+    {
+      "source": "/nta-photo-resizer",
+      "destination": "/neet-photo-resizer",
+      "permanent": true
+    },
+    {
+      "source": "/jee-photo-resizer",
+      "destination": "/neet-photo-resizer",
+      "permanent": true
+    },
+    {
+      "source": "/signature-resize",
+      "destination": "/signature-resizer",
+      "permanent": true
+    },
+    {
+      "source": "/thumb-impression-resizer",
+      "destination": "/signature-resizer",
+      "permanent": true
+    },
+    {
+      "source": "/:p(jpg|jpeg|resize-image|reduce-image-size|image-compressor|photo-resize|compress-photo|compress-jpg|reduce-jpg-size)-to-:size(\\d+[km]b)",
+      "destination": "/compress-image-to-:size",
+      "permanent": true
+    },
+    {
+      "source": "/:p(reduce-pdf|reduce-pdf-size|pdf-compressor|pdf-size-reducer)-to-:size(\\d+[km]b)",
+      "destination": "/compress-pdf-to-:size",
+      "permanent": true
+    }
+  ],
   "rewrites": [
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    {
+      "source": "/:p(login|signup|document-tools|all-tools|recent-files|favorites|settings|convert|ai)",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/compress-:k(image|pdf)-to-:size(\\d+[km]b)",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/:f(png|webp)-to-:size(\\d+[km]b)",
+      "destination": "/index.html"
+    }
   ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "X-Frame-Options", "value": "SAMEORIGIN" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        }
       ]
     },
     {
       "source": "/((?!upscale-image).*)",
       "headers": [
-        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
-        { "key": "Cross-Origin-Embedder-Policy", "value": "credentialless" }
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "same-origin"
+        },
+        {
+          "key": "Cross-Origin-Embedder-Policy",
+          "value": "credentialless"
+        }
       ]
     },
     {
       "source": "/assets/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
       ]
     }
   ]

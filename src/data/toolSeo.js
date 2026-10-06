@@ -59,7 +59,7 @@ const toolSeo = {
   },
 
   'compress-image': {
-    seoTitle: 'Compress Image to KB – Free JPG & PNG Compressor',
+    seoTitle: 'Image Compressor – Compress JPG, PNG & WebP to KB Online Free',
     seoDescription:
       'Compress JPG, JPEG, PNG or WebP images online free. Reduce photo size by quality or to an exact target like 100 KB or 1 MB — same dimensions, no watermark, no upload.',
     h1: 'How to compress an image online',
@@ -87,6 +87,8 @@ const toolSeo = {
       { id: 'resize-image', text: 'also change the pixel dimensions' },
       { id: 'convert-image', text: 'change the format between JPG, PNG and WebP' },
       { id: 'exam-photo-resizer', text: 'hit the exact photo + signature size an exam form needs' },
+      { id: 'signature-resizer', text: 'signatures trimmed, whitened and sized for forms' },
+      { id: 'passport-photo', text: 'passport and visa photos' },
       { id: 'image-to-pdf', text: 'combine the compressed images into one PDF' },
     ],
   },
@@ -154,7 +156,7 @@ const toolSeo = {
   },
 
   'exam-photo-resizer': {
-    seoTitle: 'Exam Photo & Signature Resizer – SSC, UPSC, IBPS',
+    seoTitle: 'Exam Photo & Signature Resizer – SSC, UPSC, IBPS, NEET Online',
     seoDescription:
       'Resize your photo and signature for Indian government exam forms — SSC, UPSC, IBPS, RRB, NTA. Exact pixel size, white/blue background, under the KB limit. Free, no upload.',
     h1: 'How to resize a photo and signature for an exam form',
@@ -180,6 +182,7 @@ const toolSeo = {
       { q: 'Is my photo uploaded anywhere?', a: `No. ${NO_UPLOAD}` },
     ],
     related: [
+      { id: 'signature-resizer', text: 'signature or thumb impression on its own' },
       { id: 'passport-photo', text: 'passport / visa photo with an official background' },
       { id: 'compress-image', text: 'compress any image to a target KB size' },
       { id: 'increase-image-size', text: 'when the form needs the photo above a minimum KB' },
@@ -187,6 +190,40 @@ const toolSeo = {
     ],
   },
 
+  'signature-resizer': {
+    seoTitle: 'Signature Resizer – Resize Signature to 10KB, 20KB or 50KB Online',
+    seoDescription:
+      'Resize a signature for an online form: trims the empty paper, makes the background white, fits the exact pixels and lands between the min and max KB. SSC, IBPS, UPSC, NEET presets. Free, no upload.',
+    h1: 'How to resize a signature for an online form',
+    intro:
+      'Photograph your signature on white paper and drop it in. FileQuick finds the ink, crops away the empty paper, turns grey paper and shadows pure white, and saves a JPG at the exact size and KB the form asks for.',
+    body: [
+      'Online forms are strict about signatures: a pixel size (like 140 × 60), a KB window (like 10–20 KB) and JPG only. A phone photo of a signature is usually several MB, mostly empty paper, with a shadow across it — shrinking that straight down leaves a tiny grey smudge in the middle of the box.',
+      'This tool fixes that in order: it locates the ink (ignoring specks of dust and the desk around the paper), trims to it with a small margin, flattens the paper to pure white while keeping blue ink blue, fits it into the target size without cropping any of it, and searches for the best JPEG quality under the maximum KB.',
+      'Too small is a problem too — many portals reject a signature under 10 KB, and a clean signature can compress to 3–4 KB. When that happens the file is topped up to the minimum with a harmless comment block inside the JPG; the picture is exactly the same.',
+      'The same steps work for a thumb impression (IBPS asks for 240 × 240 px, 20–50 KB) — choose "Thumb impression". With "Only a KB limit", the signature keeps its shape and is simply brought under the KB you choose: 10, 20, 50 or 100 KB.',
+    ],
+    steps: [
+      'Sign with a black or blue pen on plain white paper and photograph it from directly above.',
+      'Choose what it is for — SSC, IBPS / SBI, UPSC, RRB, NEET / JEE, a thumb impression, only a KB limit, or a custom size.',
+      'Drop the photo in. The result updates instantly — check it says "Ready to upload".',
+      'Download the JPG. Use Crop first if something else (a second signature, a stamp) is on the same paper.',
+    ],
+    faqs: [
+      { q: 'How do I resize my signature to 20 KB?', a: 'Pick your exam (most cap signatures at 20 KB) or "Only a KB limit" → Under 20 KB, then drop the photo in. The result is a JPG just under 20 KB.' },
+      { q: 'How do I resize a signature to 10 KB?', a: 'Choose "Only a KB limit" and tap Under 10 KB. Signatures compress very well, so a clean 10 KB signature still looks sharp.' },
+      { q: 'Why is my signature rejected for being too small?', a: 'Many forms set a minimum, often 10 KB. This tool tops the file up to that minimum without changing the image, so the portal accepts it.' },
+      { q: 'Can I resize a scanned signature?', a: 'Yes — a scan works even better than a photo. The empty page around it is trimmed automatically.' },
+      { q: 'Does it work for a thumb impression?', a: 'Yes. Choose "Thumb impression"; it is trimmed, whitened and sized to 240 × 240 px, 20–50 KB (the IBPS / SBI format).' },
+      { q: 'Is my signature uploaded?', a: 'No. Everything happens in your browser; your signature never leaves your device.' },
+    ],
+    related: [
+      { id: 'exam-photo-resizer', text: 'photo and signature together for an exam form' },
+      { id: 'ssc-signature-resizer', text: 'SSC signature, 10–20 KB' },
+      { id: 'fill-sign', text: 'place your signature on a PDF' },
+      { id: 'compress-image-to-20kb', text: 'any image under 20 KB' },
+    ],
+  },
   'increase-image-size': {
     seoTitle: 'Increase Image Size in KB Online – Free',
     seoDescription:
@@ -317,7 +354,7 @@ const toolSeo = {
   },
 
   'passport-photo': {
-    seoTitle: 'Passport Size Photo Maker – India, US, UK, EU',
+    seoTitle: 'Passport Size Photo Maker & Resizer – India, US, UK, Visa',
     seoDescription:
       'Make a passport size photo online free from a selfie. Plain white or blue background, official sizes for India, US, UK and Schengen, plus a printable 4×6 sheet. No upload.',
     h1: 'How to make a passport photo at home',
@@ -342,6 +379,8 @@ const toolSeo = {
     ],
     related: [
       { id: 'exam-photo-resizer', text: 'photo + signature sized for Indian exam forms' },
+      { id: 'compress-image-to-100kb', text: 'get the digital copy under 100 KB for an online application' },
+      { id: 'signature-resizer', text: 'the signature for the same application' },
       { id: 'remove-background', text: 'manual background removal for tricky shots' },
       { id: 'crop-image', text: 'free-form crop if you need a custom size' },
     ],
@@ -406,6 +445,7 @@ const toolSeo = {
       { q: 'Is my PDF safe?', a: 'Files are processed for conversion and not stored long-term. For fully on-device processing, use the browser-only tools like Merge or Split PDF.' },
     ],
     related: [
+      { id: 'delete-pages', text: 'drop pages you don\'t need — the fastest way to a smaller file' },
       { id: 'merge-pdf', text: 'combine files first, then compress the result' },
       { id: 'split-pdf', text: 'send only the pages you need instead' },
       { id: 'pdf-to-jpg', text: 'turn pages into images for a lighter share' },
@@ -478,7 +518,7 @@ const toolSeo = {
   },
 
   'pdf-editor': {
-    seoTitle: 'PDF Editor – Edit PDF Text Online Free, No Sign-up',
+    seoTitle: 'PDF Editor Online Free – Edit Text, Add Text, Images & Signatures',
     seoDescription:
       'Free online PDF editor — edit the existing text of a PDF in its own font, and add text, tables, images, signatures, links, shapes and form fields. No sign-up, no watermark, nothing uploaded.',
     h1: 'How to edit a PDF for free',
@@ -508,14 +548,17 @@ const toolSeo = {
     ],
     related: [
       { id: 'fill-sign', text: 'fill in forms and sign' },
-      { id: 'organize-pdf', text: 'reorder, rotate or delete pages' },
-      { id: 'unlock-pdf', text: 'remove a password before editing' },
-      { id: 'extract-text', text: 'get text out of a scanned PDF' },
+      { id: 'pdf-compressor', text: 'shrink the edited PDF for an upload limit' },
+      { id: 'delete-pages', text: 'remove pages you don\'t need' },
+      { id: 'organize-pdf', text: 'reorder and rotate pages' },
+      { id: 'merge-pdf', text: 'combine it with other PDFs' },
+      { id: 'split-pdf', text: 'break it into separate files' },
+      { id: 'pdf-to-jpg', text: 'save pages as images' },
     ],
   },
 
   'organize-pdf': {
-    seoTitle: 'Organize PDF – Rearrange & Reorder PDF Pages',
+    seoTitle: 'Reorder PDF Pages – Organize & Rearrange PDF Online Free',
     seoDescription:
       'Organize a PDF online free — rearrange, reorder, rotate and delete pages by drag and drop, then save a clean new file. No sign-up, nothing uploaded.',
     h1: 'How to reorder pages in a PDF',
@@ -609,7 +652,7 @@ const toolSeo = {
   },
 
   'delete-pages': {
-    seoTitle: 'Delete Pages from PDF – Remove PDF Pages Free',
+    seoTitle: 'Remove Pages from PDF – Delete PDF Pages Online Free',
     seoDescription:
       'Delete pages from a PDF online free — remove blank, duplicate or unwanted pages and save the rest as a new file. No sign-up, no watermark, nothing uploaded.',
     h1: 'How to delete pages from a PDF',
@@ -800,7 +843,7 @@ const toolSeo = {
   },
 
   'fill-sign': {
-    seoTitle: 'Fill and Sign PDF Online Free – Add Signature',
+    seoTitle: 'Fill and Sign PDF Online Free – Add Signature to PDF',
     seoDescription:
       'Fill and sign a PDF online free — add text, dates, checkmarks and your signature (draw, type or upload). No account, no watermark, and the document never leaves your browser.',
     h1: 'How to fill and sign a PDF',
@@ -825,6 +868,7 @@ const toolSeo = {
     ],
     related: [
       { id: 'pdf-editor', text: 'a fuller editor for images, shapes and redaction' },
+      { id: 'signature-resizer', text: 'turn a photo of your signature into a clean image first' },
       { id: 'watermark-pdf', text: 'mark the document as a copy or draft' },
       { id: 'protect-pdf', text: 'password-protect the signed file' },
     ],
@@ -862,7 +906,7 @@ const toolSeo = {
   },
 
   'image-to-pdf': {
-    seoTitle: 'Image to PDF – Convert JPG to PDF Online Free',
+    seoTitle: 'JPG to PDF – Convert Images (JPG, PNG) to PDF Online Free',
     seoDescription:
       'Convert images to PDF online free — JPG, JPEG or PNG into one PDF, with page size, orientation, margins and drag-to-reorder. No sign-up, no watermark, nothing uploaded.',
     h1: 'How to convert images to PDF',
@@ -1019,7 +1063,7 @@ const toolSeo = {
   },
 
   'pdf-to-jpg': {
-    seoTitle: 'PDF to JPG – Convert PDF to Image Online Free',
+    seoTitle: 'PDF to JPG & PNG – Convert PDF to Image Online Free',
     seoDescription:
       'Convert a PDF to JPG online free — render each page as a JPG or PNG image at the resolution you choose. One image per page. No sign-up, no watermark, nothing uploaded.',
     h1: 'How to convert a PDF to JPG',

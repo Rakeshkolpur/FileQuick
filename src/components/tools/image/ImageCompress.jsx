@@ -30,6 +30,9 @@ const targetFormat = (type) => {
 // like /jpg-to-20kb — see src/lib/targetSizeUrl.js. They prefill the "Target
 // size" mode and pin the output format; the user can still change everything.
 const ImageCompress = ({ presetFormat, presetKB } = {}) => {
+  const formatHint = presetFormat
+    ? `Every image is saved as ${presetFormat === 'jpeg' ? 'JPG' : presetFormat.toUpperCase()}${presetFormat === 'jpeg' ? ' — the format online forms accept' : ''}.`
+    : "PNGs are saved as WebP (PNG can't be quality-compressed). JPG and WebP keep their format.";
   const [items, setItems] = useState([]); // {id,file,img,w,h}
   const [mode, setMode] = useState(presetKB ? 'target' : 'quality'); // 'quality' | 'target'
   const [quality, setQuality] = useState(70);
@@ -221,7 +224,7 @@ const ImageCompress = ({ presetFormat, presetKB } = {}) => {
           + Add more images
         </button>
         <p className="text-[11px] text-gray-400 dark:text-gray-500">
-          PNGs are saved as WebP (PNG can&apos;t be quality-compressed). JPG and WebP keep their format.
+          {formatHint}
         </p>
       </section>
 
@@ -379,7 +382,7 @@ const ImageCompress = ({ presetFormat, presetKB } = {}) => {
                 + Add more images
               </button>
               <p className="text-[11px] text-gray-400 dark:text-gray-500">
-                PNGs are saved as WebP (PNG can&apos;t be quality-compressed). JPG and WebP keep their format.
+                {formatHint}
               </p>
             </section>
 

@@ -366,6 +366,61 @@ def _pdf_intact(data, expected_pages):
         return False
 
 
+# Target-size search: image long-edge caps from sharp to the readability floor
+# (~720 px across an A4 page is still legible text), and the JPEG quality range.
+# Below TARGET_Q_GOOD, JPEG ringing around letters gets ugly, so a smaller
+# picture at decent quality beats a bigger one at very low quality.
+TARGET_CAPS = [2000, 1600, 1300, 1100, 950, 820, 720]
+TARGET_Q_MIN, TARGET_Q_GOOD, TARGET_Q_MAX = 24, 36, 85
+
+
+def _compress_to_target(raw, attempt, target_bytes):
+    """Smallest change that fits: lossless first; then the largest image cap
+    that fits at good quality, with the highest quality that still fits; only
+    if no cap manages good quality, the largest cap that fits at all."""
+    smallest = raw
+    out = attempt(None)
+    if out is not None:
+        if len(out) <= target_bytes:
+            return out, "reached target (lossless)"
+        smallest = min(smallest, out, key=len)
+
+    def highest_q(cap, lo, hi, base):
+        best = base
+        for _ in range(4):
+            mid = (lo + hi + 1) // 2
+            if mid <= lo:
+                break
+            trial = attempt({"cap": cap, "quality": mid})
+            if trial is not None and len(trial) <= target_bytes:
+                best, lo = trial, mid
+            else:
+                hi = mid - 1
+        return best, lo
+
+    fallback = None
+    for cap in TARGET_CAPS:
+        good = attempt({"cap": cap, "quality": TARGET_Q_GOOD})
+        if good is not None:
+            smallest = min(smallest, good, key=len)
+            if len(good) <= target_bytes:
+                best, q = highest_q(cap, TARGET_Q_GOOD, TARGET_Q_MAX, good)
+                return best, f"reached target ({cap}px, q{q})"
+        if fallback is None:
+            low = attempt({"cap": cap, "quality": TARGET_Q_MIN})
+            if low is not None:
+                smallest = min(smallest, low, key=len)
+                if len(low) <= target_bytes:
+                    best, q = highest_q(cap, TARGET_Q_MIN, TARGET_Q_GOOD - 1, low)
+                    fallback = (best, f"reached target ({cap}px, q{q})")
+    if fallback:
+        return fallback
+
+    if len(smallest) >= len(raw):
+        return raw, "couldn't compress this PDF further without risking its contents"
+    return smallest, "smallest without further quality loss - target not reached"
+
+
 def compress_pdf(raw, level="medium", target_bytes=None):
     """Return (compressed_bytes, note). Text stays selectable at every level."""
     src = pymupdf.open(stream=raw, filetype="pdf")
@@ -390,13 +445,10 @@ def compress_pdf(raw, level="medium", target_bytes=None):
                 return out
         return None
 
-    order = [level] if level in COMPRESS_LEVELS else ["medium"]
     if target_bytes:
-        # try the cheap lossless pass first, then escalate from the chosen level
-        seq = ["light", "medium", "strong", "extreme"]
-        i = seq.index(order[0]) if order[0] in seq else 1
-        order = list(dict.fromkeys(["light", *seq[i:]]))
+        return _compress_to_target(raw, attempt, target_bytes)
 
+    order = [level] if level in COMPRESS_LEVELS else ["medium"]
     for name in order:
         out = attempt(COMPRESS_LEVELS[name])
         if out is None:

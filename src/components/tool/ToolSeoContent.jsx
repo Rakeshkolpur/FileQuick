@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useJsonLd } from '../../lib/seo';
 import { getToolSeo } from '../../data/toolSeo';
 import { getToolById } from '../../data/tools';
+import { getLandingPage } from '../../data/landingPages';
 
 const SITE_ORIGIN = (import.meta.env.VITE_SITE_URL
   || (typeof window !== 'undefined' ? window.location.origin : 'https://filequik.in')).replace(/\/+$/, '');
@@ -21,7 +22,8 @@ const CATEGORY_PATH = { image: '/image', pdf: '/pdf' };
  */
 const ToolSeoContent = ({ tool, seo: seoOverride }) => {
   const seo = seoOverride || (tool ? getToolSeo(tool.id) : null);
-  const path = tool ? `/${tool.id}` : (seo?.path || '');
+  // landing pages carry their own path; a plain tool page is /<tool id>
+  const path = seo?.path || (tool ? `/${tool.id}` : '');
 
   const graph = [];
   if (seo) {
@@ -69,7 +71,7 @@ const ToolSeoContent = ({ tool, seo: seoOverride }) => {
     }
     graph.push({
       '@type': 'WebApplication',
-      name: `${tool?.title || seo.breadcrumb || 'FileQuick tool'} — FileQuick`,
+      name: `${seo.breadcrumb || tool?.title || 'FileQuick tool'} — FileQuick`,
       applicationCategory: tool?.category === 'pdf' ? 'BusinessApplication' : 'MultimediaApplication',
       operatingSystem: 'Any (web browser)',
       browserRequirements: 'Requires JavaScript. Works in Chrome, Firefox, Safari and Edge.',
@@ -81,7 +83,7 @@ const ToolSeoContent = ({ tool, seo: seoOverride }) => {
   }
 
   useJsonLd(
-    seo ? `tool-${tool?.id || 'x'}` : 'tool-none',
+    seo ? `tool${path.replace(/\//g, '-')}` : 'tool-none',
     seo ? { '@context': 'https://schema.org', '@graph': graph } : null,
   );
 
@@ -90,8 +92,12 @@ const ToolSeoContent = ({ tool, seo: seoOverride }) => {
   const body = Array.isArray(seo.body) ? seo.body : (seo.body ? [seo.body] : []);
   const related = (seo.related || [])
     .map((r) => (typeof r === 'string' ? { id: r } : r))
-    .map((r) => ({ ...r, tool: getToolById(r.id) }))
-    .filter((r) => r.tool);
+    .map((r) => {
+      const t = getToolById(r.id);
+      const lp = t ? null : getLandingPage(r.id);
+      return { ...r, title: t?.title || lp?.h1 };
+    })
+    .filter((r) => r.title);
 
   return (
     <section className="max-w-3xl">
@@ -156,13 +162,13 @@ const ToolSeoContent = ({ tool, seo: seoOverride }) => {
         <div className="mt-8">
           <h3 className="text-base font-bold text-gray-900 dark:text-white mb-2">Related tools</h3>
           <ul className="space-y-1.5 text-sm">
-            {related.map(({ id, tool: rt, text }) => (
+            {related.map(({ id, title, text }) => (
               <li key={id}>
                 <Link
                   to={`/${id}`}
                   className="text-purple-600 dark:text-purple-400 hover:underline font-medium"
                 >
-                  {rt.title}
+                  {title}
                 </Link>
                 {text ? <span className="text-gray-500 dark:text-gray-400"> — {text}</span> : null}
               </li>

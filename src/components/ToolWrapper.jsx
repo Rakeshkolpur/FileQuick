@@ -4,7 +4,7 @@ import { getToolById } from '../data/tools';
 import RelatedTools from './tool/RelatedTools';
 import TrustStrip from './home/TrustStrip';
 import ToolSeoContent from './tool/ToolSeoContent';
-import TargetSizeLinks from './tool/TargetSizeLinks';
+import LandingLinks from './tool/LandingLinks';
 import { getToolSeo } from '../data/toolSeo';
 import { usePageMeta } from '../lib/seo';
 
@@ -90,8 +90,11 @@ const TopBar = ({ tool, onBack, minimal }) => {
       </button>
       {minimal ? (
         // Slim / editor layouts drop the big header, so this compact label is
-        // the page's <h1> — every tool page needs exactly one.
-        <h1 className="text-sm font-semibold text-gray-700 dark:text-gray-200 truncate">{tool.title}</h1>
+        // the page's <h1> — every tool page needs exactly one (unless the tool
+        // renders its own, `ownH1`).
+        tool.ownH1
+          ? <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 truncate">{tool.title}</span>
+          : <h1 className="text-sm font-semibold text-gray-700 dark:text-gray-200 truncate">{tool.title}</h1>
       ) : (
         <nav className="flex items-center gap-1.5 text-sm text-gray-400 dark:text-gray-500 min-w-0">
           <Link to="/" className="hover:text-purple-600 dark:hover:text-purple-400 hidden sm:inline">Home</Link>
@@ -203,7 +206,7 @@ const ToolWrapper = ({ toolId: toolIdProp, pageMeta, toolProps, active = true } 
       {isReady && (minimal ? (pageMeta?.seoContent || getToolSeo(tool.id)) : true) && (
         <div className="mt-16 space-y-14">
           <ToolSeoContent tool={tool} seo={pageMeta?.seoContent} />
-          {tool.id === 'compress-image' && <TargetSizeLinks currentSlug={toolIdProp && params.toolId} />}
+          <LandingLinks toolId={tool.id} currentSlug={params.toolId} />
           {!minimal && !(toolSeo?.related?.length) && (
             <RelatedTools category={tool.category} currentId={tool.id} />
           )}

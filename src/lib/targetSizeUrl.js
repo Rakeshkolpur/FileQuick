@@ -1,13 +1,13 @@
 /**
- * Dynamic "compress <format> to <size>" URLs — /jpg-to-20kb, /png-to-50kb, …
+ * Format-specific "compress <format> to <size>" URLs — /png-to-50kb, /webp-to-20kb …
  *
  * One parser, one config. The route feeds the parsed values straight into the
- * existing Image Reduce Size component (src/components/tools/image/ImageCompress
- * .jsx) — there is no separate per-size tool or engine.
+ * existing Compress Image component (src/components/tools/image/ImageCompress
+ * .jsx) with the output format pinned.
  *
- * To add a format later: extend FORMATS. To add an indexable size: add it to
- * SEO_SIZE_PRESETS (that list, and only that list, goes in the sitemap and the
- * on-page links — every other size still works for visitors but is noindex).
+ * These are all noindex now: the indexable "compress to N KB" pages are
+ * /compress-image-to-Nkb (src/data/landingPages.js), and /jpg-to-Nkb and
+ * /jpeg-to-Nkb redirect there (src/data/redirects.js).
  */
 
 // url token -> { label for headings, image tool output format }
@@ -22,23 +22,10 @@ export const FORMATS = {
 export const MIN_TARGET_KB = 1;
 export const MAX_TARGET_KB = 25 * 1024; // 25 MB — matches the image upload cap
 
-// Only these get a <loc> in the sitemap and a link on the page. Others still
-// resolve for users but carry <meta name="robots" content="noindex,follow">.
-export const SEO_SIZE_PRESETS = [
-  { format: 'jpg', kb: 10 },
-  { format: 'jpg', kb: 20 },
-  { format: 'jpg', kb: 50 },
-  { format: 'jpg', kb: 100 },
-  { format: 'jpg', kb: 200 },
-  { format: 'jpg', kb: 500 },
-];
+// Indexable format-specific sizes — none: see the header comment.
+export const SEO_SIZE_PRESETS = [];
 
 const SLUG_RE = /^([a-z]+)-to-(\d+)(kb|mb)$/i;
-
-/** A slug that is shaped like one of our size URLs (so a bad one 404s instead
- *  of falling through to the generic "redirect home"). */
-export const looksLikeTargetSlug = (slug) =>
-  new RegExp(`^(${Object.keys(FORMATS).join('|')})-to-`, 'i').test(slug || '');
 
 /**
  * Parse a slug into compression parameters, or null if it isn't a valid one.

@@ -17,12 +17,28 @@ const LEVELS = [
   { value: 'strong', label: 'Strong', hint: 'Smallest file. Images get noticeably softer; text stays sharp.' },
 ];
 
-const PDFCompressor = () => {
+// One-tap targets — the sizes online forms most often cap uploads at.
+const QUICK_TARGETS = [
+  { kb: 100, label: '100 KB' },
+  { kb: 200, label: '200 KB' },
+  { kb: 500, label: '500 KB' },
+  { kb: 1024, label: '1 MB' },
+];
+const asField = (kb) => (kb >= 1024 && kb % 1024 === 0 ? [String(kb / 1024), 'MB'] : [String(kb), 'KB']);
+
+// presetKB comes from landing pages like /compress-pdf-to-100kb (see
+// src/data/landingPages.js): it switches on "target size" with that value.
+const PDFCompressor = ({ presetKB } = {}) => {
   const [file, setFile] = useState(null);
   const [level, setLevel] = useState('medium');
-  const [useTarget, setUseTarget] = useState(false);
-  const [targetSize, setTargetSize] = useState('');
-  const [sizeUnit, setSizeUnit] = useState('KB');
+  const [useTarget, setUseTarget] = useState(!!presetKB);
+  const [targetSize, setTargetSize] = useState(presetKB ? asField(presetKB)[0] : '');
+  const [sizeUnit, setSizeUnit] = useState(presetKB ? asField(presetKB)[1] : 'KB');
+  useEffect(() => {
+    if (!presetKB) return;
+    const [v, u] = asField(presetKB);
+    setUseTarget(true); setTargetSize(v); setSizeUnit(u);
+  }, [presetKB]);
   const [server, setServer] = useState('checking'); // checking | ready | unavailable
   const [working, setWorking] = useState(false);
   const [result, setResult] = useState(null); // { blob, size, original, reduction, note }
@@ -53,7 +69,12 @@ const PDFCompressor = () => {
 
   const reset = () => {
     setFile(null); setResult(null); setError(null);
-    setUseTarget(false); setTargetSize('');
+    if (presetKB) {
+      const [v, u] = asField(presetKB);
+      setUseTarget(true); setTargetSize(v); setSizeUnit(u);
+    } else {
+      setUseTarget(false); setTargetSize('');
+    }
   };
   const backFromResult = () => setResult(null);
 
@@ -180,6 +201,24 @@ const PDFCompressor = () => {
         </label>
         {useTarget && (
           <>
+            <div className="flex flex-wrap gap-1.5">
+              {QUICK_TARGETS.map((q) => {
+                const [v, u] = asField(q.kb);
+                const on = targetSize === v && sizeUnit === u;
+                return (
+                  <button
+                    key={q.kb}
+                    type="button"
+                    onClick={() => { setTargetSize(v); setSizeUnit(u); setResult(null); }}
+                    className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${on
+                      ? 'border-purple-500 bg-purple-50 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300'
+                      : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-purple-300'}`}
+                  >
+                    {q.label}
+                  </button>
+                );
+              })}
+            </div>
             <div className="flex gap-2">
               <input
                 type="number"

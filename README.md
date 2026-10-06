@@ -62,10 +62,10 @@ bundles LibreOffice + fonts. Set `ALLOWED_ORIGINS` to your site's domain. See
 | command | what it does |
 | --- | --- |
 | `npm run dev` | Vite dev server |
-| `npm run build` | regenerate `sitemap.xml` / `robots.txt`, then build to `dist/` |
+| `npm run build` | build to `dist/`, then pre-render every page + `sitemap.xml` / `robots.txt` / `404.html` (`scripts/prerender.mjs`) |
 | `npm run server` | run the conversion server |
 | `npm run lint` | ESLint |
-| `npm run seo` | regenerate `sitemap.xml` / `robots.txt` only |
+| `npm run seo:sync` | rewrite `vercel.json` redirects after editing `src/data/redirects.js` |
 
 ## Contact
 

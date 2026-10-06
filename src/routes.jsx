@@ -18,54 +18,11 @@ import { getToolById } from './data/tools';
 import NotFound from './components/NotFound';
 import {
   parseTargetSlug,
-  looksLikeTargetSlug,
   targetMeta,
   targetSeoContent,
 } from './lib/targetSizeUrl';
-
-// Old / alternate tool slugs people may have bookmarked or that show up in
-// search results. Anything not listed falls through to the tool lookup.
-const TOOL_ALIASES = {
-  'edit-pdf-text': 'pdf-editor',
-  'edit-pdf': 'pdf-editor',
-  'pdf-edit': 'pdf-editor',
-  'advanced-pdf-editor': 'pdf-editor',
-  'compress-pdf': 'pdf-compressor',
-  'pdf-compress': 'pdf-compressor',
-  'jpg-to-pdf': 'image-to-pdf',
-  'jpeg-to-pdf': 'image-to-pdf',
-  'png-to-pdf': 'image-to-pdf',
-  'images-to-pdf': 'image-to-pdf',
-  'pdf-to-jpeg': 'pdf-to-jpg',
-  'pdf-to-image': 'pdf-to-jpg',
-  'sign-pdf': 'fill-sign',
-  'esign-pdf': 'fill-sign',
-  'e-sign-pdf': 'fill-sign',
-  'rotate-pdf-pages': 'rotate-pdf',
-  'delete-pdf-pages': 'delete-pages',
-  'remove-pdf-pages': 'delete-pages',
-  'add-watermark': 'watermark-pdf',
-  'ppt-to-pdf': 'powerpoint-to-pdf',
-  'pptx-to-pdf': 'powerpoint-to-pdf',
-  'xls-to-pdf': 'excel-to-pdf',
-  'xlsx-to-pdf': 'excel-to-pdf',
-  'txt-to-pdf': 'text-to-pdf',
-  'background-remover': 'remove-background',
-  'remove-bg': 'remove-background',
-  'photo-signature-resizer': 'exam-photo-resizer',
-  'signature-resizer': 'exam-photo-resizer',
-  'exam-photo': 'exam-photo-resizer',
-  'ssc-photo-resizer': 'exam-photo-resizer',
-  'photo-resizer-in-kb': 'exam-photo-resizer',
-  'resize-image-in-kb': 'exam-photo-resizer',
-  'upsc-photo-resizer': 'exam-photo-resizer',
-  'exam-photo-signature': 'exam-photo-resizer',
-  'photo-background-changer': 'exam-photo-resizer',
-  'increase-image-size-in-kb': 'increase-image-size',
-  'increase-photo-size': 'increase-image-size',
-  'increase-jpg-size': 'increase-image-size',
-  'make-image-bigger-kb': 'increase-image-size',
-};
+import { TOOL_ALIASES, sizeRedirect } from './data/redirects';
+import { getLandingPage, landingPageMeta } from './data/landingPages';
 
 // Canonical tool URL is now the short form: /resize-image  (not /tool/resize-image)
 const toolPath = (id) => `/${id}`;
@@ -76,7 +33,7 @@ const toolPath = (id) => `/${id}`;
 // them) and no heavy engine (document scanner, OCR) qualify.
 const KEEP_ALIVE = new Set([
   'resize-image', 'crop-image', 'compress-image', 'increase-image-size', 'remove-background',
-  'convert-image', 'upscale-image', 'profile-picture', 'passport-photo', 'exam-photo-resizer',
+  'convert-image', 'upscale-image', 'profile-picture', 'passport-photo', 'exam-photo-resizer', 'signature-resizer',
   'merge-pdf', 'split-pdf', 'pdf-compressor', 'organize-pdf', 'rotate-pdf', 'crop-pdf',
   'delete-pages', 'extract-pages', 'page-numbers', 'watermark-pdf', 'remove-watermark',
   'pdf-editor',
@@ -87,11 +44,25 @@ const MAX_ALIVE = 4; // least-recently-used tools beyond this are dropped
 // a redirect, or a 404.
 const resolveToolSlug = (slug) => {
   if (getToolById(slug)) return { kind: 'tool', toolId: slug, props: { toolId: slug } };
-  const alias = TOOL_ALIASES[(slug || '').toLowerCase()];
+
+  // Search landing pages — an existing tool with a preset and its own content
+  // (/compress-image-to-50kb, /ssc-photo-resizer …, see data/landingPages.js).
+  const landing = getLandingPage(slug);
+  if (landing) {
+    if (landing.redirect) return { kind: 'redirect', to: toolPath(landing.redirect) };
+    return {
+      kind: 'tool',
+      toolId: landing.toolId,
+      props: { toolId: landing.toolId, pageMeta: landingPageMeta(landing), toolProps: landing.toolProps },
+    };
+  }
+
+  const alias = TOOL_ALIASES[(slug || '').toLowerCase()] || sizeRedirect(slug);
   if (alias) return { kind: 'redirect', to: toolPath(alias) };
 
-  // Dynamic "compress <format> to <size>" URLs — /jpg-to-20kb, /png-to-50kb …
-  // These reuse the existing Compress Image tool with the target prefilled.
+  // Format-specific "compress <format> to <size>" URLs — /png-to-50kb … (noindex;
+  // jpg/jpeg ones redirect to /compress-image-to-… above). They reuse Compress
+  // Image with the target and output format prefilled.
   const preset = parseTargetSlug(slug);
   if (preset) {
     return {
@@ -104,9 +75,9 @@ const resolveToolSlug = (slug) => {
       },
     };
   }
-  // Looked like a target-size URL but the size/format was invalid — real 404.
-  if (looksLikeTargetSlug(slug)) return { kind: 'notfound' };
-  return { kind: 'redirect', to: '/' };
+  // Anything else (including a size URL with an impossible size) is a 404 —
+  // sending unknown URLs to the homepage would look like a duplicate homepage.
+  return { kind: 'notfound' };
 };
 
 // Resolves the canonical /:toolId route.
@@ -161,8 +132,7 @@ const ToolRoute = () => {
 // existing links, bookmarks and search results keep working.
 const LegacyToolRoute = () => {
   const { toolId } = useParams();
-  const id = getToolById(toolId) ? toolId : TOOL_ALIASES[(toolId || '').toLowerCase()];
-  return <Navigate to={id ? toolPath(id) : '/'} replace />;
+  return <Navigate to={toolPath((toolId || '').toLowerCase())} replace />;
 };
 
 // /category/:categoryId — image / pdf / convert / ai are real; else -> home.
@@ -205,12 +175,13 @@ const AppRoutes = () => (
     <Route path="/tool" element={<Navigate to="/" replace />} />
     <Route path="/tools" element={<Navigate to="/" replace />} />
     <Route path="/tool/:toolId" element={<LegacyToolRoute />} />
+    <Route path="/tools/:toolId" element={<LegacyToolRoute />} />
 
     {/* Canonical tool URL: /resize-image, /merge-pdf, ... */}
     <Route path="/:toolId" element={<ToolRoute />} />
 
-    {/* Unknown URL — send the visitor to the home page instead of a dead end. */}
-    <Route path="*" element={<Navigate to="/" replace />} />
+    {/* Unknown URL — a real "not found" page (noindex), with links onward. */}
+    <Route path="*" element={<NotFound />} />
   </Routes>
 );
 

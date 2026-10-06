@@ -5,7 +5,9 @@ import OpenInTool from '../../tool/OpenInTool';
 import { ToolBackContext } from '../../ToolWrapper';
 import { formatBytes } from '../../../lib/format';
 import { zipFiles } from '../../../lib/zip';
-import { loadImageFromFile, encodeToTargetBytes } from '../../../lib/imageResize';
+import { loadImageFromFile } from '../../../lib/imageResize';
+import { encodeForForm, prepareInk } from '../../../lib/formPrep';
+import { FORM_SPECS, specLine } from '../../../data/formSpecs';
 import { cutoutBackground, compositeOnColor } from '../../../lib/backgroundRemoval';
 import MatteBrush from '../../tool/MatteBrush';
 
@@ -29,80 +31,11 @@ const BG_COLORS = [
  * UI always tells people to check the official notification.
  */
 
-// { w, h } in px, { min, max } in KB
-const PRESETS = [
-  {
-    key: 'ssc', name: 'SSC (CGL / CHSL / MTS / GD)',
-    photo: { w: 200, h: 230, min: 20, max: 50 },
-    sign: { w: 140, h: 60, min: 10, max: 20 },
-  },
-  {
-    key: 'upsc', name: 'UPSC (Civil Services / NDA / CDS)',
-    photo: { w: 350, h: 450, min: 20, max: 300 },
-    sign: { w: 350, h: 150, min: 20, max: 300 },
-  },
-  {
-    key: 'ibps', name: 'IBPS / SBI / Bank exams',
-    photo: { w: 200, h: 230, min: 20, max: 50 },
-    sign: { w: 140, h: 60, min: 10, max: 20 },
-  },
-  {
-    key: 'rrb', name: 'RRB / Railway (NTPC / Group D / ALP)',
-    photo: { w: 320, h: 240, min: 15, max: 40 },
-    sign: { w: 160, h: 60, min: 10, max: 30 },
-  },
-  {
-    key: 'nta', name: 'NTA (JEE Main / NEET / CUET)',
-    photo: { w: 300, h: 400, min: 10, max: 200 },
-    sign: { w: 300, h: 130, min: 4, max: 30 },
-  },
-  {
-    key: 'passport', name: 'Passport size (3.5 × 4.5 cm, 300 DPI)',
-    photo: { w: 413, h: 531, min: 20, max: 240 },
-    sign: { w: 413, h: 155, min: 10, max: 60 },
-  },
-  {
-    key: 'custom', name: 'Custom size',
-    photo: { w: 200, h: 230, min: 10, max: 50 },
-    sign: { w: 140, h: 60, min: 5, max: 20 },
-  },
-];
+const PRESETS = FORM_SPECS;
 
-const specLine = (s) => `${s.w}×${s.h}px · ${s.min}–${s.max} KB · JPG`;
-
-function centerCropRect(iw, ih, arW, arH) {
-  const target = arW / arH;
-  if (iw / ih > target) {
-    const w = ih * target;
-    return { x: (iw - w) / 2, y: 0, width: w, height: ih };
-  }
-  const h = iw / target;
-  return { x: 0, y: (ih - h) / 2, width: iw, height: h };
-}
-
-async function fit(img, spec) {
-  const iw = img.naturalWidth || img.width;
-  const ih = img.naturalHeight || img.height;
-  const cropRect = centerCropRect(iw, ih, spec.w, spec.h);
-  const r = await encodeToTargetBytes(img, {
-    cropRect,
-    width: spec.w,
-    height: spec.h,
-    format: 'jpeg',
-    targetBytes: spec.max * 1024,
-    allowResize: false,
-  });
-  const kb = r.blob.size / 1024;
-  return {
-    blob: r.blob,
-    size: r.blob.size,
-    w: spec.w,
-    h: spec.h,
-    url: URL.createObjectURL(r.blob),
-    // under max is what matters; flag if we couldn't even reach that
-    ok: kb <= spec.max + 0.5,
-    small: kb < spec.min,
-  };
+async function fit(src, spec, how) {
+  const r = await encodeForForm(src, spec, { fit: how });
+  return { ...r, url: URL.createObjectURL(r.blob) };
 }
 
 const Slot = ({ label, hint, item, previewUrl, onPick, onCrop, onClear, children }) => (
@@ -174,6 +107,7 @@ const ResultCard = ({ label, spec, res, onDownload }) => (
       <div className="text-xs text-gray-500 dark:text-gray-400 space-y-0.5">
         <p><span className="text-gray-700 dark:text-gray-200 font-medium">{res.w}×{res.h}px</span> · {(res.size / 1024).toFixed(1)} KB</p>
         <p>Needs {specLine(spec)}</p>
+        {res.padded && <p className="text-[11px] text-gray-400 dark:text-gray-500">Topped up to the minimum size — the picture is unchanged.</p>}
         <button
           type="button"
           onClick={onDownload}
@@ -199,8 +133,12 @@ const numField = (label, value, onChange) => (
   </label>
 );
 
-const ExamPhotoResizer = () => {
-  const [presetKey, setPresetKey] = useState('ssc');
+// presetKey / heading / intro come from exam landing pages (/ssc-photo-resizer,
+// /upsc-photo-resizer …, see src/data/landingPages.js) — same tool, preset picked.
+const ExamPhotoResizer = ({ presetKey: initialPreset = 'ssc', heading, intro } = {}) => {
+  const [presetKey, setPresetKey] = useState(initialPreset);
+  useEffect(() => { setPresetKey(initialPreset); }, [initialPreset]);
+  const [cleanSign, setCleanSign] = useState(true);
   const [custom, setCustom] = useState(PRESETS.find((p) => p.key === 'custom'));
   const [photo, setPhoto] = useState(null); // {file,img,url,w,h}
   const [sign, setSign] = useState(null);
@@ -264,7 +202,7 @@ const ExamPhotoResizer = () => {
     return () => registerBack(null);
   }, [photo, sign, reset, registerBack]);
 
-  useEffect(() => clearOut(), [presetKey, custom, photo, sign, bgOn, bgColor]);
+  useEffect(() => clearOut(), [presetKey, custom, photo, sign, bgOn, bgColor, cleanSign]);
 
   const setImage = (which, file, img) => {
     const entry = { file, img, url: track(URL.createObjectURL(file)), w: img.naturalWidth, h: img.naturalHeight };
@@ -356,8 +294,13 @@ const ExamPhotoResizer = () => {
     try {
       const photoSrc = bgOn && cutout ? compositeOnColor(cutout.img, bgColor) : photo.img;
       const result = {};
-      result.photo = await fit(photoSrc, preset.photo);
-      if (sign) result.sign = await fit(sign.img, preset.sign);
+      result.photo = await fit(photoSrc, preset.photo, 'cover');
+      if (sign) {
+        // Signatures are fitted whole onto white (never cropped), after the
+        // empty paper is trimmed off so the ink fills the box.
+        const src = cleanSign ? prepareInk(sign.img).canvas : sign.img;
+        result.sign = await fit(src, preset.sign, 'contain');
+      }
       setOut(result);
     } catch (e) {
       setError(e.message || 'Could not process the images.');
@@ -382,11 +325,10 @@ const ExamPhotoResizer = () => {
 
       <header className="mb-4">
         <h1 className="text-xl md:text-2xl font-extrabold tracking-tight text-gray-900 dark:text-white">
-          Exam Photo &amp; Signature Resizer
+          {heading || 'Exam Photo & Signature Resizer'}
         </h1>
         <p className="mt-1 text-[13px] md:text-sm text-gray-500 dark:text-gray-400">
-          Resize a photo and signature to the exact pixel size and KB limit that Indian exam and
-          job-application forms ask for. Runs in your browser — nothing is uploaded.
+          {intro || 'Resize a photo and signature to the exact pixel size and KB limit that Indian exam and job-application forms ask for. Runs in your browser — nothing is uploaded.'}
         </p>
       </header>
 
@@ -429,6 +371,7 @@ const ExamPhotoResizer = () => {
           <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
             Photo needs <strong className="text-gray-700 dark:text-gray-200">{specLine(preset.photo)}</strong> ·
             {' '}Signature needs <strong className="text-gray-700 dark:text-gray-200">{specLine(preset.sign)}</strong>
+            {preset.note && <span className="mt-1 block text-[11px] text-gray-400 dark:text-gray-500">{preset.note}</span>}
           </p>
         )}
         <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
@@ -495,9 +438,13 @@ const ExamPhotoResizer = () => {
           onPick={sign ? () => signInput.current?.click() : pick('sign')}
           onClear={() => setSign((s) => { if (s?.url) URL.revokeObjectURL(s.url); return null; })}
         >
-          <p className="mt-3 text-[11px] text-gray-400 dark:text-gray-500">
-            Tip: crop tight around the signature so it isn&apos;t tiny after resizing.
-          </p>
+          <label className="mt-3 flex items-start gap-2 text-xs font-medium text-gray-700 dark:text-gray-200">
+            <input type="checkbox" checked={cleanSign} onChange={(e) => setCleanSign(e.target.checked)} className="mt-0.5 accent-purple-600" />
+            <span>
+              Auto-clean: trim the empty paper and make it pure white
+              <span className="block font-normal text-[11px] text-gray-400 dark:text-gray-500">Removes shadows from phone photos so the signature fills the box.</span>
+            </span>
+          </label>
         </Slot>
       </div>
 
