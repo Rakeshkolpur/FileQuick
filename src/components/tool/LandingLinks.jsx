@@ -10,6 +10,7 @@ const GROUPS_FOR_TOOL = {
   'exam-photo-resizer': [['exam', 'Ready-made exam presets'], ['image-size', 'Just need a file size?']],
   'signature-resizer': [['exam', 'Ready-made exam presets']],
   'passport-photo': [['exam', 'Exam & application form photos']],
+  'pdf-editor': [['pdf-editor', 'Compare PDF editors']],
 };
 
 /**

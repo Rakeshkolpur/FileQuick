@@ -118,6 +118,37 @@ const ToolSeoContent = ({ tool, seo: seoOverride }) => {
         </div>
       )}
 
+      {seo.compare && (
+        <div className="mt-6">
+          {seo.compare.title && (
+            <h3 className="text-base font-bold text-gray-900 dark:text-white mb-2">{seo.compare.title}</h3>
+          )}
+          <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
+            <table className="w-full min-w-[560px] text-left text-sm">
+              <thead className="bg-gray-50 dark:bg-gray-800/60 text-gray-700 dark:text-gray-200">
+                <tr>
+                  {seo.compare.columns.map((c, i) => (
+                    <th key={i} scope="col" className="px-3 py-2 font-semibold">{c}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700 text-gray-600 dark:text-gray-300">
+                {seo.compare.rows.map((row, r) => (
+                  <tr key={r}>
+                    {row.map((cell, i) => (i === 0
+                      ? <th key={i} scope="row" className="px-3 py-2 font-medium text-gray-800 dark:text-gray-100">{cell}</th>
+                      : <td key={i} className="px-3 py-2">{cell}</td>))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {seo.compare.note && (
+            <p className="mt-2 text-[11px] text-gray-400 dark:text-gray-500">{seo.compare.note}</p>
+          )}
+        </div>
+      )}
+
       {seo.steps?.length > 0 && (
         <ol className="mt-5 space-y-2 text-sm text-gray-700 dark:text-gray-200">
           {seo.steps.map((step, i) => (

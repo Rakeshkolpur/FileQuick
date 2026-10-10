@@ -144,6 +144,7 @@ function toolParts(tool, seo, path, h1, lead) {
 <h2>${esc(seo.h1 || `How to use ${tool.title}`)}</h2>
 ${seo.intro ? `<p>${esc(seo.intro)}</p>` : ''}
 ${body.map((p) => `<p>${esc(p)}</p>`).join('\n')}
+${seo.compare ? `${seo.compare.title ? `<h3>${esc(seo.compare.title)}</h3>` : ''}<table><thead><tr>${seo.compare.columns.map((c) => `<th scope="col">${esc(c)}</th>`).join('')}</tr></thead><tbody>${seo.compare.rows.map((row) => `<tr>${row.map((c, i) => (i === 0 ? `<th scope="row">${esc(c)}</th>` : `<td>${esc(c)}</td>`)).join('')}</tr>`).join('')}</tbody></table>${seo.compare.note ? `<p>${esc(seo.compare.note)}</p>` : ''}` : ''}
 ${seo.steps?.length ? `<h3>Steps</h3><ol>${seo.steps.map((s) => `<li>${esc(s)}</li>`).join('')}</ol>` : ''}
 ${seo.faqs?.length ? `<h2>Frequently asked questions</h2>${seo.faqs.map(({ q, a }) => `<h3>${esc(q)}</h3><p>${esc(a)}</p>`).join('\n')}` : ''}
 ${related.length ? `<h2>Related tools</h2><ul>${related.map((r) => `<li><a href="/${r.id}">${esc(titleOf(r.id))}</a>${r.text ? ` — ${esc(r.text)}` : ''}</li>`).join('')}</ul>` : ''}

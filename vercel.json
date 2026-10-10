@@ -60,6 +60,56 @@
       "permanent": true
     },
     {
+      "source": "/online-pdf-editor",
+      "destination": "/pdf-editor",
+      "permanent": true
+    },
+    {
+      "source": "/pdf-editor-online",
+      "destination": "/pdf-editor",
+      "permanent": true
+    },
+    {
+      "source": "/free-pdf-editor",
+      "destination": "/pdf-editor",
+      "permanent": true
+    },
+    {
+      "source": "/pdf-editor-free",
+      "destination": "/pdf-editor",
+      "permanent": true
+    },
+    {
+      "source": "/free-online-pdf-editor",
+      "destination": "/pdf-editor",
+      "permanent": true
+    },
+    {
+      "source": "/easy-pdf-editor",
+      "destination": "/pdf-editor",
+      "permanent": true
+    },
+    {
+      "source": "/sejda-alternative",
+      "destination": "/pdf-editor-alternatives",
+      "permanent": true
+    },
+    {
+      "source": "/ilovepdf-alternative",
+      "destination": "/pdf-editor-alternatives",
+      "permanent": true
+    },
+    {
+      "source": "/adobe-acrobat-alternative",
+      "destination": "/pdf-editor-alternatives",
+      "permanent": true
+    },
+    {
+      "source": "/canva-pdf-editor-alternative",
+      "destination": "/pdf-editor-alternatives",
+      "permanent": true
+    },
+    {
       "source": "/sign-pdf",
       "destination": "/fill-sign",
       "permanent": true

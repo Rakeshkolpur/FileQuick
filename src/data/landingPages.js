@@ -342,6 +342,63 @@ function pdfSizePage(kb, indexed) {
   };
 }
 
+/* ======================================================= PDF editor vs */
+
+// Facts about other products are kept to what their own pages and recent
+// reviews state, without exact numbers where sources disagree.
+const PDF_EDITOR_ALTERNATIVES = {
+  slug: 'pdf-editor-alternatives',
+  toolId: 'pdf-editor',
+  toolProps: {},
+  group: 'pdf-editor',
+  label: 'PDF editor comparison',
+  indexed: true,
+  title: 'Free PDF Editor Alternative to Sejda, Adobe, iLovePDF & Canva',
+  h1: 'Free PDF Editor — an Alternative to Sejda, Adobe, iLovePDF and Canva',
+  description: 'Looking for a free alternative to the Sejda, Adobe Acrobat, iLovePDF or Canva PDF editor? FileQuick edits PDF text in its own font with no account, no task limits and no upload. Compare them side by side.',
+  seo: {
+    breadcrumb: 'PDF Editor Alternatives',
+    h1: 'How FileQuick compares with other online PDF editors',
+    intro: 'Sejda, Adobe Acrobat online, iLovePDF and Canva are all popular ways to edit a PDF online. They are good tools — this page explains plainly where FileQuick is different, so you can pick what suits the job. The editor above is the real thing: open a PDF and try it.',
+    body: [
+      'The biggest difference is where your PDF goes. Sejda, Adobe, iLovePDF and Canva process documents on their servers, so the file is uploaded first. FileQuick\'s PDF editor runs in your browser — the PDF never leaves your device, which matters for bank statements, ID documents and contracts.',
+      'The second is limits. Free plans elsewhere ration use: Sejda\'s free tier caps documents (around 200 pages or 50 MB) and allows only a few tasks per period, and Adobe\'s free online tools allow a limited number of free transactions, with more after signing in. FileQuick has no account, no task limit and no watermark.',
+      'The third is how text is edited. FileQuick rewrites the existing text inside the PDF in the document\'s own font, so the page looks untouched. Canva instead converts the PDF into a Canva design — great for redesigning, but fonts and layout can shift, and form fields don\'t carry over.',
+      'Where others are stronger: Adobe Acrobat has the deepest professional features (redaction workflows, advanced forms, e-signature requests), Canva is better for redesigning a document visually, and Sejda and iLovePDF offer server-side OCR, which can make scanned PDFs searchable. For a scanned PDF in FileQuick, add text over the page or run Extract Text first.',
+    ],
+    compare: {
+      title: 'At a glance',
+      columns: ['', 'FileQuick', 'Sejda', 'Adobe Acrobat online', 'iLovePDF', 'Canva'],
+      rows: [
+        ['Account needed', 'No', 'No', 'For most use', 'No', 'Yes'],
+        ['Free use limits', 'None', 'Tasks, pages and size capped', 'Limited free transactions', 'File size and daily limits', 'Free plan available'],
+        ['Your PDF is uploaded', 'No — edited in your browser', 'Yes', 'Yes', 'Yes', 'Yes'],
+        ['Edit existing text', 'Yes, in the original font', 'Yes', 'Yes', 'Yes', 'After converting to a Canva design'],
+        ['Watermark on free output', 'No', 'No', 'No', 'No', 'No'],
+      ],
+      note: 'Based on each product\'s public pages and recent reviews; plans change, so check their sites for current limits. Sejda, Adobe Acrobat, iLovePDF and Canva are trademarks of their owners — FileQuick is not affiliated with them.',
+    },
+    steps: [
+      'Drop your PDF into the editor at the top of this page.',
+      'Click any line to change it, or add text, images, a signature, shapes or a table.',
+      'Check the Changes panel, then click Apply changes.',
+      'Download the edited PDF — no account, no watermark.',
+    ],
+    faqs: [
+      { q: 'Is there a free PDF editor like Sejda without limits?', a: 'Yes — FileQuick\'s PDF editor has no hourly or daily task limit and needs no account. Your PDF stays on your device.' },
+      { q: 'Is there a free alternative to the Adobe PDF editor?', a: 'For everyday edits — fixing text, adding text, images and signatures — FileQuick is free with no sign-in. Adobe Acrobat remains the choice for advanced professional workflows.' },
+      { q: 'Is this the iLovePDF or Canva PDF editor?', a: 'No. FileQuick is an independent free PDF editor, not affiliated with iLovePDF, Canva, Sejda or Adobe.' },
+      { q: 'Which online PDF editor is easiest to use?', a: 'That depends on the job, but FileQuick is built to need no learning: open the PDF, click the text and type. Every change is listed so you can undo it.' },
+    ],
+    related: [
+      { id: 'pdf-editor', text: 'the free online PDF editor' },
+      { id: 'fill-sign', text: 'fill in forms and add a signature' },
+      { id: 'pdf-compressor', text: 'compress the edited PDF' },
+      { id: 'pdf-to-word', text: 'convert to Word for big rewrites' },
+    ],
+  },
+};
+
 /* ============================================================== registry */
 
 export const LANDING_PAGES = [
@@ -349,6 +406,7 @@ export const LANDING_PAGES = [
   ...Object.keys(EXAMS).map(examPage),
   SSC_SIGN,
   ...PDF_SIZE_PRESETS.map((kb) => pdfSizePage(kb, true)),
+  PDF_EDITOR_ALTERNATIVES,
 ];
 
 const BY_SLUG = new Map(LANDING_PAGES.map((p) => [p.slug, p]));

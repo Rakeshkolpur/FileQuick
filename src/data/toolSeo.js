@@ -518,9 +518,9 @@ const toolSeo = {
   },
 
   'pdf-editor': {
-    seoTitle: 'PDF Editor Online Free – Edit Text, Add Text, Images & Signatures',
+    seoTitle: 'PDF Editor Online Free – Easy Online PDF Editor, No Sign-up',
     seoDescription:
-      'Free online PDF editor — edit the existing text of a PDF in its own font, and add text, tables, images, signatures, links, shapes and form fields. No sign-up, no watermark, nothing uploaded.',
+      'Free online PDF editor that is easy to use — edit the existing text of a PDF in its own font, and add text, images, signatures, tables, shapes and form fields. No sign-up, no watermark, no task limits.',
     h1: 'How to edit a PDF for free',
     intro:
       'Click any line of text in your PDF and type — fix a typo, change a name, a date or an amount. The new text is written in the document\'s own font, exactly where the old text was. Add text, tables, images, signatures, links, shapes and form fields too.',
@@ -529,7 +529,8 @@ const toolSeo = {
       'Edited lines keep the look of the document: justified paragraphs stay justified, underlines follow the new text, centred headings stay centred, and bold or italic carry over. Drag any line to move it, align it left, centre or right, or duplicate it.',
       'Tables are built in: insert a new table from the toolbar, or hover a table that is already in the PDF and click + to continue it with a new row or column that matches its borders and font. A Changes panel lists every edit so you can jump back to it or undo it.',
       'It works best on PDFs made from documents (Word, Google Docs, invoices, statements). A scanned page is only an image and has no text to edit — you can still add text on top of it.',
-      `${B} The saved PDF has no watermark and no page limit.`,
+      'Easy to use: there is nothing to learn first. Open the PDF and click the line you want to change — the editor opens with the Text tool ready, the toolbar shows what each button does, and every change is listed so nothing gets lost.',
+      `${B} The saved PDF has no watermark and no page limit, and there is no daily or hourly limit on how many PDFs you edit — it is a free PDF editor online, not a trial.`,
     ],
     steps: [
       'Open the PDF Editor and load your PDF.',
@@ -538,6 +539,7 @@ const toolSeo = {
       'Click Apply changes and download the edited PDF.',
     ],
     faqs: [
+      { q: 'Is this PDF editor really free?', a: 'Yes. No account, no watermark, no trial period and no limit on tasks per hour or per day. The editing runs in your own browser, so there is no server cost to pass on.' },
       { q: 'Can I edit existing text in a PDF for free?', a: 'Yes. Click any line and change it directly — no account, no watermark and no page limit.' },
       { q: 'Will the edited text match the original font?', a: 'If the PDF contains its own font, the new text uses it. If you type a character that font doesn\'t include, the same font installed on your computer is used (the browser asks once for permission), otherwise a close look-alike.' },
       { q: 'Is the old text really removed?', a: 'Yes. The original characters are taken out of the page\'s content rather than covered with a white box, so they can\'t be copied back out and coloured backgrounds stay clean.' },
@@ -545,8 +547,10 @@ const toolSeo = {
       { q: 'Can I add an image or signature to the PDF?', a: 'Yes — upload an image, or draw, type or upload a signature, then place and resize it anywhere.' },
       { q: 'Can I edit a scanned PDF?', a: 'A scan is a picture of text, so there is nothing to edit directly. You can add new text on top of it, or run Extract Text first.' },
       { q: 'Are my documents private?', a: `Yes. ${B}` },
+      { q: 'How does it compare with Sejda, Adobe Acrobat, iLovePDF or Canva?', a: 'Those are good tools; the main differences are that FileQuick needs no account, has no task limits and never uploads your PDF. See the side-by-side comparison for details.' },
     ],
     related: [
+      { id: 'pdf-editor-alternatives', text: 'how it compares with Sejda, Adobe, iLovePDF and Canva' },
       { id: 'fill-sign', text: 'fill in forms and sign' },
       { id: 'pdf-compressor', text: 'shrink the edited PDF for an upload limit' },
       { id: 'delete-pages', text: 'remove pages you don\'t need' },
