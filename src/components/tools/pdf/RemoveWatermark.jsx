@@ -4,7 +4,8 @@ import ToolWorkspace from '../../tool/ToolWorkspace';
 import ResultScreen from '../../tool/ResultScreen';
 import WatermarkBrushModal from '../../tool/WatermarkBrushModal';
 import { downloadBlob } from '../../tool/DownloadButton';
-import { formatBytes, stripExt } from '../../../lib/format';
+import { formatBytes } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import { zipFiles } from '../../../lib/zip';
 import { openPdf, renderThumbnail } from '../../../lib/pdfjs';
 import { findWatermarkCandidates } from '../../../lib/watermarkDetect';
@@ -170,14 +171,14 @@ const RemoveWatermark = () => {
         if (job.kind === 'pdf' && job.selected?.size > 0) {
           // eslint-disable-next-line no-await-in-loop
           const blob = await redactPdf(job);
-          out.push({ id: job.id, name: `${stripExt(job.file.name)}-cleaned.pdf`, blob, size: blob.size });
+          out.push({ id: job.id, name: toolFileName(job.file, 'remove-watermark', 'pdf'), blob, size: blob.size });
         } else if (job.kind === 'image' && job.edited) {
           const fmt = baseImageFormat(job.file.type);
           // eslint-disable-next-line no-await-in-loop
           const blob = await new Promise((resolve, reject) => {
             job.editedCanvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Could not export the image.'))), mimeFor(fmt), 0.92);
           });
-          out.push({ id: job.id, name: `${stripExt(job.file.name)}-cleaned.${outExt(fmt)}`, blob, size: blob.size });
+          out.push({ id: job.id, name: toolFileName(job.file, 'remove-watermark', outExt(fmt)), blob, size: blob.size });
         }
       }
       setResults(out);
@@ -192,7 +193,7 @@ const RemoveWatermark = () => {
     if (!results?.length) return;
     if (results.length === 1) { downloadBlob(results[0].blob, results[0].name); return; }
     const zip = await zipFiles(results.map((r) => ({ name: r.name, blob: r.blob })));
-    downloadBlob(zip, 'watermarks-removed.zip');
+    downloadBlob(zip, toolFileName(results[0]?.name, 'remove-watermark', 'zip'));
   };
 
   const totalSize = results ? results.reduce((s, r) => s + r.size, 0) : 0;

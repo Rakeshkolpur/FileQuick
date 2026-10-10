@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ToolWorkspace from '../../tool/ToolWorkspace';
 import Segmented from '../../tool/Segmented';
 import { downloadBlob } from '../../tool/DownloadButton';
-import { formatBytes, stripExt } from '../../../lib/format';
+import { formatBytes } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import { PDF_RENDER_MB } from '../../../lib/fileValidation';
 import { openPdf, renderPageToCanvas } from '../../../lib/pdfjs';
 import { parsePageRange } from '../../../lib/pageRange';
@@ -17,7 +18,8 @@ const MODES = [
   { value: 'ocr', label: 'OCR all' },
 ];
 
-const ExtractText = () => {
+// toolId: this component serves both Extract Text and PDF to Text
+const ExtractText = ({ toolId = 'extract-text' } = {}) => {
   const [file, setFile] = useState(null);
   const [pdf, setPdf] = useState(null);
   const [pageCount, setPageCount] = useState(0);
@@ -144,7 +146,7 @@ const ExtractText = () => {
   };
   const doDownload = (ext) => {
     const mime = ext === 'md' ? 'text/markdown' : 'text/plain';
-    downloadBlob(new Blob([output.text], { type: `${mime};charset=utf-8` }), `${stripExt(file.name)}.${ext}`);
+    downloadBlob(new Blob([output.text], { type: `${mime};charset=utf-8` }), toolFileName(file, toolId, ext));
   };
 
   const HintBadge = () => {

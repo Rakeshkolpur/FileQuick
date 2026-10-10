@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ToolWorkspace from '../../tool/ToolWorkspace';
 import { downloadBlob } from '../../tool/DownloadButton';
-import { formatBytes, stripExt } from '../../../lib/format';
+import { formatBytes } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import { PDF_RENDER_MB } from '../../../lib/fileValidation';
 import { openPdf } from '../../../lib/pdfjs';
 import { extractImages } from '../../../lib/pdfImages';
@@ -75,10 +76,9 @@ const ExtractImages = () => {
     setProgress({ done: 0, total: 0 });
   };
 
-  const baseName = stripExt(file?.name || 'document');
 
   const downloadOne = (im, i) => {
-    downloadBlob(im.blob, `${baseName}-p${im.page}-img${i + 1}.png`);
+    downloadBlob(im.blob, toolFileName(file, 'extract-images', 'png', `p${im.page}-${i + 1}`));
   };
 
   const onPrimary = async () => {
@@ -87,9 +87,9 @@ const ExtractImages = () => {
     await sleep(350);
     try {
       const zip = await zipFiles(
-        images.map((im, i) => ({ name: `${baseName}-p${im.page}-img${i + 1}.png`, blob: im.blob })),
+        images.map((im, i) => ({ name: toolFileName(file, 'extract-images', 'png', `p${im.page}-${i + 1}`), blob: im.blob })),
       );
-      downloadBlob(zip, `${baseName}-images.zip`);
+      downloadBlob(zip, toolFileName(file, 'extract-images', 'zip'));
       await sleep(150);
     } finally {
       setDl('done');

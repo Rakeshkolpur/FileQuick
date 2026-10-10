@@ -3,7 +3,8 @@ import ToolWorkspace from '../../tool/ToolWorkspace';
 import ResultScreen from '../../tool/ResultScreen';
 import OpenInTool from '../../tool/OpenInTool';
 import { downloadBlob } from '../../tool/DownloadButton';
-import { formatBytes, stripExt } from '../../../lib/format';
+import { formatBytes } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import { loadImageFromFile, encodeAtLeastBytes } from '../../../lib/imageResize';
 import { consumeHandoff } from '../../../lib/imageHandoff';
 
@@ -67,7 +68,7 @@ const IncreaseImageSize = () => {
     }
   };
 
-  const outName = item ? `${stripExt(item.file.name)}-${Math.round(targetBytes / 1024)}kb.jpg` : 'image.jpg';
+  const outName = toolFileName(item?.file || 'image', 'increase-image-size', 'jpg');
 
   const grew = result && item ? Math.round((result.size / item.file.size) * 10) / 10 : 0;
   const resultView = (busy || result) ? (

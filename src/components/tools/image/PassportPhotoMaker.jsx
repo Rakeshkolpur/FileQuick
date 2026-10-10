@@ -3,7 +3,7 @@ import FileDropzone from '../../tool/FileDropzone';
 import Lightbox from '../../tool/Lightbox';
 import { downloadBlob } from '../../tool/DownloadButton';
 import { ToolBackContext } from '../../ToolWrapper';
-import { stripExt } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import { cutoutBackground, preloadBackgroundModel } from '../../../lib/backgroundRemoval';
 import MatteBrush from '../../tool/MatteBrush';
 import { consumeHandoff } from '../../../lib/imageHandoff';
@@ -270,9 +270,8 @@ const PassportPhotoMaker = () => {
     } finally { setBusy(false); }
   };
 
-  const base = file ? stripExt(file.name) : 'passport';
-  const downloadOne = () => dl(renderCell(mmToPx(spec.w)), `${base}-${spec.w}x${spec.h}mm.png`);
-  const downloadSheet = () => dl(buildSheet(), `${base}-sheet-${paper.id}-${wantCopies}up.png`);
+  const downloadOne = () => dl(renderCell(mmToPx(spec.w)), toolFileName(file || 'passport', 'passport-photo', 'png'));
+  const downloadSheet = () => dl(buildSheet(), toolFileName(file || 'passport', 'passport-photo', 'png', 'sheet'));
 
   // ---- upload screen ----
   if (!file) {

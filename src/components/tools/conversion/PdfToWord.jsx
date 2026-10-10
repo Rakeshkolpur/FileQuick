@@ -9,6 +9,7 @@ import FileDropzone from '../../tool/FileDropzone';
 import { ToolBackContext } from '../../ToolWrapper';
 import { downloadBlob } from '../../tool/DownloadButton';
 import { formatBytes, stripExt } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import { SERVER_UPLOAD_MB, screenFiles, rejectionMessage } from '../../../lib/fileValidation';
 import { api } from '../../../lib/api';
 import { openPdf, renderThumbnail, renderPageToCanvas } from '../../../lib/pdfjs';
@@ -233,7 +234,7 @@ const PdfToWord = () => {
   };
 
 
-  const outName = `${stripExt(file?.name || 'document')}.docx`;
+  const outName = toolFileName(file, 'pdf-to-word', 'docx');
 
   /* ---------------- views ---------------- */
 

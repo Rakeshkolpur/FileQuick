@@ -3,7 +3,8 @@ import ToolWorkspace from '../../tool/ToolWorkspace';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
 import OpenInTool from '../../tool/OpenInTool';
-import { formatBytes, stripExt } from '../../../lib/format';
+import { formatBytes } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import { consumeHandoff } from '../../../lib/imageHandoff';
 import {
   encodeImage, loadImageFromFile, OUTPUT_FORMATS, OUTPUT_FORMAT_MAP,
@@ -94,7 +95,7 @@ const BackgroundRemover = () => {
   const [encoding, setEncoding] = useState(false);
   useEffect(() => { setResult(null); }, [cutout, bgColor, outFmt]);
 
-  const outName = file ? `${stripExt(file.name)}_no-bg.${fmtInfo.ext}` : `image_no-bg.${fmtInfo.ext}`;
+  const outName = toolFileName(file || 'image', 'remove-background', fmtInfo.ext);
   const backFromResult = () => setResult(null);
 
   const getCurrentImage = () => new Promise((resolve) => {

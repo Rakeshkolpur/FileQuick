@@ -23,7 +23,7 @@ import RangeSlider from '../../tool/RangeSlider';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
 import OpenInPdfTool from '../../tool/OpenInPdfTool';
-import { stripExt } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import { consumePdfHandoff } from '../../../lib/pdfHandoff';
 import { openPdf, renderThumbnail } from '../../../lib/pdfjs';
 
@@ -425,9 +425,7 @@ const PDFOrganize = () => {
     }
   };
 
-  const outName = sources.length === 1
-    ? `${stripExt(sources[0].name)}-organized.pdf`
-    : 'organized.pdf';
+  const outName = toolFileName(sources[0]?.name || 'organized', 'organize-pdf', 'pdf');
 
   const backFromResult = () => setResult(null);
 

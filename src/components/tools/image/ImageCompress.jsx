@@ -5,7 +5,8 @@ import RangeSlider from '../../tool/RangeSlider';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
 import OpenInTool from '../../tool/OpenInTool';
-import { formatBytes, stripExt } from '../../../lib/format';
+import { formatBytes } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import { zipFiles } from '../../../lib/zip';
 import {
   loadImageFromFile,
@@ -101,7 +102,7 @@ const ImageCompress = ({ presetFormat, presetKB } = {}) => {
 
   const compressOne = async (it) => {
     const fmt = presetFormat || targetFormat(it.file.type);
-    const name = `${stripExt(it.file.name)}-min.${outExt(fmt)}`;
+    const name = toolFileName(it.file, 'compress-image', outExt(fmt));
     if (mode === 'target') {
       const bytes = (targetUnit === 'MB' ? parseFloat(targetVal) * 1024 : parseFloat(targetVal)) * 1024;
       const r = await encodeToTargetBytes(it.img, {
@@ -114,7 +115,7 @@ const ImageCompress = ({ presetFormat, presetKB } = {}) => {
         allowResize: true,
       });
       return {
-        name: `${stripExt(it.file.name)}-min.${outExt(r.format)}`,
+        name: toolFileName(it.file, 'compress-image', outExt(r.format)),
         blob: r.blob,
         size: r.blob.size,
         from: it.file.size,
@@ -161,7 +162,7 @@ const ImageCompress = ({ presetFormat, presetKB } = {}) => {
     if (!results) return;
     if (results.length === 1) { downloadBlob(results[0].blob, results[0].name); return; }
     const zip = await zipFiles(results.map((r) => ({ name: r.name, blob: r.blob })));
-    downloadBlob(zip, 'compressed-images.zip');
+    downloadBlob(zip, toolFileName(items[0]?.file, 'compress-image', 'zip'));
   };
 
   const sidebar = (

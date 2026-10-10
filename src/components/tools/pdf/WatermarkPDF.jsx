@@ -7,7 +7,8 @@ import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
 import OpenInPdfTool from '../../tool/OpenInPdfTool';
 import OpenInTool from '../../tool/OpenInTool';
-import { formatBytes, stripExt } from '../../../lib/format';
+import { formatBytes } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import { consumePdfHandoff } from '../../../lib/pdfHandoff';
 import { consumeHandoff } from '../../../lib/imageHandoff';
 import { openPdf, renderPageToCanvas } from '../../../lib/pdfjs';
@@ -342,7 +343,7 @@ const WatermarkPDF = () => {
   };
 
   const outExtension = isImageSrc ? outExt(baseImageFormat(file.type)) : 'pdf';
-  const outName = `${stripExt(file?.name || (isImageSrc ? 'photo' : 'document'))}-watermarked.${outExtension}`;
+  const outName = toolFileName(file || (isImageSrc ? 'photo' : 'document'), 'watermark-pdf', outExtension);
   const btn = 'flex items-center justify-center gap-1 rounded-lg px-2 py-2 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors';
 
   const sidebar = (

@@ -195,7 +195,7 @@ const ToolWrapper = ({ toolId: toolIdProp, pageMeta, toolProps, active = true } 
         {isReady ? (
           <Suspense fallback={<Loading />}>
             <ToolBackContext.Provider value={registerBack}>
-              <LazyTool {...(toolProps || {})} />
+              <LazyTool toolId={tool.id} {...(toolProps || {})} />
             </ToolBackContext.Provider>
           </Suspense>
         ) : (

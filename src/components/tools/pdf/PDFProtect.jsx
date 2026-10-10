@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import ToolWorkspace from '../../tool/ToolWorkspace';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
-import { formatBytes, stripExt } from '../../../lib/format';
+import { formatBytes } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import { SERVER_UPLOAD_MB } from '../../../lib/fileValidation';
 import { api } from '../../../lib/api';
 
@@ -80,7 +81,7 @@ const PDFProtect = () => {
     }
   };
 
-  const outName = `${stripExt(file?.name || 'document')}-protected.pdf`;
+  const outName = toolFileName(file, 'protect-pdf', 'pdf');
   const backFromResult = () => setResult(null);
 
   const ServerBadge = () => {

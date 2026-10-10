@@ -2,7 +2,8 @@ import React, { useContext, useEffect, useLayoutEffect, useRef, useState } from 
 import FileDropzone from '../../tool/FileDropzone';
 import { downloadBlob } from '../../tool/DownloadButton';
 import { ToolBackContext } from '../../ToolWrapper';
-import { formatBytes, stripExt } from '../../../lib/format';
+import { formatBytes } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import {
   upscaleImage, preloadUpscaleModel, isCpuFallback, serverUpscaleAvailable,
 } from '../../../lib/upscale';
@@ -147,7 +148,7 @@ const ImageUpscaler = () => {
     if (!result) return;
     const blob = await fetch(result.blobUrl).then((r) => r.blob());
     const ext = EXT[result.mime] || 'png';
-    downloadBlob(blob, `${stripExt(file.name)}-${factor === 1 ? 'enhanced' : `upscaled-${factor}x`}.${ext}`);
+    downloadBlob(blob, toolFileName(file, 'upscale-image', ext));
   };
 
   // keep the box width measured so the clipped "before" image lines up

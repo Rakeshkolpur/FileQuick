@@ -11,7 +11,7 @@ import OpenInPdfTool from '../../tool/OpenInPdfTool';
 import { ToolBackContext } from '../../ToolWrapper';
 import { downloadBlob } from '../../tool/DownloadButton';
 import { PDF_RENDER_MB, screenFiles, rejectionMessage } from '../../../lib/fileValidation';
-import { stripExt } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import { consumePdfHandoff } from '../../../lib/pdfHandoff';
 import { openPdf } from '../../../lib/pdfjs';
 import { cssStack } from '../../../lib/pdfAnnotate';
@@ -1022,7 +1022,7 @@ const PDFTextEditor = () => {
   /* ---- render ---- */
   const active = activeId ? edits[activeId] : null;
   const selected = selectedId ? objects.find((o) => o.id === selectedId) : null;
-  const outName = file ? `${stripExt(file.name)}-edited.pdf` : 'edited.pdf';
+  const outName = toolFileName(file || 'edited', 'pdf-editor', 'pdf');
 
   if (!file) {
     return (

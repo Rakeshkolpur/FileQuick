@@ -5,6 +5,7 @@ import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
 import { ToolBackContext } from '../../ToolWrapper';
 import { formatBytes } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import { textToPdf, sanitizeText, UNSUPPORTED_RE } from '../../../lib/textToPdf';
 
 const TEXT_RE = /\.(txt|md|markdown|csv|tsv|log|text|json|xml|yml|yaml|ini|rtf)$/i;
@@ -106,7 +107,7 @@ const TextToPdf = () => {
     }
   };
 
-  const outName = `${(fileName ? fileName.replace(/\.[^/.]+$/, '') : (title.trim() || 'document'))}.pdf`;
+  const outName = toolFileName(fileName || title.trim() || 'document', 'text-to-pdf', 'pdf');
   const backFromResult = () => setResult(null);
 
   const sidebar = (

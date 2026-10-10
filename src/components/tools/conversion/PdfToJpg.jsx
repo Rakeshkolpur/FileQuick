@@ -4,7 +4,8 @@ import Segmented from '../../tool/Segmented';
 import RangeSlider from '../../tool/RangeSlider';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
-import { formatBytes, stripExt } from '../../../lib/format';
+import { formatBytes } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import { PDF_RENDER_MB } from '../../../lib/fileValidation';
 import { consumePdfHandoff } from '../../../lib/pdfHandoff';
 import { zipFiles } from '../../../lib/zip';
@@ -100,7 +101,6 @@ const PdfToJpg = () => {
   const toggleAll = () => setSelected(allSelected ? new Set() : new Set(pages.map((p) => p.index)));
 
   const chosen = useMemo(() => [...selected].sort((a, b) => a - b), [selected]);
-  const base = stripExt(file?.name || 'document');
   const ext = format === 'png' ? 'png' : 'jpg';
   const mime = format === 'png' ? 'image/png' : 'image/jpeg';
 
@@ -120,7 +120,7 @@ const PdfToJpg = () => {
         out.push({
           page: n, blob, size: blob.size,
           url: URL.createObjectURL(blob),
-          name: `${base}-page-${String(n).padStart(2, '0')}.${ext}`,
+          name: toolFileName(file, 'pdf-to-jpg', ext, String(n).padStart(2, '0')),
         });
         setProgress({ done: i + 1, total: chosen.length });
       }
@@ -137,7 +137,7 @@ const PdfToJpg = () => {
     if (!results) return;
     if (results.length === 1) { downloadBlob(results[0].blob, results[0].name); return; }
     const zip = await zipFiles(results.map((r) => ({ name: r.name, blob: r.blob })));
-    downloadBlob(zip, `${base}-images.zip`);
+    downloadBlob(zip, toolFileName(file, 'pdf-to-jpg', 'zip'));
   };
 
   const totalSize = results ? results.reduce((s, r) => s + r.size, 0) : 0;

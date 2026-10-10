@@ -22,7 +22,8 @@ import CropModal from '../../tool/CropModal';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
 import OpenInTool from '../../tool/OpenInTool';
-import { formatBytes, stripExt } from '../../../lib/format';
+import { formatBytes } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import { consumeHandoff } from '../../../lib/imageHandoff';
 import { zipFiles } from '../../../lib/zip';
 import { encodeImage, outExt, isLossy, loadImageFromFile } from '../../../lib/imageResize';
@@ -264,15 +265,15 @@ const ImageConvert = () => {
     }
   };
 
-  const pdfName = items[0] ? `${stripExt(items[0].file.name)}${items.length > 1 ? `_+${items.length - 1}` : ''}.pdf` : 'filequick.pdf';
-  const imgName = (i) => `${stripExt(items[i].file.name)}.${outExt(out)}`;
+  const pdfName = toolFileName(items[0]?.file, 'convert-image', 'pdf');
+  const imgName = (i) => toolFileName(items[i].file, 'convert-image', outExt(out));
 
   const downloadResult = async () => {
     if (!results) return;
     if (results.kind === 'pdf') { downloadBlob(results.blob, pdfName); return; }
     if (results.blobs.length === 1) { downloadBlob(results.blobs[0], imgName(0)); return; }
     const zip = await zipFiles(results.blobs.map((b, i) => ({ name: imgName(i), blob: b })));
-    downloadBlob(zip, 'converted-images.zip');
+    downloadBlob(zip, toolFileName(items[0]?.file, 'convert-image', 'zip'));
   };
 
   const backFromResult = () => setResults(null);

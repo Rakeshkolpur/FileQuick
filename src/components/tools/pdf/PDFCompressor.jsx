@@ -3,7 +3,8 @@ import ToolWorkspace from '../../tool/ToolWorkspace';
 import Segmented from '../../tool/Segmented';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
-import { formatBytes, stripExt } from '../../../lib/format';
+import { formatBytes } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import { SERVER_UPLOAD_MB } from '../../../lib/fileValidation';
 import { openPdf } from '../../../lib/pdfjs';
 import { api } from '../../../lib/api';
@@ -78,7 +79,7 @@ const PDFCompressor = ({ presetKB } = {}) => {
   };
   const backFromResult = () => setResult(null);
 
-  const outName = `${stripExt(file?.name || 'document')}-compressed.pdf`;
+  const outName = toolFileName(file, 'pdf-compressor', 'pdf');
 
   const compress = async () => {
     setError(null);

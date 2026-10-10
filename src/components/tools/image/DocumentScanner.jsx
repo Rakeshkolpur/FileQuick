@@ -14,6 +14,7 @@ import Lightbox from '../../tool/Lightbox';
 import { downloadBlob } from '../../tool/DownloadButton';
 import { ToolBackContext } from '../../ToolWrapper';
 import { stripExt } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import { zipFiles } from '../../../lib/zip';
 import { imagesToPdf } from '../../../lib/imagesToPdf';
 import { preloadCv } from '../../../lib/opencvLoader';
@@ -427,7 +428,7 @@ const DocumentScanner = () => {
         pdfPages.push({ dataUrl: await toDataUrl(p.result.blob) });
       }
       const pdf = await imagesToPdf(pdfPages, { pageSize: 'a4', orientation: 'auto', marginMm: 6, fit: 'contain', bg: '#ffffff' });
-      downloadBlob(pdf, 'scan.pdf');
+      downloadBlob(pdf, toolFileName(done[0]?.name || 'scan', 'document-scanner', 'pdf'));
     } finally {
       setExporting(false);
     }
@@ -437,7 +438,7 @@ const DocumentScanner = () => {
     if (!page.result) return;
     const ext = page.result.blob.type === 'image/png' ? 'png' : 'jpg';
     const i = pages.findIndex((p) => p.id === page.id) + 1;
-    downloadBlob(page.result.blob, `${stripExt(page.name) || 'scan'}-${String(i).padStart(2, '0')}.${ext}`);
+    downloadBlob(page.result.blob, toolFileName(page.name || 'scan', 'document-scanner', ext, String(i).padStart(2, '0')));
   };
 
   const exportZip = async () => {
@@ -446,8 +447,8 @@ const DocumentScanner = () => {
     setExporting(true);
     try {
       const ext = (b) => (b.type === 'image/png' ? 'png' : 'jpg');
-      const zip = await zipFiles(done.map((p, i) => ({ name: `${stripExt(p.name) || 'scan'}-${i + 1}.${ext(p.result.blob)}`, blob: p.result.blob })));
-      downloadBlob(zip, 'scans.zip');
+      const zip = await zipFiles(done.map((p, i) => ({ name: toolFileName(p.name || 'scan', 'document-scanner', ext(p.result.blob), i + 1), blob: p.result.blob })));
+      downloadBlob(zip, toolFileName(done[0]?.name || 'scan', 'document-scanner', 'zip'));
     } finally {
       setExporting(false);
     }

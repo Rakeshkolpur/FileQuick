@@ -9,7 +9,8 @@ import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
 import OpenInTool from '../../tool/OpenInTool';
 import useObjectUrl from '../../../hooks/useObjectUrl';
-import { formatBytes, stripExt } from '../../../lib/format';
+import { formatBytes } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import { consumeHandoff } from '../../../lib/imageHandoff';
 import { zipFiles } from '../../../lib/zip';
 import {
@@ -578,7 +579,7 @@ const ImageResize = () => {
     }
   };
 
-  const nameFor = (file, r) => `${stripExt(file.name)}_${r.width}x${r.height}.${r.ext || outExt(r.format || outFormat)}`;
+  const nameFor = (file, r) => toolFileName(file, 'resize-image', r.ext || outExt(r.format || outFormat));
   const downloadOne = (i) => {
     const r = results[i];
     if (r) downloadBlob(r.blob, nameFor(items[i].file, r));
@@ -588,7 +589,7 @@ const ImageResize = () => {
       .map((r, i) => (r ? { name: nameFor(items[i].file, r), blob: r.blob } : null))
       .filter(Boolean);
     if (!z.length) return;
-    downloadBlob(await zipFiles(z), 'filequick-images.zip');
+    downloadBlob(await zipFiles(z), toolFileName(items[0]?.file, 'resize-image', 'zip'));
   };
 
   const buttonLabel = isSizeMode && !targetBytes

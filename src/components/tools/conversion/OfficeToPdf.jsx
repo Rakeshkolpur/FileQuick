@@ -10,7 +10,8 @@ import OpenInPdfTool from '../../tool/OpenInPdfTool';
 import PdfPagesPreview from '../../tool/PdfPagesPreview';
 import { ToolBackContext } from '../../ToolWrapper';
 import { downloadBlob } from '../../tool/DownloadButton';
-import { formatBytes, stripExt } from '../../../lib/format';
+import { formatBytes } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import { SERVER_UPLOAD_MB, screenFiles, rejectionMessage } from '../../../lib/fileValidation';
 import { api } from '../../../lib/api';
 import { isDesktop } from '../../../lib/desktop';
@@ -210,7 +211,7 @@ const OfficeToPdf = ({ cfg }) => {
 
   /* ---------------- download helpers ---------------- */
 
-  const outName = (it) => `${stripExt(it.file.name)}.pdf`;
+  const outName = (it) => toolFileName(it.file, cfg.toolId, 'pdf');
 
   const downloadZip = async () => {
     setBusyAll('zip');
@@ -220,11 +221,11 @@ const OfficeToPdf = ({ cfg }) => {
       const used = new Set();
       doneItems.forEach((it) => {
         let n = outName(it);
-        for (let k = 2; used.has(n); k += 1) n = `${stripExt(it.file.name)} (${k}).pdf`;
+        for (let k = 2; used.has(n); k += 1) n = toolFileName(it.file, cfg.toolId, 'pdf', k);
         used.add(n);
         zip.file(n, it.blob);
       });
-      downloadBlob(await zip.generateAsync({ type: 'blob' }), `${cfg.toolId}.zip`);
+      downloadBlob(await zip.generateAsync({ type: 'blob' }), toolFileName(doneItems.length === 1 ? doneItems[0].file : null, cfg.toolId, 'zip'));
     } finally { setBusyAll(null); }
   };
 
@@ -240,7 +241,7 @@ const OfficeToPdf = ({ cfg }) => {
         const pages = await out.copyPages(src, src.getPageIndices());
         pages.forEach((p) => out.addPage(p));
       }
-      downloadBlob(new Blob([await out.save()], { type: 'application/pdf' }), 'merged.pdf');
+      downloadBlob(new Blob([await out.save()], { type: 'application/pdf' }), toolFileName(doneItems[0]?.file, cfg.toolId, 'pdf', 'all'));
     } finally { setBusyAll(null); }
   };
 

@@ -22,6 +22,7 @@ import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
 import OpenInPdfTool from '../../tool/OpenInPdfTool';
 import { formatBytes } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import { consumePdfHandoff } from '../../../lib/pdfHandoff';
 import { openPdf, renderThumbnail } from '../../../lib/pdfjs';
 
@@ -246,7 +247,7 @@ const PDFMerge = () => {
     }
   };
 
-  const outName = 'merged.pdf';
+  const outName = toolFileName(items[0]?.name || 'merged', 'merge-pdf', 'pdf');
 
   const btn = 'flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors';
 

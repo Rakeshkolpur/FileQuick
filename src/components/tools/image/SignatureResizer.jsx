@@ -3,6 +3,7 @@ import FileDropzone from '../../tool/FileDropzone';
 import { downloadBlob } from '../../tool/DownloadButton';
 import { ToolBackContext } from '../../ToolWrapper';
 import { formatBytes } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import { loadImageFromFile, encodeToTargetBytes } from '../../../lib/imageResize';
 import { encodeForForm, prepareInk } from '../../../lib/formPrep';
 import { FORM_SPECS, specLine } from '../../../data/formSpecs';
@@ -111,7 +112,8 @@ const SignatureResizer = ({ presetKey = 'ssc', heading, intro } = {}) => {
     setCropOpen(false);
     try {
       const img = await loadImageFromFile(blob);
-      const file = new File([blob], 'signature-cropped.png', { type: 'image/png' });
+      // keep the user's own file name — it becomes the download name
+      const file = new File([blob], `${(src?.file?.name || 'signature').replace(/\.[^/.]+$/, '')}.png`, { type: 'image/png' });
       setSrc((s) => { if (s?.url) URL.revokeObjectURL(s.url); return { file, img, url: URL.createObjectURL(file) }; });
     } catch (e) {
       setError(e.message || 'Could not apply the crop.');
@@ -158,7 +160,7 @@ const SignatureResizer = ({ presetKey = 'ssc', heading, intro } = {}) => {
   useEffect(() => () => { if (outUrl.current) URL.revokeObjectURL(outUrl.current); }, []);
 
   const kind = t.kind === 'thumb' ? 'thumb-impression' : 'signature';
-  const dlName = `${kind}-${target}-${out?.w || ''}x${out?.h || ''}.jpg`;
+  const dlName = toolFileName(src?.file || kind, 'signature-resizer', 'jpg');
 
   const status = !out ? null : !out.ok
     ? ['bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300', 'Over the limit']

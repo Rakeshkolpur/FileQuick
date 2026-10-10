@@ -4,6 +4,7 @@ import { downloadBlob } from '../../tool/DownloadButton';
 import OpenInTool from '../../tool/OpenInTool';
 import { ToolBackContext } from '../../ToolWrapper';
 import { formatBytes } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import { zipFiles } from '../../../lib/zip';
 import { loadImageFromFile } from '../../../lib/imageResize';
 import { encodeForForm, prepareInk } from '../../../lib/formPrep';
@@ -231,7 +232,9 @@ const ExamPhotoResizer = ({ presetKey: initialPreset = 'ssc', heading, intro } =
     setCropFor(null);
     try {
       const img = await loadImageFromFile(blob);
-      const file = new File([blob], `${which === 'photo' ? 'photo' : 'signature'}-cropped.png`, { type: 'image/png' });
+      // keep the user's own file name — it becomes the download name
+      const prev = which === 'photo' ? photo : sign;
+      const file = new File([blob], `${(prev?.file?.name || which).replace(/\.[^/.]+$/, '')}.png`, { type: 'image/png' });
       setImage(which, file, img);
     } catch (e) {
       setError(e.message || 'Could not apply the crop.');
@@ -309,13 +312,13 @@ const ExamPhotoResizer = ({ presetKey: initialPreset = 'ssc', heading, intro } =
     }
   };
 
-  const dlName = (kind) => `${kind}-${presetKey}.jpg`;
+  const dlName = (kind) => toolFileName((kind === 'photo' ? photo : sign)?.file || kind, 'exam-photo-resizer', 'jpg');
   const downloadBoth = async () => {
     const files = [];
     if (out.photo) files.push({ name: dlName('photo'), blob: out.photo.blob });
     if (out.sign) files.push({ name: dlName('signature'), blob: out.sign.blob });
     if (files.length === 1) { downloadBlob(files[0].blob, files[0].name); return; }
-    downloadBlob(await zipFiles(files), `exam-photo-${presetKey}.zip`);
+    downloadBlob(await zipFiles(files), toolFileName(photo?.file || 'photo', 'exam-photo-resizer', 'zip'));
   };
 
   return (

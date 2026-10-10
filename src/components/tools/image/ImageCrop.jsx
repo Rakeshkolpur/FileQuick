@@ -7,7 +7,8 @@ import RangeSlider from '../../tool/RangeSlider';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
 import OpenInTool from '../../tool/OpenInTool';
-import { formatBytes, stripExt } from '../../../lib/format';
+import { formatBytes } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import { consumeHandoff } from '../../../lib/imageHandoff';
 import { encodeImage, OUTPUT_FORMATS, OUTPUT_FORMAT_MAP } from '../../../lib/imageResize';
 import { singleImageToPdf } from '../../../lib/imagesToPdf';
@@ -261,7 +262,7 @@ const ImageCrop = () => {
     }
   };
 
-  const downloadName = file ? `${stripExt(file.name)}_${outW}x${outH}.${fmtInfo.ext}` : 'cropped';
+  const downloadName = toolFileName(file, 'crop-image', fmtInfo.ext);
   const backFromResult = () => setResult(null);
 
   const resultView = (busy || result) ? (

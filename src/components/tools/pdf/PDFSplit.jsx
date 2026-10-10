@@ -5,7 +5,8 @@ import Segmented from '../../tool/Segmented';
 import RangeSlider from '../../tool/RangeSlider';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
-import { formatBytes, stripExt } from '../../../lib/format';
+import { formatBytes } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import { consumePdfHandoff } from '../../../lib/pdfHandoff';
 import { zipFiles } from '../../../lib/zip';
 import { openPdf, renderThumbnail } from '../../../lib/pdfjs';
@@ -182,7 +183,7 @@ const PDFSplit = () => {
       const b = await out.save();
       const blob = new Blob([b], { type: 'application/pdf' });
       setResults([{
-        name: `${stripExt(file.name)}-pages.pdf`,
+        name: toolFileName(file, 'split-pdf', 'pdf'),
         blob,
         size: blob.size,
         label: `${pickList.length} page${pickList.length > 1 ? 's' : ''}`,
@@ -202,7 +203,6 @@ const PDFSplit = () => {
     setProgress({ done: 0, total: ranges.length });
     try {
       const src = await PDFDocument.load(bytes);
-      const base = stripExt(file.name);
       const pad = String(ranges.length).length;
       const out = [];
       for (let i = 0; i < ranges.length; i += 1) {
@@ -218,7 +218,7 @@ const PDFSplit = () => {
         const bb = await doc.save();
         const blob = new Blob([bb], { type: 'application/pdf' });
         out.push({
-          name: a === b ? `${base}-p${a}.pdf` : `${base}-${String(i + 1).padStart(pad, '0')}_p${a}-${b}.pdf`,
+          name: toolFileName(file, 'split-pdf', 'pdf', a === b ? `p${a}` : `${String(i + 1).padStart(pad, '0')}-p${a}-${b}`),
           blob,
           size: blob.size,
           label: rangeLabel(a, b),
@@ -241,7 +241,7 @@ const PDFSplit = () => {
     if (!results) return;
     if (results.length === 1) { downloadBlob(results[0].blob, results[0].name); return; }
     const zip = await zipFiles(results.map((r) => ({ name: r.name, blob: r.blob })));
-    downloadBlob(zip, `${stripExt(file.name)}-split.zip`);
+    downloadBlob(zip, toolFileName(file, 'split-pdf', 'zip'));
   };
 
   const btn = 'flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors';

@@ -6,7 +6,7 @@ import ToolWorkspace from '../../tool/ToolWorkspace';
 import ResultScreen from '../../tool/ResultScreen';
 import OpenInPdfTool from '../../tool/OpenInPdfTool';
 import { downloadBlob } from '../../tool/DownloadButton';
-import { stripExt } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import { PDF_RENDER_MB } from '../../../lib/fileValidation';
 import { consumePdfHandoff } from '../../../lib/pdfHandoff';
 import { openPdf, renderPageToCanvas } from '../../../lib/pdfjs';
@@ -503,7 +503,7 @@ const PDFFillAndSign = () => {
   }, [selectedId]);
 
   /* ---- save ---- */
-  const outName = `${stripExt(fileName || 'document')}-signed.pdf`;
+  const outName = toolFileName(fileName || 'document', 'fill-sign', 'pdf');
   const sanitize = (s) => String(s)
     .replace(/[‘’‚′]/g, "'").replace(/[“”„″]/g, '"').replace(/[–—−]/g, '-')
     .replace(/…/g, '...').replace(/\u00A0/g, ' ');

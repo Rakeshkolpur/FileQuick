@@ -5,7 +5,8 @@ import RangeSlider from '../../tool/RangeSlider';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
 import OpenInPdfTool from '../../tool/OpenInPdfTool';
-import { formatBytes, stripExt } from '../../../lib/format';
+import { formatBytes } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import { consumePdfHandoff } from '../../../lib/pdfHandoff';
 import { openPdf, renderThumbnail } from '../../../lib/pdfjs';
 import { parsePageRange, formatPageRange } from '../../../lib/pageRange';
@@ -135,7 +136,7 @@ const ExtractPages = () => {
     }
   };
 
-  const outName = `${stripExt(file?.name || 'document')}-pages.pdf`;
+  const outName = toolFileName(file, 'extract-pages', 'pdf');
 
   const backFromResult = () => setResult(null);
 

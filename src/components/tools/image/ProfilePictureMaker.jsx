@@ -4,6 +4,7 @@ import ResultScreen from '../../tool/ResultScreen';
 import { downloadBlob } from '../../tool/DownloadButton';
 import { ToolBackContext } from '../../ToolWrapper';
 import { formatBytes, stripExt } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import { cutoutBackground, preloadBackgroundModel } from '../../../lib/backgroundRemoval';
 import MatteBrush from '../../tool/MatteBrush';
 import { upscaleImage } from '../../../lib/upscale';
@@ -352,7 +353,7 @@ const ProfilePictureMaker = () => {
       urlsRef.current.push(blobUrl);
       setImg(im); setImgUrl(blobUrl);
       const ext = mime === 'image/jpeg' ? 'jpg' : mime === 'image/webp' ? 'webp' : 'png';
-      setFile(new File([blob], `${stripExt(file.name)}-enhanced.${ext}`, { type: mime || 'image/png' }));
+      setFile(new File([blob], `${stripExt(file.name)}.${ext}`, { type: mime || 'image/png' }));
       setCutout(null); setCutoutUrl(null);
       setResult(null); setEnhanced(true);
     } catch (e) {
@@ -373,7 +374,7 @@ const ProfilePictureMaker = () => {
       urlsRef.current.push(url);
       const im = await loadFromUrl(url);
       setImg(im); setImgUrl(url);
-      setFile(new File([blob], `${stripExt(file.name)}-crop.png`, { type: 'image/png' }));
+      setFile(new File([blob], `${stripExt(file.name)}.png`, { type: 'image/png' }));
       setCutout(null); setCutoutUrl(null); setRemoveBg(false);
       setScale(100); setRotate(0); setOffset({ x: 0, y: 0 });
       setResult(null);
@@ -544,7 +545,7 @@ const ProfilePictureMaker = () => {
   };
 
   const ext = result?.type === 'image/jpeg' ? 'jpg' : 'png';
-  const outName = file ? `${stripExt(file.name)}-profile-${result?.px || OUTPUT_SIZES[sizeIdx].px}.${ext}` : 'profile-picture.png';
+  const outName = toolFileName(file || 'profile-picture', 'profile-picture', ext);
   const transparentOut = !squareBg && shape !== 'square';
 
   if (!file) {

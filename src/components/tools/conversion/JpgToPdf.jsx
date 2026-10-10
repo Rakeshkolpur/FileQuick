@@ -20,7 +20,8 @@ import Segmented from '../../tool/Segmented';
 import RangeSlider from '../../tool/RangeSlider';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
-import { formatBytes, stripExt } from '../../../lib/format';
+import { formatBytes } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import { loadImageFromFile } from '../../../lib/imageResize';
 import { imagesToPdf, computePageLayout } from '../../../lib/imagesToPdf';
 import { consumeHandoff } from '../../../lib/imageHandoff';
@@ -428,9 +429,7 @@ const JpgToPdf = () => {
     }
   };
 
-  const outName = items[0]
-    ? `${stripExt(items[0].name)}${items.length > 1 ? `-+${items.length - 1}` : ''}.pdf`
-    : 'images.pdf';
+  const outName = toolFileName(items[0]?.name, 'image-to-pdf', 'pdf');
 
   const sidebar = (
     <>

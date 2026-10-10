@@ -5,7 +5,8 @@ import RangeSlider from '../../tool/RangeSlider';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
 import OpenInPdfTool from '../../tool/OpenInPdfTool';
-import { formatBytes, stripExt } from '../../../lib/format';
+import { formatBytes } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import { consumePdfHandoff } from '../../../lib/pdfHandoff';
 import { openPdf, renderThumbnail } from '../../../lib/pdfjs';
 import { parsePageRange, formatPageRange } from '../../../lib/pageRange';
@@ -158,8 +159,8 @@ const PDFDeletePages = () => {
     }
   };
 
-  const outName = `${stripExt(file?.name || 'document')}-pages-removed.pdf`;
-  const docxName = `${stripExt(file?.name || 'document')}-pages-removed.docx`;
+  const outName = toolFileName(file, 'delete-pages', 'pdf');
+  const docxName = toolFileName(file, 'delete-pages', 'docx');
 
   // Word uploads can also go back to Word (PDF -> .docx on the server)
   const downloadDocx = async () => {

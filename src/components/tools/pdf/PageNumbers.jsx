@@ -6,7 +6,8 @@ import RangeSlider from '../../tool/RangeSlider';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
 import OpenInPdfTool from '../../tool/OpenInPdfTool';
-import { formatBytes, stripExt } from '../../../lib/format';
+import { formatBytes } from '../../../lib/format';
+import { toolFileName } from '../../../lib/fileNames';
 import { consumePdfHandoff } from '../../../lib/pdfHandoff';
 import { openPdf, renderPageToCanvas } from '../../../lib/pdfjs';
 
@@ -183,7 +184,7 @@ const PageNumbers = () => {
     }
   };
 
-  const outName = `${stripExt(file?.name || 'document')}-numbered.pdf`;
+  const outName = toolFileName(file, 'page-numbers', 'pdf');
   const btn = 'flex items-center justify-center gap-1 rounded-lg px-2 py-2 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors';
 
   const sidebar = (
