@@ -70,7 +70,7 @@ function imageSizePage(kb, indexed) {
     group: 'image-size',
     label: `Image to ${size}`,
     indexed,
-    title: `Compress Image to ${size.replace(' ', '')} Online – Resize Photo to ${size}`,
+    title: `Compress Image to ${size.replace(' ', '')} – Image Resizer ${size} Online Free`,
     h1: `Compress Image to ${size}`,
     description: `Reduce a photo to under ${size} in seconds — the target is already set to ${size}, it keeps the best quality that fits and resizes only if it must. JPG output for forms. Free, nothing uploaded.`,
     seo: {
@@ -81,7 +81,7 @@ function imageSizePage(kb, indexed) {
         info
           ? `${size} is a common upload limit for ${info.use}. At this size you can expect ${info.fits}.`
           : `Set any size you need — the tool searches for the highest JPEG quality that fits under ${size}.`,
-        'Compress and resize mean different things: resizing changes the width and height in pixels, compressing changes how many bytes those pixels take. Most "resize image to KB" searches really need compression, which is what this page does first — it only resizes when the target is too small for the photo at its current dimensions.',
+        'Compress and resize mean different things: resizing changes the width and height in pixels, compressing changes how many bytes those pixels take. Most "image resizer in KB" or "resize image to KB" searches really need compression, which is what this page does first — it only resizes when the target is too small for the photo at its current dimensions.',
         'The result is always a JPG, because that is the format online forms accept and the one that gets smallest. A PNG or WebP you drop in is converted automatically; transparency becomes white.',
         ...(info ? [info.tip] : []),
       ],

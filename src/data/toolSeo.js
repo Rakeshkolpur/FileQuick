@@ -26,12 +26,12 @@ const NO_UPLOAD = 'The file is processed on your own device and never uploaded t
 const toolSeo = {
   // ============================ IMAGE ============================
   'resize-image': {
-    seoTitle: 'Resize Image Online – Free Photo Resizer (px & KB)',
+    seoTitle: 'Image Resizer – Resize Image Online in KB, Pixels or cm (Free)',
     seoDescription:
-      'Resize an image online free — set exact pixel dimensions, a percentage, or a target file size in KB. Works with JPG, PNG, WebP and PDF. No sign-up, no watermark.',
+      'Free online image resizer — resize photos in pixels, cm, mm or inches, or to a file size in KB or MB (50 KB, 100 KB, 200 KB). Bulk resize many images at once. Simple, no sign-up, nothing uploaded.',
     h1: 'How to resize an image online',
     intro:
-      'Resize a JPG, PNG or WebP image to exact pixel dimensions, a percentage, or a target file size in KB or MB. Free, no sign-up, no watermark, and no upload — the resize runs on your device.',
+      'A simple image resizer: resize a JPG, PNG or WebP to exact pixels, to centimetres or inches for print, by a percentage, or to a target file size in KB or MB. Free, no sign-up, no watermark, and no upload — the resize runs on your device.',
     body: [
       'A resized image is useful in dozens of places: a photo that fits a website banner, a picture small enough to email, a display picture cropped to a square, or an ID photo that must be under a strict KB limit for an online form. This tool covers all of them in one place — type the width and height you need, drag a percentage slider, or switch to "target size" and let the tool pick the dimensions and quality that land just under the number you want.',
       'When the target is small (say "under 50 KB" for a government portal) lowering quality alone often is not enough, so the tool scales the picture down just enough to reach the size and tells you the new dimensions. When the target is comfortable it keeps the full resolution and only trims quality. You can also choose the output format — JPG, JPEG, PNG, WebP or a single-page PDF.',
@@ -45,6 +45,11 @@ const toolSeo = {
     ],
     faqs: [
       { q: 'How do I resize an image to a specific size in KB?', a: 'Switch to the "File size" option, type the size you need (for example 50 KB), and the tool lowers the quality — and, if needed, the dimensions — until the file lands at or just under that size.' },
+      { q: 'Can I resize an image in cm or inches?', a: 'Yes. In Dimensions, switch the unit to cm, mm or inch and type the size — for example 3.5 × 4.5 cm. It is converted to pixels at the DPI you choose (300 DPI is print quality, so 3.5 × 4.5 cm becomes 413 × 531 px), and the DPI is saved in the JPG so it prints at that size.' },
+      { q: 'Can I resize an image to 50 KB, 100 KB or 200 KB?', a: 'Yes — choose "File size" and type the KB (or MB) you need. There are also one-click pages for common sizes: compress image to 20 KB, 50 KB, 100 KB and 200 KB.' },
+      { q: 'Can I resize an image in MB?', a: 'Yes. In "File size", switch the unit from KB to MB — useful when a site asks for a photo under 1 MB or 2 MB.' },
+      { q: 'Can I bulk resize images?', a: 'Yes. Drop several images at once and resize them all together — to the same file size, a percentage, or a maximum width and height — then download them as one ZIP.' },
+      { q: 'Is this like the Pi7 image resizer?', a: 'It does the same kind of job — resizing and compressing photos in your browser — and adds cm / inch sizing with DPI, exact KB targets and background removal. FileQuick is independent and not affiliated with Pi7.' },
       { q: 'Will resizing reduce image quality?', a: 'Making an image smaller keeps it sharp. Enlarging a small image past its real resolution looks soft — use the Image Upscaler for that.' },
       { q: 'Can I resize an image without losing quality?', a: 'Downscaling to reasonable dimensions is effectively lossless to the eye. Keep the aspect ratio locked and avoid over-compressing and the result stays clean.' },
       { q: 'Which formats can I resize?', a: 'JPG, JPEG, PNG and WebP images. You can save the result as JPG, PNG, WebP or a one-page PDF.' },
@@ -387,9 +392,9 @@ const toolSeo = {
   },
 
   'convert-image': {
-    seoTitle: 'Image Converter – JPG, PNG, WebP & PDF',
+    seoTitle: 'JPG File Converter – Convert JPG, PNG, WebP & PDF Free',
     seoDescription:
-      'Convert images online free — JPG to PNG, PNG to JPG, WebP to JPG, JPG to WebP — or combine several images into one PDF. No sign-up, no watermark, nothing uploaded.',
+      'Free image file converter — JPG to PNG, PNG to JPG, WebP to JPG, JPG to WebP — or combine several images into one PDF. No sign-up, no watermark, nothing uploaded.',
     h1: 'How to convert an image format online',
     intro:
       'Convert between JPG, PNG and WebP, or combine several images into a single PDF — free, unlimited and without uploading anything.',
@@ -948,10 +953,44 @@ const toolSeo = {
     ],
   },
 
-  'word-to-pdf': {
-    seoTitle: 'Word to PDF – Convert DOCX to PDF Online Free',
+  'file-converter': {
+    seoTitle: 'File Converter – Free Online PDF, Word & JPG File Converter',
     seoDescription:
-      'Convert Word to PDF online free — DOC and DOCX to PDF keeping fonts, styles, tables, images and layout. No sign-up, no watermark.',
+      'Free online file converter: drop a PDF, Word, PowerPoint, Excel, image or text file and convert it — to PDF, from PDF to Word, JPG, Excel or PowerPoint, or between JPG, PNG and WebP.',
+    h1: 'How to convert a file online',
+    intro:
+      'Drop any supported file and FileQuick shows what it can be converted to. Pick one and the file opens in that converter, ready to go — no need to find the right tool or upload twice.',
+    body: [
+      'Convert to PDF: Word (.doc, .docx), PowerPoint, Excel and CSV, JPG / PNG / WebP images and plain text all become PDFs that look the same on every device.',
+      'Convert from PDF: turn a PDF back into an editable Word document, into JPG or PNG images (one per page), into Excel tables, PowerPoint slides or plain text.',
+      'Convert images: switch between JPG, PNG and WebP, or combine several photos into one PDF.',
+      'Images, text and most PDF tasks run in your browser. Office documents and PDF to Word / Excel / PowerPoint use FileQuick\'s conversion server; files are sent over a secure connection and deleted straight after. ZIP, audio and video files are not supported.',
+    ],
+    steps: [
+      'Drop your file into the box above (or click to browse).',
+      'Pick what to convert it to — only the options that fit the file are shown.',
+      'The converter opens with your file loaded; adjust any options.',
+      'Download the converted file.',
+    ],
+    faqs: [
+      { q: 'Which file types can I convert?', a: 'PDF, Word (.doc, .docx, .odt, .rtf), PowerPoint, Excel and CSV, JPG / PNG / WebP / GIF images and text files.' },
+      { q: 'How do I convert a file to PDF?', a: 'Drop it in — Word, PowerPoint, Excel, image and text files all show a "to PDF" option. Pick it and download the PDF.' },
+      { q: 'Is the file converter free?', a: 'Yes. No account, no watermark and no daily limit.' },
+      { q: 'Can I convert ZIP files?', a: 'Not yet. FileQuick converts documents and images; unzip the archive first and convert the files inside.' },
+    ],
+    related: [
+      { id: 'pdf-to-word', text: 'PDF to an editable Word file' },
+      { id: 'word-to-pdf', text: 'Word to PDF with your fonts' },
+      { id: 'image-to-pdf', text: 'JPG / PNG to PDF' },
+      { id: 'convert-image', text: 'JPG, PNG and WebP' },
+      { id: 'pdf-to-jpg', text: 'PDF pages to images' },
+    ],
+  },
+
+  'word-to-pdf': {
+    seoTitle: 'Word to PDF Converter – Convert DOCX to PDF Online Free',
+    seoDescription:
+      'Free Word to PDF file converter — DOC and DOCX to PDF keeping fonts, styles, tables, images and layout. No sign-up, no watermark.',
     h1: 'How to convert Word to PDF',
     intro:
       'Convert a .doc or .docx file to PDF while keeping the fonts, styles, tables, images and page layout exactly as they were. Free, no watermark.',
@@ -1106,9 +1145,9 @@ const toolSeo = {
   },
 
   'pdf-to-word': {
-    seoTitle: 'PDF to Word – Convert PDF to DOCX Online Free',
+    seoTitle: 'PDF to Word Converter Free – Convert PDF to DOCX Online',
     seoDescription:
-      'Convert PDF to Word online free — rebuild a PDF into an editable .docx with its text, tables and images. Handles digital and scanned PDFs. No sign-up, no watermark.',
+      'Free PDF to Word file converter — rebuild a PDF into an editable .docx with its text, tables and images. Handles digital and scanned PDFs. No sign-up, no watermark.',
     h1: 'How to convert a PDF to an editable Word document',
     intro:
       'Rebuild a PDF into an editable Word .docx — text, headings, tables and images — so you can change it in Word, Google Docs or LibreOffice. Free, no watermark.',

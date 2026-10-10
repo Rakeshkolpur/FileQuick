@@ -210,6 +210,56 @@
       "permanent": true
     },
     {
+      "source": "/file-converter-online",
+      "destination": "/file-converter",
+      "permanent": true
+    },
+    {
+      "source": "/pdf-converter",
+      "destination": "/file-converter",
+      "permanent": true
+    },
+    {
+      "source": "/pdf-file-converter",
+      "destination": "/file-converter",
+      "permanent": true
+    },
+    {
+      "source": "/file-converter-to-pdf",
+      "destination": "/file-converter",
+      "permanent": true
+    },
+    {
+      "source": "/convert-to-pdf",
+      "destination": "/file-converter",
+      "permanent": true
+    },
+    {
+      "source": "/image-resizer",
+      "destination": "/resize-image",
+      "permanent": true
+    },
+    {
+      "source": "/photo-resizer",
+      "destination": "/resize-image",
+      "permanent": true
+    },
+    {
+      "source": "/image-resizer-in-cm",
+      "destination": "/resize-image",
+      "permanent": true
+    },
+    {
+      "source": "/bulk-image-resizer",
+      "destination": "/resize-image",
+      "permanent": true
+    },
+    {
+      "source": "/jpg-converter",
+      "destination": "/convert-image",
+      "permanent": true
+    },
+    {
       "source": "/jpg-to-pdf",
       "destination": "/image-to-pdf",
       "permanent": true

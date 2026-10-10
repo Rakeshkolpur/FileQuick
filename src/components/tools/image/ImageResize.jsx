@@ -11,6 +11,7 @@ import OpenInTool from '../../tool/OpenInTool';
 import useObjectUrl from '../../../hooks/useObjectUrl';
 import { formatBytes } from '../../../lib/format';
 import { toolFileName } from '../../../lib/fileNames';
+import { setJpegDpi } from '../../../lib/jpegDpi';
 import { consumeHandoff } from '../../../lib/imageHandoff';
 import { zipFiles } from '../../../lib/zip';
 import {
@@ -40,6 +41,16 @@ const ASPECTS = [
   { label: '9:16', value: 9 / 16 },
 ];
 const SCALES = [0.25, 0.5, 0.75, 1];
+
+// Physical units for the Dimensions mode — converted to pixels at the chosen
+// DPI (300 = print quality). 3.5 × 4.5 cm at 300 DPI = 413 × 531 px.
+const DIM_UNITS = [
+  { value: 'px', label: 'px' },
+  { value: 'cm', label: 'cm' },
+  { value: 'mm', label: 'mm' },
+  { value: 'in', label: 'inch' },
+];
+const PER_INCH = { cm: 2.54, mm: 25.4, in: 1 };
 
 const initialCrop = (aspect, w, h) =>
   aspect
@@ -195,6 +206,9 @@ const ImageResize = () => {
   const [width, setWidth] = useState('');
   const [height, setHeight] = useState('');
   const [lockAspect, setLockAspect] = useState(true);
+  const [dimUnit, setDimUnit] = useState('px'); // px | cm | mm | in
+  const [dpi, setDpi] = useState(300);
+  const [unitText, setUnitText] = useState({ w: '', h: '' }); // what the size fields show
   const [dimsTouched, setDimsTouched] = useState(false);
   const [percent, setPercent] = useState(50);
   const [fitW, setFitW] = useState(1920);
@@ -427,6 +441,72 @@ const ImageResize = () => {
     setHeight(String(Math.max(1, Math.round(srcH * s))));
   };
 
+  // Width/height are always kept in pixels; the fields can show cm / mm / inch.
+  const safeDpi = Math.max(1, Number(dpi) || 300);
+  const pxToUnit = (px) => (dimUnit === 'px' ? px : Math.round(((px / safeDpi) * PER_INCH[dimUnit]) * 100) / 100);
+  const unitToPx = (v) => (dimUnit === 'px' ? v : (v / PER_INCH[dimUnit]) * safeDpi);
+  useEffect(() => {
+    // refresh a field only when it no longer matches the pixels (keeps "3." while typing)
+    const sync = (text, px) => {
+      if (px === '') return '';
+      const n = parseFloat(text);
+      return Number.isFinite(n) && Math.abs(unitToPx(n) - Number(px)) < 1 ? text : String(pxToUnit(Number(px)));
+    };
+    setUnitText((t) => ({ w: sync(t.w, width), h: sync(t.h, height) }));
+  }, [width, height, dimUnit, safeDpi]); // eslint-disable-line react-hooks/exhaustive-deps
+  const onUnitDim = (axis, text) => {
+    setUnitText((t) => ({ ...t, [axis]: text }));
+    const n = parseFloat(text);
+    const px = text === '' ? '' : (n > 0 ? String(Math.max(1, Math.round(unitToPx(n)))) : null);
+    if (px === null) return;
+    if (axis === 'w') onWidth(px); else onHeight(px);
+  };
+  const unitLabel = DIM_UNITS.find((u) => u.value === dimUnit)?.label || 'px';
+
+  const dimFields = (
+    <>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {DIM_UNITS.map((u) => (
+          <button
+            key={u.value}
+            type="button"
+            onClick={() => setDimUnit(u.value)}
+            className={dimUnit === u.value ? chipActive : chip}
+          >
+            {u.label}
+          </button>
+        ))}
+        {dimUnit !== 'px' && (
+          <label className="ml-auto flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300">
+            DPI
+            <input
+              type="number"
+              min="1"
+              value={dpi}
+              onChange={(e) => { setDpi(e.target.value); markDirty(); }}
+              className="w-16 p-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs"
+            />
+          </label>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="text-xs">
+          <span className="block mb-1 font-medium text-gray-600 dark:text-gray-300">Width ({unitLabel})</span>
+          <input type="number" min="0" step="any" value={unitText.w} onChange={(e) => onUnitDim('w', e.target.value)} className={numField} />
+        </label>
+        <label className="text-xs">
+          <span className="block mb-1 font-medium text-gray-600 dark:text-gray-300">Height ({unitLabel})</span>
+          <input type="number" min="0" step="any" value={unitText.h} onChange={(e) => onUnitDim('h', e.target.value)} className={numField} />
+        </label>
+      </div>
+      {dimUnit !== 'px' && (
+        <p className="text-[11px] text-gray-400 dark:text-gray-500">
+          = {width || '–'} × {height || '–'} px at {safeDpi} DPI. 300 DPI is print quality — e.g. a 3.5 × 4.5 cm photo is 413 × 531 px.
+        </p>
+      )}
+    </>
+  );
+
   const rotate = (delta) => {
     markDirty();
     setRotation((r) => (((r + delta) % 360) + 360) % 360);
@@ -540,6 +620,10 @@ const ImageResize = () => {
       });
       r = { blob, width: d.w, height: d.h, format: outFormat, fits: true, resized: false };
     }
+    // sized in cm / mm / inch: record the DPI so it prints at that size
+    if (!isBatch && (singleMode === 'dimensions' || isSizeMode) && dimUnit !== 'px' && r.blob.type === 'image/jpeg') {
+      r = { ...r, blob: await setJpegDpi(r.blob, safeDpi) };
+    }
     if (isPdf) {
       const pdf = await singleImageToPdf(r.blob);
       r = { ...r, blob: pdf, format: 'pdf' };
@@ -647,16 +731,7 @@ const ImageResize = () => {
         {/* Dimensions (single) */}
         {!isBatch && singleMode === 'dimensions' && (
           <>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="text-xs">
-                <span className="block mb-1 font-medium text-gray-600 dark:text-gray-300">Width (px)</span>
-                <input type="number" min="1" value={width} onChange={(e) => onWidth(e.target.value)} className={numField} />
-              </label>
-              <label className="text-xs">
-                <span className="block mb-1 font-medium text-gray-600 dark:text-gray-300">Height (px)</span>
-                <input type="number" min="1" value={height} onChange={(e) => onHeight(e.target.value)} className={numField} />
-              </label>
-            </div>
+            {dimFields}
             <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
               <input type="checkbox" checked={lockAspect} onChange={(e) => setLockAspect(e.target.checked)} className="h-4 w-4 accent-purple-600" />
               Lock aspect ratio
@@ -717,16 +792,7 @@ const ImageResize = () => {
             </div>
             {formatField}
             {!isBatch && (
-              <div className="grid grid-cols-2 gap-2">
-                <label className="text-xs">
-                  <span className="block mb-1 font-medium text-gray-600 dark:text-gray-300">Width (px)</span>
-                  <input type="number" min="1" value={width} onChange={(e) => onWidth(e.target.value)} className={numField} />
-                </label>
-                <label className="text-xs">
-                  <span className="block mb-1 font-medium text-gray-600 dark:text-gray-300">Height (px)</span>
-                  <input type="number" min="1" value={height} onChange={(e) => onHeight(e.target.value)} className={numField} />
-                </label>
-              </div>
+              {dimFields}
             )}
             <label className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-300">
               <input type="checkbox" checked={allowResize} onChange={(e) => { setAllowResize(e.target.checked); markDirty(); }} className="mt-0.5 h-4 w-4 accent-purple-600" />
@@ -1090,16 +1156,7 @@ const ImageResize = () => {
 
                   {singleMode === 'dimensions' && (
                     <>
-                      <div className="grid grid-cols-2 gap-2">
-                        <label className="text-xs">
-                          <span className="block mb-1 font-medium text-gray-600 dark:text-gray-300">Width (px)</span>
-                          <input type="number" min="1" value={width} onChange={(e) => onWidth(e.target.value)} className={numField} />
-                        </label>
-                        <label className="text-xs">
-                          <span className="block mb-1 font-medium text-gray-600 dark:text-gray-300">Height (px)</span>
-                          <input type="number" min="1" value={height} onChange={(e) => onHeight(e.target.value)} className={numField} />
-                        </label>
-                      </div>
+                      {dimFields}
                       <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                         <input type="checkbox" checked={lockAspect} onChange={(e) => setLockAspect(e.target.checked)} className="h-4 w-4 accent-blue-600" />
                         Lock aspect ratio
@@ -1134,16 +1191,7 @@ const ImageResize = () => {
                         </div>
                       </div>
                       {formatField}
-                      <div className="grid grid-cols-2 gap-2">
-                        <label className="text-xs">
-                          <span className="block mb-1 font-medium text-gray-600 dark:text-gray-300">Width (px)</span>
-                          <input type="number" min="1" value={width} onChange={(e) => onWidth(e.target.value)} className={numField} />
-                        </label>
-                        <label className="text-xs">
-                          <span className="block mb-1 font-medium text-gray-600 dark:text-gray-300">Height (px)</span>
-                          <input type="number" min="1" value={height} onChange={(e) => onHeight(e.target.value)} className={numField} />
-                        </label>
-                      </div>
+                      {dimFields}
                       <label className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-300">
                         <input type="checkbox" checked={allowResize} onChange={(e) => { setAllowResize(e.target.checked); markDirty(); }} className="mt-0.5 h-4 w-4 accent-blue-600" />
                         <span>

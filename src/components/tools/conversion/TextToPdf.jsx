@@ -7,6 +7,7 @@ import { ToolBackContext } from '../../ToolWrapper';
 import { formatBytes } from '../../../lib/format';
 import { toolFileName } from '../../../lib/fileNames';
 import { textToPdf, sanitizeText, UNSUPPORTED_RE } from '../../../lib/textToPdf';
+import { takeHandedFile } from '../../../lib/fileHandoff';
 
 const TEXT_RE = /\.(txt|md|markdown|csv|tsv|log|text|json|xml|yml|yaml|ini|rtf)$/i;
 const isTextFile = (f) => f && (f.type.startsWith('text/') || TEXT_RE.test(f.name || ''));
@@ -83,6 +84,12 @@ const TextToPdf = () => {
     reader.onerror = () => setError('Could not read that file.');
     reader.readAsText(f);
   };
+
+  // a text file handed over from the File Converter hub
+  useEffect(() => {
+    const f = takeHandedFile();
+    if (f) loadFile(f);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onDrop = (e) => {
     e.preventDefault();

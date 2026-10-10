@@ -132,6 +132,9 @@ const TOOLS = [
     load: () => import('../components/tools/pdf/ExtractText.jsx') },
 
   // -- Convert to PDF --
+  { id: 'file-converter', title: 'File Converter', category: 'pdf', group: 'Convert to PDF', icon: I.convert,
+    description: 'Drop any file — PDF, Word, PowerPoint, Excel, image or text — and convert it to the format you need.',
+    load: () => import('../components/tools/conversion/FileConverter.jsx') },
   { id: 'image-to-pdf', title: 'Image to PDF', category: 'pdf', group: 'Convert to PDF', icon: I.image, popular: true,
     description: 'Combine JPG or PNG images into a single PDF.',
     load: () => import('../components/tools/conversion/JpgToPdf.jsx') },
