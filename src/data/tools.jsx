@@ -106,7 +106,7 @@ const TOOLS = [
     description: 'Trim the page margins — drag a box or auto-trim white space.',
     load: () => import('../components/tools/pdf/CropPDF.jsx') },
   { id: 'delete-pages', title: 'Remove Pages', category: 'pdf', group: 'Pages', icon: I.trash,
-    description: 'Pick the pages to delete — the rest are saved as a new PDF.',
+    description: 'Pick the pages to delete from a PDF or Word file — the rest are saved as a new PDF.',
     load: () => import('../components/tools/pdf/PDFDeletePages.jsx') },
   { id: 'extract-pages', title: 'Extract Pages', category: 'pdf', group: 'Pages', icon: I.extract,
     description: 'Pick the pages you want and save them as one new PDF.',

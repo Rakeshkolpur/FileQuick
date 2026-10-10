@@ -125,6 +125,21 @@
       "permanent": true
     },
     {
+      "source": "/remove-pages",
+      "destination": "/delete-pages",
+      "permanent": true
+    },
+    {
+      "source": "/delete-pages-from-word",
+      "destination": "/delete-pages",
+      "permanent": true
+    },
+    {
+      "source": "/remove-pages-from-word",
+      "destination": "/delete-pages",
+      "permanent": true
+    },
+    {
       "source": "/reorder-pdf-pages",
       "destination": "/organize-pdf",
       "permanent": true

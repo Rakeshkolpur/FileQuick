@@ -9,6 +9,7 @@ import { formatBytes, stripExt } from '../../../lib/format';
 import { consumePdfHandoff } from '../../../lib/pdfHandoff';
 import { openPdf, renderThumbnail } from '../../../lib/pdfjs';
 import { parsePageRange, formatPageRange } from '../../../lib/pageRange';
+import { WORD_ACCEPT, isWordFile, wordToPdfBytes, pdfToDocxBlob } from '../../../lib/wordToPdf';
 
 const isPdf = (f) => f && (f.type === 'application/pdf' || f.name?.toLowerCase().endsWith('.pdf'));
 
@@ -23,6 +24,10 @@ const PDFDeletePages = () => {
   const [result, setResult] = useState(null); // { blob, size, removed, kept }
   const [error, setError] = useState(null);
   const [thumbW, setThumbW] = useState(150);
+  // Word files are laid out as a PDF first (see lib/wordToPdf.js)
+  const [source, setSource] = useState('pdf'); // 'pdf' | 'word'
+  const [step, setStep] = useState(''); // what's happening while a file loads
+  const [docx, setDocx] = useState({ busy: false, error: null });
 
   const total = pages.length;
   const thumbToken = useRef(0);
@@ -47,30 +52,43 @@ const PDFDeletePages = () => {
   }, []);
 
   const onFiles = useCallback(async (list) => {
-    const f = [...list].find(isPdf);
-    if (!f) { setError('Please choose a PDF file.'); return; }
+    const f = [...list].find(isPdf) || [...list].find(isWordFile);
+    if (!f) { setError('Please choose a PDF or a Word document.'); return; }
+    const word = !isPdf(f);
+    const token = ++thumbToken.current;
     setError(null);
     setLoading(true);
     setResult(null);
     setRemove(new Set());
     setRangeText('');
+    setPages([]);
+    setDocx({ busy: false, error: null });
     rangeDirty.current = false;
+    setSource(word ? 'word' : 'pdf');
+    setStep(word ? 'Converting your Word document…' : 'Reading PDF…');
+    // show the workspace straight away — a Word conversion takes a few seconds
+    if (word) setFile(f);
     try {
-      const ab = await f.arrayBuffer();
-      const doc = await openPdf(ab);
+      const ab = word ? (await wordToPdfBytes(f, { onStep: setStep })).bytes : await f.arrayBuffer();
+      if (token !== thumbToken.current) return; // replaced or reset meanwhile
+      setStep('Reading pages…');
+      const doc = await openPdf(ab.slice(0));
       setFile(f);
       setBytes(ab);
       setPages(Array.from({ length: doc.numPages }, (_, i) => ({ index: i + 1, thumb: null, w: 0, h: 0 })));
-      const token = ++thumbToken.current;
       renderThumbs(doc, token);
     } catch (e) {
+      if (token !== thumbToken.current) return;
+      if (word) { setFile(null); setBytes(null); }
       setError(
-        e?.message?.toLowerCase().includes('password')
-          ? 'That PDF is password-protected. Unlock it first.'
-          : 'Could not read that PDF — it may be damaged.',
+        word
+          ? (e?.message || 'Could not convert this Word document.')
+          : e?.message?.toLowerCase().includes('password')
+            ? 'That PDF is password-protected. Unlock it first.'
+            : 'Could not read that PDF — it may be damaged.',
       );
     } finally {
-      setLoading(false);
+      if (token === thumbToken.current) setLoading(false);
     }
   }, [renderThumbs]);
 
@@ -79,10 +97,11 @@ const PDFDeletePages = () => {
   const reset = () => {
     thumbToken.current += 1;
     setFile(null); setBytes(null); setPages([]); setRemove(new Set());
-    setRangeText(''); setResult(null); setError(null);
+    setRangeText(''); setResult(null); setError(null); setLoading(false);
+    setSource('pdf'); setDocx({ busy: false, error: null });
     rangeDirty.current = false;
   };
-  const backFromResult = () => setResult(null);
+  const backFromResult = () => { setResult(null); setDocx({ busy: false, error: null }); };
 
   const toggle = (page, e) => {
     rangeDirty.current = false;
@@ -130,6 +149,7 @@ const PDFDeletePages = () => {
       copied.forEach((pg) => out.addPage(pg));
       const outBytes = await out.save();
       const blob = new Blob([outBytes], { type: 'application/pdf' });
+      setDocx({ busy: false, error: null });
       setResult({ blob, size: blob.size, removed: toRemove.length, kept: keepIdx.length });
     } catch (e) {
       setError(`Could not build the PDF: ${e.message}`);
@@ -139,6 +159,20 @@ const PDFDeletePages = () => {
   };
 
   const outName = `${stripExt(file?.name || 'document')}-pages-removed.pdf`;
+  const docxName = `${stripExt(file?.name || 'document')}-pages-removed.docx`;
+
+  // Word uploads can also go back to Word (PDF -> .docx on the server)
+  const downloadDocx = async () => {
+    if (!result || docx.busy) return;
+    setDocx({ busy: true, error: null });
+    try {
+      const blob = await pdfToDocxBlob(await result.blob.arrayBuffer(), file?.name);
+      downloadBlob(blob, docxName);
+      setDocx({ busy: false, error: null });
+    } catch (e) {
+      setDocx({ busy: false, error: e.message || 'Could not make the Word file.' });
+    }
+  };
 
   const primaryLabel = !toRemove.length
     ? 'Select pages to remove'
@@ -158,8 +192,13 @@ const PDFDeletePages = () => {
           </button>
         </div>
         <p className="text-xs text-gray-400 dark:text-gray-500">
-          {formatBytes(file?.size)} · {total} page{total === 1 ? '' : 's'}
+          {formatBytes(file?.size)} · {loading && !total ? step : `${total} page${total === 1 ? '' : 's'}`}
         </p>
+        {source === 'word' && total > 0 && (
+          <p className="text-[11px] text-blue-600 dark:text-blue-400">
+            Word document — shown page by page, exactly as it prints.
+          </p>
+        )}
       </section>
 
       <section className="space-y-2 pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -222,16 +261,39 @@ const PDFDeletePages = () => {
       onDownload={() => downloadBlob(result.blob, outName)}
       onBack={backFromResult}
       backLabel="Back to page selection"
-      extra={result ? <OpenInPdfTool getPdf={() => result.blob} exclude={['delete-pages']} /> : null}
+      note={source === 'word'
+        ? 'Your Word file was converted on our server and deleted straight after; removing the pages happened on your device.'
+        : undefined}
+      extra={result ? (
+        <>
+          {source === 'word' && (
+            <div className="mb-3 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50 dark:bg-blue-900/20 p-3 text-left">
+              <button
+                type="button"
+                onClick={downloadDocx}
+                disabled={docx.busy}
+                className="w-full rounded-lg bg-[#2B579A] px-4 py-2.5 text-sm font-semibold text-white hover:opacity-95 disabled:opacity-60"
+              >
+                {docx.busy ? 'Making the Word file…' : 'Download as Word (.docx)'}
+              </button>
+              <p className="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+                The PDF keeps the exact layout. The Word copy is rebuilt from it and stays editable, so spacing can shift a little.
+              </p>
+              {docx.error && <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">{docx.error}</p>}
+            </div>
+          )}
+          <OpenInPdfTool getPdf={() => result.blob} exclude={['delete-pages']} />
+        </>
+      ) : null}
     />
   ) : null;
 
   return (
     <ToolWorkspace
       file={file}
-      accept="application/pdf,.pdf"
-      formats="PDF — the pages you pick are deleted from a new copy"
-      dropTitle="Drop a PDF"
+      accept={`application/pdf,.pdf,${WORD_ACCEPT}`}
+      formats="PDF or Word (.docx, .doc) — the pages you pick are deleted from a new copy"
+      dropTitle="Drop a PDF or Word file"
       dropHint="or click to browse"
       paste={false}
       onFiles={onFiles}
@@ -252,7 +314,10 @@ const PDFDeletePages = () => {
       {loading && pages.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 text-gray-400">
           <div className="h-10 w-10 border-4 border-gray-200 border-t-purple-500 rounded-full animate-spin mb-3" />
-          Reading PDF…
+          {step || 'Reading PDF…'}
+          {source === 'word' && (
+            <span className="mt-1 text-xs text-gray-400">Word files are laid out as pages first — this takes a few seconds.</span>
+          )}
         </div>
       ) : (
         <div className="flex flex-wrap gap-3 content-start">

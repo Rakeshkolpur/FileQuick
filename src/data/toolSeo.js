@@ -579,7 +579,8 @@ const toolSeo = {
       { q: 'How do I rearrange pages in a PDF?', a: 'Drag the page thumbnails into the order you want, then download. The page content is not changed.' },
       { q: 'Can I merge pages from another PDF here?', a: 'Use Merge PDF to combine documents first, then Organize PDF to fine-tune the page order.' },
       { q: 'Will reordering change the page content?', a: 'No — only the order and rotation change. Text and images are untouched.' },
-      { q: 'Is the PDF uploaded?', a: `No. ${NO_UPLOAD}` },
+      { q: 'Can I remove pages from a Word document?', a: 'Yes. Drop the .docx or .doc file in — it is shown page by page as it prints. Remove the pages and download a PDF, or download it as a Word file again.' },
+      { q: 'Is the PDF uploaded?', a: `No. ${NO_UPLOAD} A Word file is uploaded only for the conversion and deleted straight after.` },
     ],
     related: [
       { id: 'merge-pdf', text: 'combine several PDFs before organising' },
@@ -642,7 +643,8 @@ const toolSeo = {
       { q: 'How do I remove white margins from a PDF?', a: 'Use auto-trim to detect and cut the blank border, or drag the crop box in tight and apply it to all pages.' },
       { q: 'Does cropping a PDF delete content?', a: 'It hides whatever falls outside the crop box by changing the page size; the underlying content is not re-rendered.' },
       { q: 'Can I crop every page the same way?', a: 'Yes — set the box once and choose "apply to all pages".' },
-      { q: 'Is the PDF uploaded?', a: `No. ${NO_UPLOAD}` },
+      { q: 'Can I remove pages from a Word document?', a: 'Yes. Drop the .docx or .doc file in — it is shown page by page as it prints. Remove the pages and download a PDF, or download it as a Word file again.' },
+      { q: 'Is the PDF uploaded?', a: `No. ${NO_UPLOAD} A Word file is uploaded only for the conversion and deleted straight after.` },
     ],
     related: [
       { id: 'rotate-pdf', text: 'fix orientation before cropping' },
@@ -652,19 +654,20 @@ const toolSeo = {
   },
 
   'delete-pages': {
-    seoTitle: 'Remove Pages from PDF – Delete PDF Pages Online Free',
+    seoTitle: 'Remove Pages from PDF or Word – Delete Pages Online Free',
     seoDescription:
-      'Delete pages from a PDF online free — remove blank, duplicate or unwanted pages and save the rest as a new file. No sign-up, no watermark, nothing uploaded.',
-    h1: 'How to delete pages from a PDF',
+      'Delete pages from a PDF or Word document online free — remove blank, duplicate or unwanted pages and save the rest as a new PDF (or Word file). No sign-up, no watermark.',
+    h1: 'How to delete pages from a PDF or Word document',
     intro:
-      'Remove the pages you do not need — blanks, duplicates, an unwanted appendix — and save the rest as a new PDF. Free, private, no sign-up.',
+      'Remove the pages you do not need — blanks, duplicates, an unwanted appendix — from a PDF or a Word document, and save the rest as a new file. Free, private, no sign-up.',
     body: [
       'When a PDF has more than you want to send, the quickest fix is to delete the extra pages. Click the pages to drop in the thumbnail view, or type a range like 3-5, 9, and check the preview of what remains before downloading.',
       'Your original file is not touched — you download a new PDF, and the pages you keep are copied exactly.',
-      `${NO_UPLOAD} If you want to keep fewer pages than you would remove, Extract Pages is faster.`,
+      'Word documents (.docx, .doc) work too. A Word file has no fixed pages until it is laid out, so it is first converted on our server with the same engine as the Word to PDF tool — you then see every page exactly as it prints, remove the ones you do not want and download a PDF. If you need to keep editing, download it as a Word file instead; that copy is rebuilt from the pages, so spacing can shift slightly.',
+      `PDFs: ${NO_UPLOAD} Word files are sent over a secure connection for the conversion and deleted straight after. If you want to keep fewer pages than you would remove, Extract Pages is faster.`,
     ],
     steps: [
-      'Add your PDF to the Remove Pages tool.',
+      'Add your PDF or Word document to the Remove Pages tool.',
       'Click the pages you want to delete, or type a range like 3-5.',
       'Check the preview of what remains.',
       'Download the trimmed PDF.',
@@ -673,12 +676,14 @@ const toolSeo = {
       { q: 'How do I remove a page from a PDF for free?', a: 'Open the file here, click the page (or type its number), and download the new PDF without it.' },
       { q: 'Is the original file changed?', a: 'No. You download a new PDF; the file on your computer stays as it was.' },
       { q: 'Can I remove several pages at once?', a: 'Yes — select multiple pages or type ranges like 2, 5-7, 12.' },
-      { q: 'Is the PDF uploaded?', a: `No. ${NO_UPLOAD}` },
+      { q: 'Can I remove pages from a Word document?', a: 'Yes. Drop the .docx or .doc file in — it is shown page by page as it prints. Remove the pages and download a PDF, or download it as a Word file again.' },
+      { q: 'Is the PDF uploaded?', a: `No. ${NO_UPLOAD} A Word file is uploaded only for the conversion and deleted straight after.` },
     ],
     related: [
       { id: 'extract-pages', text: 'keep only a chosen set of pages instead' },
       { id: 'split-pdf', text: 'break the file into multiple PDFs' },
       { id: 'organize-pdf', text: 'reorder and rotate what is left' },
+      { id: 'word-to-pdf', text: 'convert a whole Word document to PDF' },
     ],
   },
 
@@ -704,7 +709,8 @@ const toolSeo = {
       { q: 'How do I save selected pages from a PDF?', a: 'Select the page numbers or type ranges, click Extract, and download a new PDF containing only those pages.' },
       { q: 'Do the extracted pages keep their formatting?', a: 'Yes — text, fonts, links and images are copied exactly.' },
       { q: 'Can I get each page as its own file?', a: 'Use Split PDF with the "one file per page" option.' },
-      { q: 'Is the PDF uploaded?', a: `No. ${NO_UPLOAD}` },
+      { q: 'Can I remove pages from a Word document?', a: 'Yes. Drop the .docx or .doc file in — it is shown page by page as it prints. Remove the pages and download a PDF, or download it as a Word file again.' },
+      { q: 'Is the PDF uploaded?', a: `No. ${NO_UPLOAD} A Word file is uploaded only for the conversion and deleted straight after.` },
     ],
     related: [
       { id: 'delete-pages', text: 'the reverse — remove pages, keep the rest' },
@@ -735,7 +741,8 @@ const toolSeo = {
       { q: 'Does this screenshot the pages?', a: 'No — it pulls the original embedded image data, so you get the full resolution stored in the PDF.' },
       { q: 'What format are the extracted images?', a: 'PNG, which is lossless and preserves transparency where the source image had it.' },
       { q: 'What if I want the whole page as an image?', a: 'Use PDF to JPG to render each page as a picture.' },
-      { q: 'Is the PDF uploaded?', a: `No. ${NO_UPLOAD}` },
+      { q: 'Can I remove pages from a Word document?', a: 'Yes. Drop the .docx or .doc file in — it is shown page by page as it prints. Remove the pages and download a PDF, or download it as a Word file again.' },
+      { q: 'Is the PDF uploaded?', a: `No. ${NO_UPLOAD} A Word file is uploaded only for the conversion and deleted straight after.` },
     ],
     related: [
       { id: 'pdf-to-jpg', text: 'render entire pages as images' },
@@ -1084,7 +1091,8 @@ const toolSeo = {
       { q: 'How do I convert a PDF to JPG?', a: 'Upload the PDF, choose a resolution, and download — each page is saved as its own JPG.' },
       { q: 'Can I get PNG instead of JPG?', a: 'Yes — choose PNG in the format option for lossless output or transparency.' },
       { q: 'How do I get one image per page?', a: 'That is the default — every page becomes a separate image.' },
-      { q: 'Is the PDF uploaded?', a: `No. ${NO_UPLOAD}` },
+      { q: 'Can I remove pages from a Word document?', a: 'Yes. Drop the .docx or .doc file in — it is shown page by page as it prints. Remove the pages and download a PDF, or download it as a Word file again.' },
+      { q: 'Is the PDF uploaded?', a: `No. ${NO_UPLOAD} A Word file is uploaded only for the conversion and deleted straight after.` },
     ],
     related: [
       { id: 'image-to-pdf', text: 'the reverse — images back into a PDF' },
