@@ -17,8 +17,8 @@ import { stripExt } from '../../../lib/format';
 import { toolFileName } from '../../../lib/fileNames';
 import { zipFiles } from '../../../lib/zip';
 import { imagesToPdf } from '../../../lib/imagesToPdf';
-import { preloadCv } from '../../../lib/opencvLoader';
-import { detectDocument, detectDocumentAI, defaultCorners, orderCorners, scanPage } from '../../../lib/scan';
+import { getCv, preloadCv } from '../../../lib/opencvLoader';
+import { detectDocument, detectDocumentAI, orderCorners, scanPage } from '../../../lib/scan';
 import { screenFiles, rejectionMessage } from '../../../lib/fileValidation';
 
 const MAX_PDF_PAGES = 300;
@@ -32,6 +32,18 @@ const MODES = [
 ];
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+// Scanning works on at most this many pixels on the long side (same cap as
+// lib/scan.js), so a rotated copy is only ever built at this size.
+const SCAN_EDGE = 2200;
+
+// What the user sees: the photo's size after their 90° turns.
+const dispOf = (p) => (p.rotate % 180 ? { w: p.nat.h, h: p.nat.w } : p.nat);
+// The starting frame: the whole photo, 6% in from each side.
+const frameFor = ({ w, h }) => [
+  { x: w * 0.06, y: h * 0.06 }, { x: w * 0.94, y: h * 0.06 },
+  { x: w * 0.94, y: h * 0.94 }, { x: w * 0.06, y: h * 0.94 },
+];
 let _seq = 0;
 
 /* ---------------- corner editor ---------------- */
@@ -39,7 +51,7 @@ let _seq = 0;
 // The frame the user sets before scanning: drag a corner, or drag a side bar
 // to pull that whole edge in or out. Outside the frame is dimmed so it's clear
 // what will be kept.
-function QuadEditor({ src, corners, nat, onChange }) {
+function QuadEditor({ src, corners, nat, rotate = 0, onChange }) {
   const wrapRef = useRef(null);
   // { kind: 'corner', i } | { kind: 'edge', i, start: corners, from: point }
   const drag = useRef(null);
@@ -85,17 +97,29 @@ function QuadEditor({ src, corners, nat, onChange }) {
   const end = () => { drag.current = null; };
 
   const pts = corners.map(toPct);
+  // `nat` is the size as displayed (after turning); the <img> keeps its own
+  // orientation and is turned with CSS, so rotating costs nothing.
+  const turned = rotate % 180 !== 0;
+  const imgStyle = {
+    position: 'absolute',
+    left: '50%',
+    top: '50%',
+    width: turned ? `${(nat.h / nat.w) * 100}%` : '100%',
+    height: turned ? `${(nat.w / nat.h) * 100}%` : '100%',
+    transform: `translate(-50%, -50%) rotate(${rotate}deg)`,
+  };
   const poly = pts.map((q) => `${q.x},${q.y}`).join(' ');
 
   return (
     <div
       ref={wrapRef}
-      className="relative inline-block max-w-full select-none touch-none align-top"
+      className="relative max-w-full select-none touch-none overflow-hidden rounded-lg"
+      style={{ aspectRatio: `${nat.w} / ${nat.h}`, width: `min(100%, calc(max(260px, 62vh) * ${nat.w / nat.h}))` }}
       onPointerMove={move}
       onPointerUp={end}
       onPointerCancel={end}
     >
-      <img src={src} alt="" draggable={false} className="block max-h-[62vh] w-auto max-w-full rounded-lg" />
+      <img src={src} alt="" draggable={false} style={imgStyle} />
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 h-full w-full">
         {/* dim everything outside the frame */}
         <path
@@ -167,7 +191,13 @@ function PageThumb({ page, active, index, onClick, onRemove, onDownload, onExpan
       }`}
       onClick={onClick}
     >
-      <img src={thumb} alt="" draggable={false} className="h-24 w-20 bg-gray-100 object-cover dark:bg-gray-800" />
+      <img
+        src={thumb}
+        alt=""
+        draggable={false}
+        className="h-24 w-20 bg-gray-100 object-cover dark:bg-gray-800"
+        style={!page.result && page.rotate ? { transform: `rotate(${page.rotate}deg)` } : undefined}
+      />
       <button
         type="button"
         onPointerDown={stopDrag}
@@ -241,16 +271,15 @@ const DocumentScanner = () => {
 
   useEffect(() => { pagesRef.current = pages; }, [pages]);
 
-  // The scan engine (OpenCV, a few MB) is only needed when Scan is pressed —
-  // load it quietly in the background once a page is added.
-  const hasPages = pages.length > 0;
-  useEffect(() => {
-    if (!hasPages) return undefined;
-    const idle = window.requestIdleCallback || ((cb) => setTimeout(cb, 800));
-    const cancel = window.cancelIdleCallback || clearTimeout;
-    const h = idle(() => preloadCv());
-    return () => cancel(h);
-  }, [hasPages]);
+  // The scan engine (OpenCV, ~9 MB) is loaded only when the user asks for a
+  // scan or an auto-detect — unpacking it freezes the page for a moment, so it
+  // must never happen on its own. (Hovering a Scan button starts it early.)
+  const [cvState, setCvState] = useState('idle'); // idle | loading | ready
+  const ensureCv = async () => {
+    if (cvState !== 'ready') setCvState('loading');
+    await getCv();
+    setCvState('ready');
+  };
   useEffect(() => () => urlBag.current.forEach((u) => URL.revokeObjectURL(u)), []);
 
   const sel = pages.find((p) => p.id === selId) || null;
@@ -340,19 +369,55 @@ const DocumentScanner = () => {
         const im = new Image();
         await new Promise((res, rej) => { im.onload = res; im.onerror = rej; im.src = p.srcUrl; });
         const nat = { w: im.naturalWidth, h: im.naturalHeight };
-        patch(p.id, { nat, corners: p.corners || await defaultCorners(p.srcUrl), status: 'review' });
+        patch(p.id, { nat, corners: p.corners || frameFor(nat), status: 'review' });
       } catch {
         patch(p.id, { status: 'error' });
       }
     });
   }, [pages]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The photo as the user turned it, at scan resolution — built only when a
+  // scan or auto-detect actually runs. `k` maps frame coordinates onto it.
+  const scanSource = async (page) => {
+    if (!page.rotate) return { url: page.srcUrl, k: 1 };
+    // re-scans (e.g. switching Auto -> B&W) reuse the copy for this rotation
+    if (page.scanSrc?.rotate === page.rotate) return page.scanSrc;
+    const img = await new Promise((res, rej) => {
+      const im = new Image();
+      im.onload = () => res(im);
+      im.onerror = rej;
+      im.src = page.srcUrl;
+    });
+    const k = Math.min(1, SCAN_EDGE / Math.max(img.naturalWidth, img.naturalHeight));
+    const w = Math.round(img.naturalWidth * k);
+    const h = Math.round(img.naturalHeight * k);
+    const turned = page.rotate % 180 !== 0;
+    const c = document.createElement('canvas');
+    c.width = turned ? h : w;
+    c.height = turned ? w : h;
+    const ctx = c.getContext('2d');
+    ctx.translate(c.width / 2, c.height / 2);
+    ctx.rotate((page.rotate * Math.PI) / 180);
+    ctx.drawImage(img, -w / 2, -h / 2, w, h);
+    const blob = await new Promise((r) => c.toBlob((b) => r(b), 'image/jpeg', 0.92));
+    const url = URL.createObjectURL(blob);
+    urlBag.current.push(url);
+    const built = { rotate: page.rotate, url, k };
+    patch(page.id, { scanSrc: built });
+    return built;
+  };
+
   // optional helper: let the detector find the page edges for the selected page
   const autoDetect = async (page, ai) => {
     patch(page.id, { status: ai ? 'ai' : 'detecting', result: null });
     let c = null;
-    try { c = ai ? await detectDocumentAI(page.srcUrl) : await detectDocument(page.srcUrl); } catch { /* ignore */ }
-    if (!c && ai) { try { c = await detectDocument(page.srcUrl); } catch { /* ignore */ } }
+    try {
+      await ensureCv();
+      const { url, k } = await scanSource(page);
+      try { c = ai ? await detectDocumentAI(url) : await detectDocument(url); } catch { /* ignore */ }
+      if (!c && ai) { try { c = await detectDocument(url); } catch { /* ignore */ } }
+      if (c) c = c.map((pt) => ({ x: pt.x / k, y: pt.y / k }));
+    } catch { /* fall through to the message */ }
     if (!c) setError('Couldn’t find the page edges automatically — drag the frame onto the page instead.');
     else setError(null);
     patch(page.id, { corners: c || page.corners, status: 'review' });
@@ -362,50 +427,29 @@ const DocumentScanner = () => {
     if (!page.corners) return;
     patch(page.id, { status: 'scanning' });
     try {
-      const { blob, width, height } = await scanPage(page.srcUrl, page.corners, mode);
-      const url = URL.createObjectURL(blob);
-      urlBag.current.push(url);
-      patch(page.id, { status: 'ready', mode, result: { url, blob, width, height } });
+      await ensureCv();
+      const { url, k } = await scanSource(page);
+      const corners = page.corners.map((pt) => ({ x: pt.x * k, y: pt.y * k }));
+      const { blob, width, height } = await scanPage(url, corners, mode);
+      const out = URL.createObjectURL(blob);
+      urlBag.current.push(out);
+      patch(page.id, { status: 'ready', mode, result: { url: out, blob, width, height } });
     } catch (e) {
       patch(page.id, { status: 'error' });
       setError(e?.message || 'Could not scan this page.');
     }
   };
 
-  // rotate a page: re-render the original at the new angle, then re-detect
-  const rotatePage = async (page, delta) => {
-    const rotate = (((page.rotate || 0) + delta) % 360 + 360) % 360;
-    try {
-      const img = await new Promise((res, rej) => {
-        const im = new Image();
-        im.onload = () => res(im);
-        im.onerror = rej;
-        im.src = page.origUrl;
-      });
-      const swap = rotate % 180 !== 0;
-      const c = document.createElement('canvas');
-      c.width = swap ? img.naturalHeight : img.naturalWidth;
-      c.height = swap ? img.naturalWidth : img.naturalHeight;
-      const ctx = c.getContext('2d');
-      ctx.translate(c.width / 2, c.height / 2);
-      ctx.rotate((rotate * Math.PI) / 180);
-      ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
-      const blob = await new Promise((r) => c.toBlob((b) => r(b), 'image/jpeg', 0.92));
-      const url = URL.createObjectURL(blob);
-      urlBag.current.push(url);
-      // turn the frame with the photo (90° steps) so the user's adjustments stay
-      let corners = null;
-      if (page.corners && page.nat) {
-        const { w, h } = page.nat;
-        const turned = page.corners.map((pt) => (delta > 0 ? { x: h - pt.y, y: pt.x } : { x: pt.y, y: w - pt.x }));
-        corners = orderCorners(turned);
-      }
-      patch(page.id, {
-        srcUrl: url, rotate, nat: { w: c.width, h: c.height }, corners, result: null, status: corners ? 'review' : 'pending',
-      });
-    } catch {
-      setError('Could not rotate this page.');
-    }
+  // rotate a page: instant — the photo is turned on screen and the frame is
+  // turned with it; the real rotation happens once, at scan time.
+  const rotatePage = (page, delta) => {
+    if (!page.nat) return;
+    const rotate = ((((page.rotate || 0) + delta) % 360) + 360) % 360;
+    const { w, h } = dispOf(page);
+    const corners = page.corners
+      ? orderCorners(page.corners.map((pt) => (delta > 0 ? { x: h - pt.y, y: pt.x } : { x: pt.y, y: w - pt.x })))
+      : null;
+    patch(page.id, { rotate, corners, result: null, status: 'review' });
   };
 
   const scanAll = async () => {
@@ -512,6 +556,8 @@ const DocumentScanner = () => {
           <button
             type="button"
             onClick={scanAll}
+            onPointerEnter={preloadCv}
+            onFocus={preloadCv}
             disabled={runningAll}
             className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-2 text-[13px] font-semibold text-white shadow-lg shadow-purple-600/25 hover:brightness-110 disabled:opacity-60"
           >
@@ -520,7 +566,7 @@ const DocumentScanner = () => {
             ) : (
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 7V5a1 1 0 011-1h2M4 17v2a1 1 0 001 1h2M20 7V5a1 1 0 00-1-1h-2M20 17v2a1 1 0 01-1 1h-2M4 12h16" /></svg>
             )}
-            {runningAll ? 'Scanning…' : anyResult ? 'Re-scan all' : 'Scan all'}
+            {runningAll ? (cvState === 'loading' ? 'Preparing scanner…' : 'Scanning…') : anyResult ? 'Re-scan all' : 'Scan all'}
           </button>
         </div>
       </div>
@@ -590,7 +636,7 @@ const DocumentScanner = () => {
             </button>
             <button
               type="button"
-              onClick={() => defaultCorners(sel.srcUrl).then((c) => patch(sel.id, { corners: c, result: null, status: 'review' }))}
+              onClick={() => sel.nat && patch(sel.id, { corners: frameFor(dispOf(sel)), result: null, status: 'review' })}
               className="rounded-lg bg-white px-2.5 py-1 text-[12px] font-medium text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
             >
               Reset frame
@@ -628,9 +674,10 @@ const DocumentScanner = () => {
               />
             ) : sel.corners && sel.nat ? (
               <QuadEditor
+                rotate={sel.rotate || 0}
                 src={sel.srcUrl}
                 corners={sel.corners}
-                nat={sel.nat}
+                nat={dispOf(sel)}
                 onChange={(c) => patch(sel.id, { corners: c, status: 'review' })}
               />
             ) : (
@@ -670,11 +717,15 @@ const DocumentScanner = () => {
               <button
                 type="button"
                 onClick={() => runOne(sel)}
+                onPointerEnter={preloadCv}
+                onFocus={preloadCv}
                 disabled={!sel.corners || sel.status === 'scanning'}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-4 py-1.5 text-[13px] font-semibold text-white hover:bg-purple-700 disabled:opacity-40"
               >
                 {sel.status === 'scanning' && <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />}
-                {sel.result ? 'Re-scan page' : 'Scan page'}
+                {sel.status === 'scanning'
+                  ? (cvState === 'loading' ? 'Preparing scanner…' : 'Scanning…')
+                  : sel.result ? 'Re-scan page' : 'Scan page'}
               </button>
             </div>
           </div>
