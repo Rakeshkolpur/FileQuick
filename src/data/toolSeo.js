@@ -330,19 +330,19 @@ const toolSeo = {
   'document-scanner': {
     seoTitle: 'Document Scanner Online – Photo to Scanned PDF',
     seoDescription:
-      'Scan a document online free — turn phone photos of pages, receipts and forms into clean, straightened scans and export them as one PDF. Auto edge-detect, bulk upload, no upload to a server.',
+      'Scan a document online free — turn phone photos of pages, receipts and forms into clean, straightened scans and export them as one PDF. Set the frame yourself or auto-detect, bulk upload, no upload to a server.',
     h1: 'How to scan a document with your phone',
     intro:
-      'Turn phone photos of documents, receipts and forms into clean, straightened, high-contrast scans and export them as a PDF or images. Bulk upload, automatic edge detection, free, and nothing is uploaded.',
+      'Turn phone photos of documents, receipts and forms into clean, straightened, high-contrast scans and export them as a PDF or images. Bulk upload, a frame you set yourself (or auto-detect), free, and nothing is uploaded.',
     body: [
-      'A photo of a document is not a scan — it is skewed, shadowed and cluttered with the desk behind it. This tool fixes that: it detects the page edges, corrects the perspective so the page is a clean rectangle, and applies a scan finish (colour, greyscale or crisp black-and-white) so the text is sharp and the background is white.',
-      'Upload every page at once, reorder them if needed, adjust any corner the detector missed, and export a single multi-page PDF — or individual images and a ZIP. After the page loads once, the processing runs fully offline using OpenCV compiled to WebAssembly.',
+      'A photo of a document is not a scan — it is skewed, shadowed and cluttered with the desk behind it. This tool fixes that: you place a frame on the page edges (or let it auto-detect them), it corrects the perspective so the page is a clean rectangle, and applies a scan finish (colour, greyscale or crisp black-and-white) so the text is sharp and the background is white.',
+      'Upload every page at once, reorder them if needed, set each page\'s frame, and export a single multi-page PDF — or individual images and a ZIP. After the page loads once, the processing runs fully offline using OpenCV compiled to WebAssembly.',
       NO_UPLOAD,
     ],
     steps: [
       'Take photos of each page, then upload them all at once.',
-      'The scanner finds the page edges and corrects the perspective automatically.',
-      'Adjust the corners if a page needs it and pick a finish — colour, greyscale or black-and-white.',
+      'Rotate the photo if needed, then drag the corners or side bars of the frame onto the page edges — or press Auto-detect.',
+      'Pick a finish — colour, greyscale or black-and-white — and press Scan; the page is straightened to exactly the frame you set.',
       'Export as a single multi-page PDF, or as individual images / a ZIP.',
     ],
     faqs: [

@@ -18,7 +18,7 @@ import { toolFileName } from '../../../lib/fileNames';
 import { zipFiles } from '../../../lib/zip';
 import { imagesToPdf } from '../../../lib/imagesToPdf';
 import { preloadCv } from '../../../lib/opencvLoader';
-import { detectDocument, detectDocumentAI, defaultCorners, scanPage } from '../../../lib/scan';
+import { detectDocument, detectDocumentAI, defaultCorners, orderCorners, scanPage } from '../../../lib/scan';
 import { screenFiles, rejectionMessage } from '../../../lib/fileValidation';
 
 const MAX_PDF_PAGES = 300;
@@ -36,50 +36,56 @@ let _seq = 0;
 
 /* ---------------- corner editor ---------------- */
 
+// The frame the user sets before scanning: drag a corner, or drag a side bar
+// to pull that whole edge in or out. Outside the frame is dimmed so it's clear
+// what will be kept.
 function QuadEditor({ src, corners, nat, onChange }) {
   const wrapRef = useRef(null);
-  const dragIdx = useRef(-1);
-
-  // snap-in animation: the quad flies from the full frame onto the detected page
-  const [intro, setIntro] = useState(corners);
-  const introDone = useRef(false);
-  useEffect(() => {
-    const frame = [
-      { x: 0, y: 0 }, { x: nat.w, y: 0 }, { x: nat.w, y: nat.h }, { x: 0, y: nat.h },
-    ];
-    const t0 = performance.now();
-    const dur = 420;
-    let raf;
-    const tick = (t) => {
-      const k = Math.min(1, (t - t0) / dur);
-      const e = 1 - (1 - k) ** 3;
-      setIntro(corners.map((c, i) => ({
-        x: frame[i].x + (c.x - frame[i].x) * e,
-        y: frame[i].y + (c.y - frame[i].y) * e,
-      })));
-      if (k < 1) raf = requestAnimationFrame(tick);
-      else introDone.current = true;
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-    // mount only — during drag we render `corners` directly
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  const view = introDone.current ? corners : intro;
+  // { kind: 'corner', i } | { kind: 'edge', i, start: corners, from: point }
+  const drag = useRef(null);
 
   const toPct = (p) => ({ x: (p.x / nat.w) * 100, y: (p.y / nat.h) * 100 });
+  const pointAt = (e) => {
+    const r = wrapRef.current.getBoundingClientRect();
+    return {
+      x: clamp((e.clientX - r.left) / r.width, 0, 1) * nat.w,
+      y: clamp((e.clientY - r.top) / r.height, 0, 1) * nat.h,
+    };
+  };
+
+  const begin = (e, d) => {
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    drag.current = d.kind === 'edge' ? { ...d, start: corners.map((c) => ({ ...c })), from: pointAt(e) } : d;
+  };
 
   const move = (e) => {
-    if (dragIdx.current < 0 || !wrapRef.current) return;
-    introDone.current = true;
-    const r = wrapRef.current.getBoundingClientRect();
-    const x = clamp((e.clientX - r.left) / r.width, 0, 1) * nat.w;
-    const y = clamp((e.clientY - r.top) / r.height, 0, 1) * nat.h;
-    const next = corners.slice();
-    next[dragIdx.current] = { x, y };
+    const d = drag.current;
+    if (!d || !wrapRef.current) return;
+    const p = pointAt(e);
+    if (d.kind === 'corner') {
+      const next = corners.slice();
+      next[d.i] = p;
+      onChange(next);
+      return;
+    }
+    // edge: move both of its corners along the edge's normal only
+    const a = d.start[d.i];
+    const b = d.start[(d.i + 1) % 4];
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const nx = -(b.y - a.y) / len;
+    const ny = (b.x - a.x) / len;
+    const k = (p.x - d.from.x) * nx + (p.y - d.from.y) * ny;
+    const next = d.start.map((c) => ({ ...c }));
+    [d.i, (d.i + 1) % 4].forEach((j) => {
+      next[j] = { x: clamp(d.start[j].x + nx * k, 0, nat.w), y: clamp(d.start[j].y + ny * k, 0, nat.h) };
+    });
     onChange(next);
   };
-  const end = () => { dragIdx.current = -1; };
+  const end = () => { drag.current = null; };
+
+  const pts = corners.map(toPct);
+  const poly = pts.map((q) => `${q.x},${q.y}`).join(' ');
 
   return (
     <div
@@ -87,32 +93,51 @@ function QuadEditor({ src, corners, nat, onChange }) {
       className="relative inline-block max-w-full select-none touch-none align-top"
       onPointerMove={move}
       onPointerUp={end}
-      onPointerLeave={end}
       onPointerCancel={end}
     >
-      <img src={src} alt="" draggable={false} className="block max-h-[58vh] w-auto max-w-full rounded-lg" />
+      <img src={src} alt="" draggable={false} className="block max-h-[62vh] w-auto max-w-full rounded-lg" />
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 h-full w-full">
-        <polygon
-          points={view.map((c) => { const q = toPct(c); return `${q.x},${q.y}`; }).join(' ')}
-          fill="rgba(139,92,246,0.14)"
-          stroke="#8b5cf6"
-          strokeWidth="2"
-          vectorEffect="non-scaling-stroke"
+        {/* dim everything outside the frame */}
+        <path
+          d={`M0,0 H100 V100 H0 Z M${pts.map((q) => `${q.x},${q.y}`).join(' L')} Z`}
+          fill="rgba(0,0,0,0.45)"
+          fillRule="evenodd"
         />
+        <polygon points={poly} fill="none" stroke="#a78bfa" strokeWidth="2" vectorEffect="non-scaling-stroke" />
       </svg>
-      {view.map((c, i) => {
-        const q = toPct(c);
+
+      {/* side bars — drag to move a whole edge */}
+      {corners.map((c, i) => {
+        const n = corners[(i + 1) % 4];
+        const mid = toPct({ x: (c.x + n.x) / 2, y: (c.y + n.y) / 2 });
+        const angle = (Math.atan2(n.y - c.y, n.x - c.x) * 180) / Math.PI;
         return (
           <button
-            key={i}
+            key={`e${i}`}
             type="button"
-            aria-label={`Corner ${i + 1}`}
-            onPointerDown={(e) => { dragIdx.current = i; e.currentTarget.setPointerCapture(e.pointerId); }}
-            className="absolute h-6 w-6 -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none rounded-full border-2 border-white bg-purple-600 shadow-lg shadow-purple-600/40 active:cursor-grabbing active:scale-110"
-            style={{ left: `${q.x}%`, top: `${q.y}%` }}
-          />
+            aria-label={['Top edge', 'Right edge', 'Bottom edge', 'Left edge'][i]}
+            onPointerDown={(e) => begin(e, { kind: 'edge', i })}
+            className="absolute grid h-8 w-12 cursor-grab touch-none place-items-center active:cursor-grabbing"
+            style={{ left: `${mid.x}%`, top: `${mid.y}%`, transform: `translate(-50%, -50%) rotate(${angle}deg)` }}
+          >
+            <span className="block h-2 w-9 rounded-full border-2 border-white bg-purple-600 shadow-md shadow-black/30" />
+          </button>
         );
       })}
+
+      {/* corners */}
+      {pts.map((q, i) => (
+        <button
+          key={`c${i}`}
+          type="button"
+          aria-label={['Top-left corner', 'Top-right corner', 'Bottom-right corner', 'Bottom-left corner'][i]}
+          onPointerDown={(e) => begin(e, { kind: 'corner', i })}
+          className="absolute grid h-10 w-10 -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none place-items-center active:cursor-grabbing"
+          style={{ left: `${q.x}%`, top: `${q.y}%` }}
+        >
+          <span className="block h-6 w-6 rounded-full border-2 border-white bg-purple-600 shadow-lg shadow-purple-600/40" />
+        </button>
+      ))}
     </div>
   );
 }
@@ -161,9 +186,6 @@ function PageThumb({ page, active, index, onClick, onRemove, onDownload, onExpan
           <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
         </span>
       )}
-      {page.status === 'review' && (
-        <span className="absolute right-1 top-1 rounded bg-amber-500 px-1 text-[9px] font-bold text-white">edit</span>
-      )}
       <button
         type="button"
         onPointerDown={stopDrag}
@@ -196,11 +218,8 @@ const DocumentScanner = () => {
   const [runningAll, setRunningAll] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(null); // { name, done, total } while a PDF rasterises
-  const [aiEdges, setAiEdges] = useState(false);
   const [lightbox, setLightbox] = useState(null); // { src, caption } | null
   const [error, setError] = useState(null);
-  const aiRef = useRef(false);
-  useEffect(() => { aiRef.current = aiEdges; }, [aiEdges]);
 
   // drag-to-reorder the filmstrip — the output PDF / ZIP follows this order
   const sensors = useSensors(
@@ -216,32 +235,22 @@ const DocumentScanner = () => {
     });
   };
 
-  // re-run edge detection on every page that isn't finished (keeps scanned
-  // results and in-flight pages). Called when AI edges is switched on, and by
-  // the "Re-detect all" button.
-  const redetectAll = () => {
-    setPages((ps) => ps.map((p) => (
-      p.result || ['detecting', 'ai', 'scanning'].includes(p.status)
-        ? p
-        : { ...p, corners: null, status: 'pending' }
-    )));
-  };
-
-  const toggleAi = () => {
-    setAiEdges((on) => {
-      const next = !on;
-      if (next) redetectAll();
-      return next;
-    });
-  };
   const urlBag = useRef([]);
-  const detecting = useRef(false);
   const pagesRef = useRef([]);
   const registerBack = useContext(ToolBackContext);
 
   useEffect(() => { pagesRef.current = pages; }, [pages]);
 
-  useEffect(() => { preloadCv(); }, []);
+  // The scan engine (OpenCV, a few MB) is only needed when Scan is pressed —
+  // load it quietly in the background once a page is added.
+  const hasPages = pages.length > 0;
+  useEffect(() => {
+    if (!hasPages) return undefined;
+    const idle = window.requestIdleCallback || ((cb) => setTimeout(cb, 800));
+    const cancel = window.cancelIdleCallback || clearTimeout;
+    const h = idle(() => preloadCv());
+    return () => cancel(h);
+  }, [hasPages]);
   useEffect(() => () => urlBag.current.forEach((u) => URL.revokeObjectURL(u)), []);
 
   const sel = pages.find((p) => p.id === selId) || null;
@@ -319,40 +328,35 @@ const DocumentScanner = () => {
     setImporting(null);
   };
 
-  // sequential detection queue
+  // New pages: measure the photo and put an adjustable frame on it straight
+  // away. No automatic edge detection — the user sets the frame (or presses
+  // Auto-detect) and then scans.
   useEffect(() => {
-    if (detecting.current) return;
-    const next = pages.find((p) => p.status === 'pending');
-    if (!next) return;
-    detecting.current = true;
-    (async () => {
-      const ai = aiRef.current;
-      patch(next.id, { status: ai ? 'ai' : 'detecting' });
+    const fresh = pages.filter((p) => p.status === 'pending');
+    if (!fresh.length) return;
+    fresh.forEach((p) => patch(p.id, { status: 'measuring' }));
+    fresh.forEach(async (p) => {
       try {
         const im = new Image();
-        await new Promise((res, rej) => { im.onload = res; im.onerror = rej; im.src = next.srcUrl; });
+        await new Promise((res, rej) => { im.onload = res; im.onerror = rej; im.src = p.srcUrl; });
         const nat = { w: im.naturalWidth, h: im.naturalHeight };
-        let corners = null;
-        try {
-          corners = ai ? await detectDocumentAI(next.srcUrl) : await detectDocument(next.srcUrl);
-        } catch { /* fall through */ }
-        // cross-fallback: whichever one wasn't tried yet, before giving up
-        if (!corners) {
-          try {
-            corners = ai ? await detectDocument(next.srcUrl) : await detectDocumentAI(next.srcUrl);
-          } catch { /* ignore */ }
-        }
-        const auto = !!corners;
-        if (!corners) corners = await defaultCorners(next.srcUrl);
-        patch(next.id, { nat, corners, status: auto ? 'ready' : 'review' });
+        patch(p.id, { nat, corners: p.corners || await defaultCorners(p.srcUrl), status: 'review' });
       } catch {
-        patch(next.id, { status: 'error' });
-      } finally {
-        detecting.current = false;
-        setPages((ps) => [...ps]); // nudge the effect to pick up the next one
+        patch(p.id, { status: 'error' });
       }
-    })();
-  }, [pages]);
+    });
+  }, [pages]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // optional helper: let the detector find the page edges for the selected page
+  const autoDetect = async (page, ai) => {
+    patch(page.id, { status: ai ? 'ai' : 'detecting', result: null });
+    let c = null;
+    try { c = ai ? await detectDocumentAI(page.srcUrl) : await detectDocument(page.srcUrl); } catch { /* ignore */ }
+    if (!c && ai) { try { c = await detectDocument(page.srcUrl); } catch { /* ignore */ } }
+    if (!c) setError('Couldn’t find the page edges automatically — drag the frame onto the page instead.');
+    else setError(null);
+    patch(page.id, { corners: c || page.corners, status: 'review' });
+  };
 
   const runOne = async (page, mode = page.mode) => {
     if (!page.corners) return;
@@ -389,7 +393,16 @@ const DocumentScanner = () => {
       const blob = await new Promise((r) => c.toBlob((b) => r(b), 'image/jpeg', 0.92));
       const url = URL.createObjectURL(blob);
       urlBag.current.push(url);
-      patch(page.id, { srcUrl: url, rotate, nat: { w: c.width, h: c.height }, corners: null, result: null, status: 'pending' });
+      // turn the frame with the photo (90° steps) so the user's adjustments stay
+      let corners = null;
+      if (page.corners && page.nat) {
+        const { w, h } = page.nat;
+        const turned = page.corners.map((pt) => (delta > 0 ? { x: h - pt.y, y: pt.x } : { x: pt.y, y: w - pt.x }));
+        corners = orderCorners(turned);
+      }
+      patch(page.id, {
+        srcUrl: url, rotate, nat: { w: c.width, h: c.height }, corners, result: null, status: corners ? 'review' : 'pending',
+      });
     } catch {
       setError('Could not rotate this page.');
     }
@@ -403,7 +416,7 @@ const DocumentScanner = () => {
     for (const id of ids) {
       // wait until detection has settled for this page
       // eslint-disable-next-line no-await-in-loop
-      while (['pending', 'detecting', 'ai'].includes(cur(id)?.status)) {
+      while (['pending', 'measuring', 'detecting', 'ai'].includes(cur(id)?.status)) {
         // eslint-disable-next-line no-await-in-loop
         await new Promise((r) => setTimeout(r, 150));
       }
@@ -498,28 +511,6 @@ const DocumentScanner = () => {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={toggleAi}
-            title="Smart edge finding — segments the page from its background, for cluttered or low-contrast photos where the plain detector struggles"
-            className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-semibold transition-colors ${
-              aiEdges
-                ? 'border-purple-600 bg-purple-50 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300'
-                : 'border-gray-200 text-gray-600 hover:border-purple-300 dark:border-gray-700 dark:text-gray-300'
-            }`}
-          >
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 3l1.4 3.6L10 8 6.4 9.4 5 13 3.6 9.4 0 8l3.6-1.4zM17 4l1 2.5L20.5 8 18 9l-1 2.5L16 9l-2.5-1L16 6.5zM15 14l1.2 3L19 18l-2.8 1L15 22l-1.2-3L11 18l2.8-1z" /></svg>
-            AI edges{aiEdges ? ' · on' : ''}
-          </button>
-          {aiEdges && pages.some((p) => !p.result) && (
-            <button
-              type="button"
-              onClick={redetectAll}
-              className="rounded-xl border border-gray-200 px-3 py-2 text-[13px] font-medium text-gray-600 hover:border-purple-300 dark:border-gray-700 dark:text-gray-300"
-            >
-              Re-detect all
-            </button>
-          )}
-          <button
-            type="button"
             onClick={scanAll}
             disabled={runningAll}
             className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-2 text-[13px] font-semibold text-white shadow-lg shadow-purple-600/25 hover:brightness-110 disabled:opacity-60"
@@ -582,20 +573,16 @@ const DocumentScanner = () => {
             <span className="mx-1 h-4 w-px bg-gray-300 dark:bg-gray-600" />
             <button
               type="button"
-              onClick={async () => { patch(sel.id, { status: 'detecting' }); let c = null; try { c = await detectDocument(sel.srcUrl); } catch { /* ignore */ } patch(sel.id, { corners: c || await defaultCorners(sel.srcUrl), status: 'review' }); }}
+              title="Let FileQuick look for the page edges in this photo"
+              onClick={() => autoDetect(sel, false)}
               className="rounded-lg bg-white px-2.5 py-1 text-[12px] font-medium text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
             >
-              Re-detect edges
+              Auto-detect
             </button>
             <button
               type="button"
-              onClick={async () => {
-                patch(sel.id, { status: 'ai' });
-                let c = null;
-                try { c = await detectDocumentAI(sel.srcUrl); } catch { /* ignore */ }
-                if (!c) { try { c = await detectDocument(sel.srcUrl); } catch { /* ignore */ } }
-                patch(sel.id, { corners: c || await defaultCorners(sel.srcUrl), status: 'review' });
-              }}
+              title="Smart edge finding for cluttered or low-contrast photos"
+              onClick={() => autoDetect(sel, true)}
               className="inline-flex items-center gap-1 rounded-lg bg-purple-50 px-2.5 py-1 text-[12px] font-medium text-purple-700 hover:bg-purple-100 dark:bg-purple-500/15 dark:text-purple-300"
             >
               <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 3l1.4 3.6L10 8 6.4 9.4 5 13 3.6 9.4 0 8l3.6-1.4z" /></svg>
@@ -603,10 +590,10 @@ const DocumentScanner = () => {
             </button>
             <button
               type="button"
-              onClick={() => sel.corners && defaultCorners(sel.srcUrl).then((c) => patch(sel.id, { corners: c }))}
+              onClick={() => defaultCorners(sel.srcUrl).then((c) => patch(sel.id, { corners: c, result: null, status: 'review' }))}
               className="rounded-lg bg-white px-2.5 py-1 text-[12px] font-medium text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
             >
-              Full page
+              Reset frame
             </button>
             <span className="mx-1 h-4 w-px bg-gray-300 dark:bg-gray-600" />
             <button
@@ -649,14 +636,16 @@ const DocumentScanner = () => {
             ) : (
               <div className="flex h-48 items-center justify-center gap-2 text-sm text-gray-400">
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />
-                {sel.status === 'ai' ? 'AI is finding the page…' : 'Finding the page…'}
+                {sel.status === 'ai' ? 'AI is finding the page…' : sel.status === 'detecting' ? 'Finding the page…' : 'Loading…'}
               </div>
             )}
           </div>
 
           <div className="mt-3 flex items-center justify-between gap-2">
             <p className="text-[11px] text-gray-400 dark:text-gray-500">
-              {sel.result ? 'Scanned — tap a mode to re-run, or edit corners below.' : 'Drag the four corners onto the page edges.'}
+              {sel.result
+                ? 'Scanned — tap a mode to re-run, or edit the frame.'
+                : 'Rotate if needed, then drag the corners or side bars onto the page edges and press Scan.'}
             </p>
             <div className="flex gap-2">
               {sel.result && (
@@ -674,7 +663,7 @@ const DocumentScanner = () => {
                     onClick={() => patch(sel.id, { result: null, status: 'review' })}
                     className="rounded-lg px-3 py-1.5 text-[13px] font-medium text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
                   >
-                    Edit corners
+                    Edit frame
                   </button>
                 </>
               )}
