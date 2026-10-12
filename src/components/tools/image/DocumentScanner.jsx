@@ -114,7 +114,7 @@ function QuadEditor({ src, corners, nat, rotate = 0, onChange }) {
     <div
       ref={wrapRef}
       className="relative max-w-full select-none touch-none overflow-hidden rounded-lg"
-      style={{ aspectRatio: `${nat.w} / ${nat.h}`, width: `min(100%, calc(max(260px, 62vh) * ${nat.w / nat.h}))` }}
+      style={{ aspectRatio: `${nat.w} / ${nat.h}`, width: `min(100%, calc(max(240px, min(62vh, 100dvh - 360px)) * ${nat.w / nat.h}))` }}
       onPointerMove={move}
       onPointerUp={end}
       onPointerCancel={end}
@@ -195,14 +195,14 @@ function PageThumb({ page, active, index, onClick, onRemove, onDownload, onExpan
         src={thumb}
         alt=""
         draggable={false}
-        className="h-24 w-20 bg-gray-100 object-cover dark:bg-gray-800"
+        className="h-16 w-12 bg-gray-100 object-cover dark:bg-gray-800 sm:h-24 sm:w-20"
         style={!page.result && page.rotate ? { transform: `rotate(${page.rotate}deg)` } : undefined}
       />
       <button
         type="button"
         onPointerDown={stopDrag}
         onClick={(e) => { e.stopPropagation(); onExpand(); }}
-        className="absolute inset-0 hidden place-items-center bg-black/25 text-white group-hover:grid"
+        className="absolute inset-0 hidden place-items-center bg-black/25 text-white sm:group-hover:grid"
         aria-label="View larger"
       >
         <svg className="h-5 w-5 drop-shadow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" /></svg>
@@ -220,7 +220,7 @@ function PageThumb({ page, active, index, onClick, onRemove, onDownload, onExpan
         type="button"
         onPointerDown={stopDrag}
         onClick={(e) => { e.stopPropagation(); onRemove(); }}
-        className="absolute bottom-1 right-1 hidden rounded bg-black/60 p-0.5 text-white group-hover:block"
+        className="absolute bottom-0.5 right-0.5 rounded bg-black/60 p-0.5 text-white sm:hidden sm:group-hover:block"
         aria-label="Remove page"
       >
         <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" /></svg>
@@ -230,7 +230,7 @@ function PageThumb({ page, active, index, onClick, onRemove, onDownload, onExpan
           type="button"
           onPointerDown={stopDrag}
           onClick={(e) => { e.stopPropagation(); onDownload(); }}
-          className="absolute bottom-1 left-1 hidden rounded bg-black/60 p-0.5 text-white group-hover:block"
+          className="absolute bottom-0.5 left-0.5 rounded bg-black/60 p-0.5 text-white sm:hidden sm:group-hover:block"
           aria-label="Download page"
         >
           <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16" /></svg>
@@ -283,6 +283,17 @@ const DocumentScanner = () => {
   useEffect(() => () => urlBag.current.forEach((u) => URL.revokeObjectURL(u)), []);
 
   const sel = pages.find((p) => p.id === selId) || null;
+
+  // Phones: once photos are added, bring the editor (photo + control dock)
+  // to the top of the screen so the whole frame and the Scan button fit.
+  const editorRef = useRef(null);
+  const scrolledToEditor = useRef(false);
+  useEffect(() => {
+    if (!pages.length) { scrolledToEditor.current = false; return; }
+    if (scrolledToEditor.current || !editorRef.current || window.innerWidth >= 640) return;
+    scrolledToEditor.current = true;
+    editorRef.current.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }, [pages.length, sel?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const scannedCount = pages.filter((p) => p.result).length;
 
   const patch = (id, up) => setPages((ps) => ps.map((p) => (p.id === id ? { ...p, ...up } : p)));
@@ -539,9 +550,9 @@ const DocumentScanner = () => {
     <div className="space-y-4">
       <style>{'@keyframes scanline{0%{transform:translateY(-100%)}100%{transform:translateY(1100%)}}'}</style>
 
-      {/* toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-[13px] text-gray-500 dark:text-gray-400">
+      {/* top bar */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2 text-[13px] text-gray-500 dark:text-gray-400">
           <span className="font-semibold text-gray-800 dark:text-gray-200">{pages.length} page{pages.length > 1 ? 's' : ''}</span>
           {anyResult && <span>· {scannedCount} scanned</span>}
           <label className="ml-1 cursor-pointer font-medium text-purple-600 hover:underline dark:text-purple-400">
@@ -549,31 +560,30 @@ const DocumentScanner = () => {
             <input type="file" accept="image/*,application/pdf" multiple className="hidden" onChange={(e) => { addFiles([...e.target.files]); e.target.value = ''; }} />
           </label>
           {importing && (
-            <span className="text-purple-600 dark:text-purple-400">· reading PDF {importing.done}/{importing.total}</span>
+            <span className="truncate text-purple-600 dark:text-purple-400">· reading PDF {importing.done}/{importing.total}</span>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={scanAll}
-            onPointerEnter={preloadCv}
-            onFocus={preloadCv}
-            disabled={runningAll}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-2 text-[13px] font-semibold text-white shadow-lg shadow-purple-600/25 hover:brightness-110 disabled:opacity-60"
-          >
-            {runningAll ? (
-              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-            ) : (
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 7V5a1 1 0 011-1h2M4 17v2a1 1 0 001 1h2M20 7V5a1 1 0 00-1-1h-2M20 17v2a1 1 0 01-1 1h-2M4 12h16" /></svg>
-            )}
-            {runningAll ? (cvState === 'loading' ? 'Preparing scanner…' : 'Scanning…') : anyResult ? 'Re-scan all' : 'Scan all'}
-          </button>
-        </div>
+        {/* phones get this in the bottom dock */}
+        <button
+          type="button"
+          onClick={scanAll}
+          onPointerEnter={preloadCv}
+          onFocus={preloadCv}
+          disabled={runningAll}
+          className="hidden items-center gap-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-2 text-[13px] font-semibold text-white shadow-lg shadow-purple-600/25 hover:brightness-110 disabled:opacity-60 sm:inline-flex"
+        >
+          {runningAll ? (
+            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+          ) : (
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 7V5a1 1 0 011-1h2M4 17v2a1 1 0 001 1h2M20 7V5a1 1 0 00-1-1h-2M20 17v2a1 1 0 01-1 1h-2M4 12h16" /></svg>
+          )}
+          {runningAll ? (cvState === 'loading' ? 'Preparing scanner…' : 'Scanning…') : anyResult ? 'Re-scan all' : 'Scan all'}
+        </button>
       </div>
 
       {/* filmstrip — drag a page to reorder; the exported PDF / ZIP follows this order */}
       {pages.length > 1 && (
-        <p className="text-[12px] text-gray-400 dark:text-gray-500">Drag a page to reorder it</p>
+        <p className="hidden text-[12px] text-gray-400 dark:text-gray-500 sm:block">Drag a page to reorder it</p>
       )}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={pages.map((p) => p.id)} strategy={horizontalListSortingStrategy}>
@@ -599,85 +609,127 @@ const DocumentScanner = () => {
 
       {/* editor */}
       {sel && (
-        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900">
-          <div className="mb-3 flex flex-wrap items-center gap-1.5">
-            {MODES.map((m) => (
-              <button
-                key={m.key}
-                type="button"
-                title={m.hint}
-                onClick={() => { patch(sel.id, { mode: m.key }); if (sel.result) runOne(sel, m.key); }}
-                className={`rounded-lg px-2.5 py-1 text-[12px] font-medium ${
-                  sel.mode === m.key
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-white text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
-                }`}
-              >
-                {m.label}
-              </button>
-            ))}
-            <span className="mx-1 h-4 w-px bg-gray-300 dark:bg-gray-600" />
-            <button
-              type="button"
-              title="Let FileQuick look for the page edges in this photo"
-              onClick={() => autoDetect(sel, false)}
-              className="rounded-lg bg-white px-2.5 py-1 text-[12px] font-medium text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-            >
-              Auto-detect
-            </button>
-            <button
-              type="button"
-              title="Smart edge finding for cluttered or low-contrast photos"
-              onClick={() => autoDetect(sel, true)}
-              className="inline-flex items-center gap-1 rounded-lg bg-purple-50 px-2.5 py-1 text-[12px] font-medium text-purple-700 hover:bg-purple-100 dark:bg-purple-500/15 dark:text-purple-300"
-            >
-              <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 3l1.4 3.6L10 8 6.4 9.4 5 13 3.6 9.4 0 8l3.6-1.4z" /></svg>
-              AI detect
-            </button>
-            <button
-              type="button"
-              onClick={() => sel.nat && patch(sel.id, { corners: frameFor(dispOf(sel)), result: null, status: 'review' })}
-              className="rounded-lg bg-white px-2.5 py-1 text-[12px] font-medium text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-            >
-              Reset frame
-            </button>
-            <span className="mx-1 h-4 w-px bg-gray-300 dark:bg-gray-600" />
-            <button
-              type="button"
-              title="Rotate left"
-              onClick={() => rotatePage(sel, -90)}
-              className="grid h-7 w-7 place-items-center rounded-lg bg-white text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 7v6h6M21 17a9 9 0 00-15-6.7L3 13" /></svg>
-            </button>
-            <button
-              type="button"
-              title="Rotate right"
-              onClick={() => rotatePage(sel, 90)}
-              className="grid h-7 w-7 place-items-center rounded-lg bg-white text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 7v6h-6M3 17a9 9 0 0115-6.7L21 13" /></svg>
-            </button>
-            <span className="mx-1 h-4 w-px bg-gray-300 dark:bg-gray-600" />
-            <label
-              title="Straightens text lines on a curled or folded page"
-              className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-white px-2.5 py-1 text-[12px] font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300"
-            >
-              <input
-                type="checkbox"
-                checked={sel.dewarp !== false}
-                onChange={(e) => {
-                  const dewarp = e.target.checked;
-                  patch(sel.id, { dewarp });
-                  if (sel.result) runOne({ ...sel, dewarp });
-                }}
-                className="h-3.5 w-3.5 accent-purple-600"
-              />
-              Fix bent page
-            </label>
+        <div ref={editorRef} className="flex scroll-mt-20 flex-col rounded-2xl border border-gray-200 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-900 sm:p-3">
+          {/* Controls. Phone: a dock pinned to the bottom of the screen (thumb
+              reach). Desktop: a toolbar above the photo. */}
+          <div className="sticky bottom-0 z-20 order-last -mx-2 -mb-2 mt-2 space-y-2 rounded-b-2xl border-t border-gray-200 bg-white/95 px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2 backdrop-blur dark:border-gray-700 dark:bg-gray-900/95 sm:static sm:order-first sm:mx-0 sm:mb-3 sm:mt-0 sm:space-y-0 sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none dark:sm:bg-transparent">
+            <div className="sm:flex sm:flex-wrap sm:items-center sm:gap-1.5">
+              {/* finish */}
+              <div className="-mx-2 flex gap-1.5 overflow-x-auto px-2 [scrollbar-width:none] sm:mx-0 sm:overflow-visible sm:px-0">
+                {MODES.map((m) => (
+                  <button
+                    key={m.key}
+                    type="button"
+                    title={m.hint}
+                    onClick={() => { patch(sel.id, { mode: m.key }); if (sel.result) runOne(sel, m.key); }}
+                    className={`shrink-0 rounded-full px-3 py-1.5 text-[12px] font-medium sm:rounded-lg sm:px-2.5 sm:py-1 ${
+                      sel.mode === m.key
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 sm:bg-white sm:hover:bg-gray-100'
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+              <span className="mx-1 hidden h-4 w-px bg-gray-300 dark:bg-gray-600 sm:inline-block" />
+              {/* tools */}
+              <div className="mt-2 grid grid-cols-6 gap-1 sm:mt-0 sm:flex sm:flex-wrap sm:items-center sm:gap-1.5">
+                {[
+                  { key: 'rl', label: 'Left', title: 'Rotate left', onClick: () => rotatePage(sel, -90), d: 'M3 7v6h6M21 17a9 9 0 00-15-6.7L3 13' },
+                  { key: 'rr', label: 'Right', title: 'Rotate right', onClick: () => rotatePage(sel, 90), d: 'M21 7v6h-6M3 17a9 9 0 0115-6.7L21 13' },
+                  { key: 'det', label: 'Detect', title: 'Let FileQuick find the page edges', onClick: () => autoDetect(sel, false), d: 'M4 8V5a1 1 0 011-1h3M16 4h3a1 1 0 011 1v3M20 16v3a1 1 0 01-1 1h-3M8 20H5a1 1 0 01-1-1v-3M9 12l2 2 4-4' },
+                  { key: 'ai', label: 'AI', title: 'Smart edge finding for cluttered or low-contrast photos', onClick: () => autoDetect(sel, true), d: 'M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6zM18 15l.8 2.2L21 18l-2.2.8L18 21l-.8-2.2L15 18l2.2-.8z', accent: true },
+                  { key: 'reset', label: 'Reset', title: 'Reset the frame to the whole photo', onClick: () => sel.nat && patch(sel.id, { corners: frameFor(dispOf(sel)), result: null, status: 'review' }), d: 'M4 4h16v16H4zM9 4v16M15 4v16M4 9h16M4 15h16' },
+                  {
+                    key: 'bend',
+                    label: 'Bent fix',
+                    title: 'Straighten text lines on a curled or folded page',
+                    pressed: sel.dewarp !== false,
+                    onClick: () => { const dewarp = sel.dewarp === false; patch(sel.id, { dewarp }); if (sel.result) runOne({ ...sel, dewarp }); },
+                    d: 'M3 8c3-3 6 3 9 0s6 3 9 0M3 16h18',
+                  },
+                ].map((t) => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    title={t.title}
+                    aria-pressed={t.pressed}
+                    onClick={t.onClick}
+                    className={`flex flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1.5 text-[10px] font-medium sm:flex-row sm:gap-1 sm:px-2.5 sm:py-1 sm:text-[12px] ${
+                      t.pressed
+                        ? 'bg-purple-600 text-white'
+                        : t.accent
+                          ? 'bg-purple-50 text-purple-700 hover:bg-purple-100 dark:bg-purple-500/15 dark:text-purple-300'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 sm:bg-white sm:hover:bg-gray-100'
+                    }`}
+                  >
+                    <svg className="h-[18px] w-[18px] sm:h-3.5 sm:w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d={t.d} /></svg>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* phone actions */}
+            <div className="flex gap-2 sm:hidden">
+              {sel.result ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => patch(sel.id, { result: null, status: 'review' })}
+                    className="flex-1 rounded-xl border border-gray-200 py-2.5 text-[13px] font-semibold text-gray-700 dark:border-gray-700 dark:text-gray-200"
+                  >
+                    Edit frame
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => downloadOne(sel)}
+                    className="flex-1 rounded-xl border border-gray-200 py-2.5 text-[13px] font-semibold text-gray-700 dark:border-gray-700 dark:text-gray-200"
+                  >
+                    Save page
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => runOne(sel)}
+                    disabled={!sel.corners || sel.status === 'scanning'}
+                    className="flex flex-[2] items-center justify-center gap-1.5 rounded-xl bg-purple-600 py-2.5 text-[14px] font-semibold text-white disabled:opacity-50"
+                  >
+                    {sel.status === 'scanning' && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}
+                    {sel.status === 'scanning' ? (cvState === 'loading' ? 'Preparing…' : 'Scanning…') : 'Scan page'}
+                  </button>
+                  {pages.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={scanAll}
+                      disabled={runningAll}
+                      className="flex-1 rounded-xl border border-purple-200 py-2.5 text-[13px] font-semibold text-purple-700 disabled:opacity-50 dark:border-purple-800 dark:text-purple-300"
+                    >
+                      {runningAll ? 'Scanning…' : 'Scan all'}
+                    </button>
+                  )}
+                </>
+              )}
+              {anyResult && (
+                <button
+                  type="button"
+                  onClick={exportPdf}
+                  disabled={exporting}
+                  className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 py-2.5 text-[13px] font-semibold text-white disabled:opacity-60"
+                >
+                  {exporting
+                    ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    : <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16" /></svg>}
+                  PDF
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="flex items-center justify-center rounded-xl bg-checkered p-2">
+          <div className="flex items-center justify-center rounded-xl bg-checkered p-1.5 sm:p-2">
             {sel.result ? (
               <motion.img
                 key={sel.result.url}
@@ -687,7 +739,8 @@ const DocumentScanner = () => {
                 alt=""
                 title="Click to view larger"
                 onClick={() => setLightbox({ src: sel.result.url, caption: `${sel.name} · ${sel.result.width}×${sel.result.height}` })}
-                className="max-h-[58vh] w-auto max-w-full cursor-zoom-in rounded-lg shadow-md"
+                style={{ maxHeight: 'max(240px, min(58vh, 100dvh - 360px))' }}
+                className="w-auto max-w-full cursor-zoom-in rounded-lg shadow-md"
               />
             ) : sel.corners && sel.nat ? (
               <QuadEditor
@@ -705,7 +758,12 @@ const DocumentScanner = () => {
             )}
           </div>
 
-          <div className="mt-3 flex items-center justify-between gap-2">
+          <p className="mt-2 text-center text-[11px] text-gray-400 dark:text-gray-500 sm:hidden">
+            {sel.result ? 'Tap a style above to re-run it.' : 'Drag the corners or side bars onto the page edges.'}
+          </p>
+
+          {/* desktop actions */}
+          <div className="mt-3 hidden items-center justify-between gap-2 sm:flex">
             <p className="text-[11px] text-gray-400 dark:text-gray-500">
               {sel.result
                 ? 'Scanned — tap a mode to re-run, or edit the frame.'

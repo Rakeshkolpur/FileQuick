@@ -529,8 +529,8 @@ function lumaPercentile(d, p) {
 
 /**
  * Whiten leftovers of the desk around the page (a wavy paper edge, a corner
- * that was outside the frame): dark marks that touch the border and stay
- * inside the outer ~6% strip. Real text never touches the edge, so it stays.
+ * that was outside the frame): greyish marks that touch the border and stay
+ * inside the outer ~10% strip. Real text never touches the edge, so it stays.
  */
 function cleanBorders(cv, rgba) {
   const W = rgba.cols;
@@ -542,28 +542,34 @@ function cleanBorders(cv, rgba) {
   const cents = new cv.Mat();
   try {
     cv.cvtColor(rgba, gray, cv.COLOR_RGBA2GRAY);
-    cv.threshold(gray, bin, 140, 255, cv.THRESH_BINARY_INV);
+    cv.threshold(gray, bin, 200, 255, cv.THRESH_BINARY_INV);
     const n = cv.connectedComponentsWithStats(bin, labels, stats, cents, 8, cv.CV_32S);
     const st = stats.data32S;
-    const band = Math.round(Math.min(W, H) * 0.06);
-    const wipe = new Uint8Array(n);
+    const band = Math.round(Math.min(W, H) * 0.1);
+    // components connected to the page border (desk leftovers can wrap
+    // round a corner, so one component may touch several sides)
+    const touches = new Uint8Array(n);
     let any = false;
     for (let i = 1; i < n; i += 1) {
       const x = st[i * 5];
       const y = st[i * 5 + 1];
       const w = st[i * 5 + 2];
       const h = st[i * 5 + 3];
-      const top = y === 0 && y + h <= band;
-      const bottom = y + h >= H && y >= H - band;
-      const left = x === 0 && x + w <= band;
-      const right = x + w >= W && x >= W - band;
-      if (top || bottom || left || right) { wipe[i] = 1; any = true; }
+      if (x === 0 || y === 0 || x + w >= W || y + h >= H) { touches[i] = 1; any = true; }
     }
     if (!any) return;
+    // whiten their pixels, but only inside the outer strip
     const L = labels.data32S;
     const d = rgba.data;
-    for (let p = 0; p < L.length; p += 1) {
-      if (wipe[L[p]]) { const j = p * 4; d[j] = 255; d[j + 1] = 255; d[j + 2] = 255; }
+    for (let y = 0; y < H; y += 1) {
+      const dy = Math.min(y, H - 1 - y);
+      for (let x = 0; x < W; x += 1) {
+        const p = y * W + x;
+        if (!touches[L[p]]) continue;
+        if (Math.min(dy, x, W - 1 - x) >= band) continue;
+        const j = p * 4;
+        d[j] = 255; d[j + 1] = 255; d[j + 2] = 255;
+      }
     }
   } finally {
     gray.delete(); bin.delete(); labels.delete(); stats.delete(); cents.delete();
