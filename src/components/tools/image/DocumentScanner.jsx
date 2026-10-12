@@ -35,7 +35,7 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 // Scanning works on at most this many pixels on the long side (same cap as
 // SCAN_MAX in lib/scan.js), so a rotated copy is only ever built at this size.
-const SCAN_EDGE = 2400;
+const SCAN_EDGE = 3000;
 
 // What the user sees: the photo's size after their 90° turns.
 const dispOf = (p) => (p.rotate % 180 ? { w: p.nat.h, h: p.nat.w } : p.nat);
@@ -107,6 +107,11 @@ function QuadEditor({ src, corners, nat, rotate = 0, onChange }) {
     width: turned ? `${(nat.h / nat.w) * 100}%` : '100%',
     height: turned ? `${(nat.w / nat.h) * 100}%` : '100%',
     transform: `translate(-50%, -50%) rotate(${rotate}deg)`,
+    // A turned photo is wider than its box before the CSS turn; the global
+    // `img { max-width: 100% }` would squash it and the frame would no
+    // longer match the real photo.
+    maxWidth: 'none',
+    maxHeight: 'none',
   };
   const poly = pts.map((q) => `${q.x},${q.y}`).join(' ');
 

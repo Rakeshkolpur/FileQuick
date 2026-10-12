@@ -21,7 +21,10 @@ function drawToCanvas(img, maxEdge) {
   const c = document.createElement('canvas');
   c.width = Math.round(img.naturalWidth * k);
   c.height = Math.round(img.naturalHeight * k);
-  c.getContext('2d', { willReadFrequently: true }).drawImage(img, 0, 0, c.width, c.height);
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, 0, 0, c.width, c.height);
   return { canvas: c, scale: k };
 }
 
@@ -196,7 +199,7 @@ export async function defaultCorners(srcUrl) {
 /*  finish (white paper, black text, sharpen).                            */
 /* ===================================================================== */
 
-const SCAN_MAX = 2400; // long side of the scanned page
+const SCAN_MAX = 3000; // long side of the scanned page
 
 /**
  * Pull each side of the user's frame onto the real paper edge if one is
@@ -366,12 +369,13 @@ function fitPoly(xs, ys, deg) {
 }
 
 /**
- * Straighten bent text lines (a curled or folded page). Finds each line of
- * text, fits a curve through it, and remaps the page so every line runs
- * straight — rows between lines are interpolated. Returns a new Mat, or null
- * if the page has too few clear lines or is already straight.
+ * Measure how bent the text lines are (a curled or folded page). Finds each
+ * line of text on a small, shadow-flattened copy, fits a curve through it,
+ * and returns a coarse grid of vertical offsets (source y = page y + offset)
+ * — or null if the page has too few clear lines or is already straight.
+ * Nothing is resampled here; scanPage folds this into its single warp.
  */
-function straightenLines(cv, rgba) {
+function lineOffsets(cv, rgba) {
   const W = rgba.cols;
   const H = rgba.rows;
   const k = Math.min(1, 1100 / W);
@@ -388,6 +392,7 @@ function straightenLines(cv, rgba) {
   let lines = [];
   try {
     cv.resize(rgba, small, new cv.Size(sw, sh), 0, 0, cv.INTER_AREA);
+    flattenPaper(cv, small); // shadows would break the threshold
     cv.cvtColor(small, gray, cv.COLOR_RGBA2GRAY);
     cv.threshold(gray, bin, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
     cv.morphologyEx(bin, bin, cv.MORPH_CLOSE, kClose); // words -> line blobs
@@ -485,32 +490,13 @@ function straightenLines(cv, rgba) {
   // nothing worth fixing, or something implausible
   if (maxOff < 1.2 || maxOff > sh * 0.08) return null;
 
+  // smooth the grid so the remap has no kinks
   const g = cv.matFromArray(gh, gw, cv.CV_32F, Array.from(grid));
-  const off = new cv.Mat();
-  const mapX = new cv.Mat(H, W, cv.CV_32F);
-  const mapY = new cv.Mat(H, W, cv.CV_32F);
-  const out = new cv.Mat();
   try {
     cv.GaussianBlur(g, g, new cv.Size(5, 5), 0);
-    cv.resize(g, off, new cv.Size(W, H), 0, 0, cv.INTER_CUBIC);
-    const O = off.data32F;
-    const MX = mapX.data32F;
-    const MY = mapY.data32F;
-    const inv = 1 / k;
-    for (let y = 0; y < H; y += 1) {
-      const row = y * W;
-      for (let x = 0; x < W; x += 1) {
-        MX[row + x] = x;
-        MY[row + x] = y + O[row + x] * inv;
-      }
-    }
-    cv.remap(rgba, out, mapX, mapY, cv.INTER_LINEAR, cv.BORDER_REPLICATE, new cv.Scalar());
-    return out;
-  } catch (e) {
-    out.delete();
-    return null;
+    return { grid: Float32Array.from(g.data32F), gw, gh, G, k };
   } finally {
-    g.delete(); off.delete(); mapX.delete(); mapY.delete();
+    g.delete();
   }
 }
 
@@ -616,10 +602,13 @@ function finishPage(cv, rgba, mode) {
     }
     d[i] = r; d[i + 1] = gg; d[i + 2] = b;
   }
-  // unsharp mask for crisp text
+  // Unsharp mask for crisp text. On a flattened page the overshoot lands in
+  // already-white paper / already-black ink and clips away, so it can be
+  // strong without halos; the radius follows the page resolution.
   const blur = new cv.Mat();
-  cv.GaussianBlur(rgba, blur, new cv.Size(0, 0), 1.1);
-  cv.addWeighted(rgba, 1.6, blur, -0.6, 0, rgba);
+  const sigma = Math.min(1.8, Math.max(1, Math.max(rgba.cols, rgba.rows) / 1800));
+  cv.GaussianBlur(rgba, blur, new cv.Size(0, 0), sigma);
+  cv.addWeighted(rgba, 2.0, blur, -1.0, 0, rgba);
   blur.delete();
   // keep alpha opaque after the arithmetic
   for (let i = 3; i < d.length; i += 4) d[i] = 255;
@@ -650,20 +639,65 @@ export async function scanPage(srcUrl, corners, mode = 'auto', { snap = true, de
   const srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y]);
   const dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, outW, 0, outW, outH, 0, outH]);
   const M = cv.getPerspectiveTransform(srcTri, dstTri);
+  const Minv = cv.getPerspectiveTransform(dstTri, srcTri);
   let dewarped = false;
 
   const out = document.createElement('canvas');
   try {
     cv.warpPerspective(src, page, M, new cv.Size(outW, outH), cv.INTER_CUBIC, cv.BORDER_REPLICATE, new cv.Scalar());
-    if (mode !== 'original') flattenPaper(cv, page);
     if (dewarp) {
-      const straight = straightenLines(cv, page);
-      if (straight) { page.delete(); page = straight; dewarped = true; }
+      const off = lineOffsets(cv, page);
+      if (off) {
+        // Re-render straight from the photo in ONE pass: page pixel (x, y)
+        // comes from (x, y + bend) on the flat page, mapped back through the
+        // perspective — so the image is only resampled once (sharper).
+        const h = Minv.data64F;
+        const { grid, gw, gh, G, k } = off;
+        const mapX = new cv.Mat(outH, outW, cv.CV_32F);
+        const mapY = new cv.Mat(outH, outW, cv.CV_32F);
+        const MX = mapX.data32F;
+        const MY = mapY.data32F;
+        const inv = 1 / k;
+        const step = G * inv; // grid spacing in page pixels
+        for (let y = 0; y < outH; y += 1) {
+          const gyf = Math.min(gh - 1.001, y / step);
+          const gy0 = Math.floor(gyf);
+          const ty = gyf - gy0;
+          const r0 = gy0 * gw;
+          const r1 = r0 + gw;
+          for (let x = 0; x < outW; x += 1) {
+            const gxf = Math.min(gw - 1.001, x / step);
+            const gx0 = Math.floor(gxf);
+            const tx = gxf - gx0;
+            const o = (grid[r0 + gx0] * (1 - tx) + grid[r0 + gx0 + 1] * tx) * (1 - ty)
+              + (grid[r1 + gx0] * (1 - tx) + grid[r1 + gx0 + 1] * tx) * ty;
+            const yw = y + o * inv;
+            const den = h[6] * x + h[7] * yw + h[8];
+            const j = y * outW + x;
+            MX[j] = (h[0] * x + h[1] * yw + h[2]) / den;
+            MY[j] = (h[3] * x + h[4] * yw + h[5]) / den;
+          }
+        }
+        const bent = new cv.Mat();
+        try {
+          cv.remap(src, bent, mapX, mapY, cv.INTER_CUBIC, cv.BORDER_REPLICATE, new cv.Scalar());
+          page.delete();
+          page = bent;
+          dewarped = true;
+        } catch (e) {
+          bent.delete();
+        } finally {
+          mapX.delete(); mapY.delete();
+        }
+      }
     }
-    if (mode !== 'original') finishPage(cv, page, mode);
+    if (mode !== 'original') {
+      flattenPaper(cv, page);
+      finishPage(cv, page, mode);
+    }
     cv.imshow(out, page);
   } finally {
-    src.delete(); page.delete(); srcTri.delete(); dstTri.delete(); M.delete();
+    src.delete(); page.delete(); srcTri.delete(); dstTri.delete(); M.delete(); Minv.delete();
   }
 
   const type = mode === 'bw' ? 'image/png' : 'image/jpeg';
