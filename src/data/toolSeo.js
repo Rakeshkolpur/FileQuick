@@ -335,7 +335,7 @@ const toolSeo = {
     intro:
       'Turn phone photos of documents, receipts and forms into clean, straightened, high-contrast scans and export them as a PDF or images. Bulk upload, a frame you set yourself (or auto-detect), free, and nothing is uploaded.',
     body: [
-      'A photo of a document is not a scan — it is skewed, shadowed and cluttered with the desk behind it. This tool fixes that: you place a frame on the page edges (or let it auto-detect them), it corrects the perspective so the page is a clean rectangle, and applies a scan finish (colour, greyscale or crisp black-and-white) so the text is sharp and the background is white.',
+      'A photo of a document is not a scan — it is skewed, shadowed and cluttered with the desk behind it. This tool fixes that: you place a frame on the page edges (or let it auto-detect them) and it snaps to the real paper edge, corrects the perspective, straightens text lines on a curled or folded page, so the page is a clean rectangle, and applies a scan finish (colour, greyscale or crisp black-and-white) so the text is sharp and the background is white.',
       'Upload every page at once, reorder them if needed, set each page\'s frame, and export a single multi-page PDF — or individual images and a ZIP. After the page loads once, the processing runs fully offline using OpenCV compiled to WebAssembly.',
       NO_UPLOAD,
     ],

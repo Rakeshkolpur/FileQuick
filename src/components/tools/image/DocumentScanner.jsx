@@ -34,8 +34,8 @@ const MODES = [
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 // Scanning works on at most this many pixels on the long side (same cap as
-// lib/scan.js), so a rotated copy is only ever built at this size.
-const SCAN_EDGE = 2200;
+// SCAN_MAX in lib/scan.js), so a rotated copy is only ever built at this size.
+const SCAN_EDGE = 2400;
 
 // What the user sees: the photo's size after their 90° turns.
 const dispOf = (p) => (p.rotate % 180 ? { w: p.nat.h, h: p.nat.w } : p.nat);
@@ -303,7 +303,7 @@ const DocumentScanner = () => {
   const makePage = (blob, name) => {
     const url = URL.createObjectURL(blob);
     urlBag.current.push(url);
-    return { id: ++_seq, name, origUrl: url, srcUrl: url, rotate: 0, nat: null, corners: null, mode: 'auto', status: 'pending', result: null };
+    return { id: ++_seq, name, origUrl: url, srcUrl: url, rotate: 0, nat: null, corners: null, mode: 'auto', dewarp: true, status: 'pending', result: null };
   };
 
   const addFiles = async (files, preRejected = []) => {
@@ -430,7 +430,7 @@ const DocumentScanner = () => {
       await ensureCv();
       const { url, k } = await scanSource(page);
       const corners = page.corners.map((pt) => ({ x: pt.x * k, y: pt.y * k }));
-      const { blob, width, height } = await scanPage(url, corners, mode);
+      const { blob, width, height } = await scanPage(url, corners, mode, { dewarp: page.dewarp !== false });
       const out = URL.createObjectURL(blob);
       urlBag.current.push(out);
       patch(page.id, { status: 'ready', mode, result: { url: out, blob, width, height } });
@@ -658,6 +658,23 @@ const DocumentScanner = () => {
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 7v6h-6M3 17a9 9 0 0115-6.7L21 13" /></svg>
             </button>
+            <span className="mx-1 h-4 w-px bg-gray-300 dark:bg-gray-600" />
+            <label
+              title="Straightens text lines on a curled or folded page"
+              className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-white px-2.5 py-1 text-[12px] font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300"
+            >
+              <input
+                type="checkbox"
+                checked={sel.dewarp !== false}
+                onChange={(e) => {
+                  const dewarp = e.target.checked;
+                  patch(sel.id, { dewarp });
+                  if (sel.result) runOne({ ...sel, dewarp });
+                }}
+                className="h-3.5 w-3.5 accent-purple-600"
+              />
+              Fix bent page
+            </label>
           </div>
 
           <div className="flex items-center justify-center rounded-xl bg-checkered p-2">

@@ -69,7 +69,7 @@ const TOOLS = [
     description: 'Enhance a photo or enlarge it 2× / 4× with Real-ESRGAN AI — real detail, less noise and blur.',
     load: () => import('../components/tools/image/ImageUpscaler.jsx') },
   { id: 'document-scanner', title: 'Document Scanner', category: 'image', group: 'Enhance', icon: I.scan, popular: true, chrome: 'min',
-    description: 'Turn phone photos of documents into clean, straightened scans — set the frame, rotate, scan, export to PDF.',
+    description: 'Turn phone photos of documents into clean scans — flattens bent pages, white paper, sharp text, export to PDF.',
     load: () => import('../components/tools/image/DocumentScanner.jsx') },
   { id: 'passport-photo', title: 'Passport Photo Maker', category: 'image', group: 'Enhance', icon: I.idcard, popular: true, chrome: 'min',
     description: 'Make a passport / visa photo from a selfie — swap the background, size it for India, US, UK, Schengen and more, and lay out a printable sheet.',
