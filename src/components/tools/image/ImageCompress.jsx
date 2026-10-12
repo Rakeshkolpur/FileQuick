@@ -14,7 +14,10 @@ import {
   encodeToTargetBytes,
   outExt,
   webpSupported,
+  OUTPUT_FORMATS,
+  OUTPUT_FORMAT_MAP,
 } from '../../../lib/imageResize';
+import { singleImageToPdf } from '../../../lib/imagesToPdf';
 
 let uid = 0;
 const isImage = (f) => f && f.type.startsWith('image/');
@@ -27,13 +30,55 @@ const targetFormat = (type) => {
   return 'jpeg';
 };
 
+// "Save as" choices: Auto (smart per file) + the shared download formats.
+const SAVE_AS = [{ value: 'auto', label: 'Auto' }, ...OUTPUT_FORMATS];
+
+const saveAsNote = (choice) => {
+  switch (choice) {
+    case 'auto': return "JPG and WebP keep their format; PNG becomes WebP (PNG can't be quality-compressed). Usually the smallest.";
+    case 'jpg':
+    case 'jpeg': return 'Best for photos and online forms. Transparent areas become white.';
+    case 'png': return 'PNG keeps every pixel, so quality can\'t shrink it — use Target size (it scales the image down), or pick JPG / WebP for a much smaller file.';
+    case 'webp': return webpSupported()
+      ? 'Smallest at the same quality; keeps transparency. Most sites accept it, some forms don\'t.'
+      : 'This browser can\'t create WebP — JPG will be used instead.';
+    case 'pdf': return 'Each image is compressed and placed on its own PDF page. Transparent areas become white.';
+    default: return '';
+  }
+};
+
+const FormatPicker = ({ value, onChange, accent = 'purple' }) => (
+  <section className="space-y-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Save as</h3>
+    <div className="grid grid-cols-3 gap-1.5">
+      {SAVE_AS.map((f) => {
+        const on = value === f.value;
+        return (
+          <button
+            key={f.value}
+            type="button"
+            onClick={() => onChange(f.value)}
+            aria-pressed={on}
+            className={`rounded-lg py-1.5 text-xs font-semibold transition-colors ${on
+              ? (accent === 'blue' ? 'bg-blue-600 text-white' : 'bg-purple-600 text-white')
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'}`}
+          >
+            {f.label}
+          </button>
+        );
+      })}
+    </div>
+    <p className="text-[11px] text-gray-400 dark:text-gray-500">{saveAsNote(value)}</p>
+  </section>
+);
+
 // presetFormat ('jpeg' | 'png' | 'webp') and presetKB come from a dynamic URL
 // like /jpg-to-20kb — see src/lib/targetSizeUrl.js. They prefill the "Target
 // size" mode and pin the output format; the user can still change everything.
 const ImageCompress = ({ presetFormat, presetKB } = {}) => {
-  const formatHint = presetFormat
-    ? `Every image is saved as ${presetFormat === 'jpeg' ? 'JPG' : presetFormat.toUpperCase()}${presetFormat === 'jpeg' ? ' — the format online forms accept' : ''}.`
-    : "PNGs are saved as WebP (PNG can't be quality-compressed). JPG and WebP keep their format.";
+  const presetChoice = presetFormat ? (presetFormat === 'jpeg' ? 'jpg' : presetFormat) : 'auto';
+  const [saveAs, setSaveAs] = useState(presetChoice);
+  useEffect(() => { setSaveAs(presetChoice); }, [presetChoice]);
   const [items, setItems] = useState([]); // {id,file,img,w,h}
   const [mode, setMode] = useState(presetKB ? 'target' : 'quality'); // 'quality' | 'target'
   const [quality, setQuality] = useState(70);
@@ -49,7 +94,7 @@ const ImageCompress = ({ presetFormat, presetKB } = {}) => {
   const itemsRef = useRef(items);
 
   useEffect(() => { itemsRef.current = items; }, [items]);
-  useEffect(() => { setResults(null); }, [items, mode, quality, targetVal, targetUnit]);
+  useEffect(() => { setResults(null); }, [items, mode, quality, targetVal, targetUnit, saveAs]);
 
   // Keep the fields in sync when navigating between preset URLs.
   useEffect(() => {
@@ -101,34 +146,49 @@ const ImageCompress = ({ presetFormat, presetKB } = {}) => {
     && (mode === 'quality' || parseFloat(targetVal) > 0);
 
   const compressOne = async (it) => {
-    const fmt = presetFormat || targetFormat(it.file.type);
-    const name = toolFileName(it.file, 'compress-image', outExt(fmt));
+    const isPdf = saveAs === 'pdf';
+    const picked = OUTPUT_FORMAT_MAP[saveAs];
+    // canvas encoder for this file; Auto decides per file
+    let enc = saveAs === 'auto' ? targetFormat(it.file.type) : picked.enc;
+    if (enc === 'webp' && !webpSupported()) enc = 'jpeg';
+    const extFor = (fmt) => {
+      if (saveAs === 'auto') return outExt(fmt);
+      if (fmt === 'jpeg' && saveAs === 'jpeg') return 'jpeg';
+      return outExt(fmt);
+    };
+    let out;
     if (mode === 'target') {
       const bytes = (targetUnit === 'MB' ? parseFloat(targetVal) * 1024 : parseFloat(targetVal)) * 1024;
       const r = await encodeToTargetBytes(it.img, {
         width: it.w,
         height: it.h,
-        format: presetFormat || 'auto',
-        targetBytes: bytes,
+        format: saveAs === 'auto' ? 'auto' : enc,
+        // a PDF page adds ~1–2 KB around the image
+        targetBytes: isPdf ? Math.max(1024, bytes - 2048) : bytes,
         // A small target can't be reached on a big image by lowering quality
         // alone — let the engine scale the picture down to actually hit it.
         allowResize: true,
       });
-      return {
-        name: toolFileName(it.file, 'compress-image', outExt(r.format)),
-        blob: r.blob,
-        size: r.blob.size,
-        from: it.file.size,
-        fits: r.fits,
-        resized: r.resized,
-        w: r.width,
-        h: r.height,
-      };
+      out = { blob: r.blob, fmt: r.format, fits: r.fits, resized: r.resized, w: r.width, h: r.height };
+    } else {
+      const blob = await encodeImage(it.img, {
+        width: it.w, height: it.h, format: enc, quality: quality / 100,
+      });
+      out = { blob, fmt: enc, fits: true };
     }
-    const blob = await encodeImage(it.img, {
-      width: it.w, height: it.h, format: fmt, quality: quality / 100,
-    });
-    return { name, blob, size: blob.size, from: it.file.size, fits: true };
+    let { blob } = out;
+    if (isPdf) blob = await singleImageToPdf(blob);
+    return {
+      name: toolFileName(it.file, 'compress-image', isPdf ? 'pdf' : extFor(out.fmt)),
+      blob,
+      size: blob.size,
+      from: it.file.size,
+      fits: out.fits,
+      resized: out.resized,
+      w: out.w,
+      h: out.h,
+      pdf: isPdf,
+    };
   };
 
   const run = async () => {
@@ -220,13 +280,12 @@ const ImageCompress = ({ presetFormat, presetKB } = {}) => {
         )}
       </section>
 
+      <FormatPicker value={saveAs} onChange={setSaveAs} />
+
       <section className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
         <button type="button" onClick={() => addRef.current?.click()} className="w-full text-xs font-medium py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600">
           + Add more images
         </button>
-        <p className="text-[11px] text-gray-400 dark:text-gray-500">
-          {formatHint}
-        </p>
       </section>
 
       {error && (
@@ -264,6 +323,9 @@ const ImageCompress = ({ presetFormat, presetKB } = {}) => {
       backLabel="Back to settings"
       note={(() => {
         if (!results) return undefined;
+        if (results.some((r) => r.size >= r.from) && saveAs === 'png') {
+          return 'PNG keeps every pixel, so it didn\'t get smaller — use Target size, or save as JPG / WebP.';
+        }
         if (results.some((r) => r.fits === false)) {
           return 'This is as small as it goes without destroying the image — try a slightly larger target size.';
         }
@@ -272,7 +334,9 @@ const ImageCompress = ({ presetFormat, presetKB } = {}) => {
             ? `Hit your target — the image was scaled to ${results[0].w}×${results[0].h} to get there (lowering quality alone couldn’t).`
             : 'Hit your target — some images were scaled down to get there, since lowering quality alone couldn’t.';
         }
-        return 'Same dimensions, smaller file. Everything runs in your browser.';
+        return saveAs === 'pdf'
+          ? 'Compressed and saved as PDF. Everything runs in your browser.'
+          : 'Same dimensions, smaller file. Everything runs in your browser.';
       })()}
       extra={results && results.length > 1 ? (
         <div className="max-h-52 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700/60">
@@ -285,7 +349,7 @@ const ImageCompress = ({ presetFormat, presetKB } = {}) => {
             </div>
           ))}
         </div>
-      ) : (results && results.length === 1 ? (
+      ) : (results && results.length === 1 && !results[0].pdf ? (
         <OpenInTool getImage={() => results[0].blob} exclude={['compress-image']} />
       ) : null)}
     />
@@ -378,13 +442,12 @@ const ImageCompress = ({ presetFormat, presetKB } = {}) => {
               )}
             </section>
 
+            <FormatPicker value={saveAs} onChange={setSaveAs} accent="blue" />
+
             <section className="pt-3 border-t border-gray-200 dark:border-gray-700 space-y-2">
               <button type="button" onClick={() => addRef.current?.click()} className="w-full text-xs font-medium py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600">
                 + Add more images
               </button>
-              <p className="text-[11px] text-gray-400 dark:text-gray-500">
-                {formatHint}
-              </p>
             </section>
 
             {error && (
