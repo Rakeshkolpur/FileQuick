@@ -97,7 +97,17 @@ const CropModal = ({ file, src, naturalWidth, naturalHeight, initialRect, title,
         <div className="flex-1 min-h-0 overflow-auto flex items-center justify-center bg-gray-100 dark:bg-gray-900 rounded-lg p-2">
           {url && (
             <ReactCrop crop={crop} onChange={(_, p) => setCrop(p)} onComplete={(_, p) => setDone(p)} aspect={aspect || undefined}>
-              <img src={url} alt={title || 'crop'} onLoad={onLoad} className="max-h-[60vh] w-auto object-contain" />
+              {/* react-image-crop's stylesheet sets `max-height: inherit` on
+                  this img with more specificity than a class can reach, so a
+                  big photo showed at full size and spilled out of the dialog —
+                  the fit has to be an inline style. */}
+              <img
+                src={url}
+                alt={title || 'crop'}
+                onLoad={onLoad}
+                style={{ maxHeight: 'min(60vh, 640px)', maxWidth: 'min(100%, calc(100vw - 4rem))', width: 'auto', height: 'auto' }}
+                className="block object-contain"
+              />
             </ReactCrop>
           )}
         </div>

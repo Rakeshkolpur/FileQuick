@@ -5,6 +5,7 @@ import RangeSlider from '../../tool/RangeSlider';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
 import OpenInTool from '../../tool/OpenInTool';
+import Lightbox from '../../tool/Lightbox';
 import { formatBytes } from '../../../lib/format';
 import { toolFileName } from '../../../lib/fileNames';
 import { zipFiles } from '../../../lib/zip';
@@ -89,6 +90,7 @@ const ImageCompress = ({ presetFormat, presetKB } = {}) => {
   const [progress, setProgress] = useState(null);
   const [results, setResults] = useState(null); // [{name, blob, size, from}]
   const [error, setError] = useState(null);
+  const [preview, setPreview] = useState(null); // { src, caption } — click-to-enlarge popup
   const addRef = useRef(null);
   const loadTok = useRef(0);
   const itemsRef = useRef(items);
@@ -385,7 +387,13 @@ const ImageCompress = ({ presetFormat, presetKB } = {}) => {
 
           <div className="rounded-xl bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-3 min-h-[280px]">
             {singleItem.preview && (
-              <img src={singleItem.preview} alt={singleItem.file.name} className="max-h-[340px] max-w-full object-contain" />
+              <img
+                src={singleItem.preview}
+                alt={singleItem.file.name}
+                title="Click to view larger"
+                onClick={() => setPreview({ src: singleItem.preview, caption: `${singleItem.file.name} · ${singleItem.w}×${singleItem.h}` })}
+                className="max-h-[340px] max-w-full object-contain cursor-zoom-in"
+              />
             )}
           </div>
 
@@ -396,6 +404,7 @@ const ImageCompress = ({ presetFormat, presetKB } = {}) => {
           <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
             <OpenInTool getImage={() => singleItem.file} exclude={['compress-image']} heading="Or send this image to" />
           </div>
+          {preview && <Lightbox src={preview.src} caption={preview.caption} onClose={() => setPreview(null)} />}
         </div>
 
         <aside className="lg:sticky lg:top-24 rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-800 flex flex-col overflow-hidden lg:max-h-[calc(100vh-7rem)]">
@@ -517,7 +526,13 @@ const ImageCompress = ({ presetFormat, presetKB } = {}) => {
             <li key={it.id} className={`relative rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden ${single ? 'flex items-center gap-4 p-3' : ''}`}>
               <div className={single ? 'h-24 w-24 shrink-0 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-900 grid place-items-center' : 'aspect-square bg-gray-100 dark:bg-gray-900 grid place-items-center'}>
                 {it.preview ? (
-                  <img src={it.preview} alt={it.file.name} className="max-h-full max-w-full object-contain" />
+                  <img
+                    src={it.preview}
+                    alt={it.file.name}
+                    title="Click to view larger"
+                    onClick={() => setPreview({ src: it.preview, caption: `${it.file.name}${it.w ? ` · ${it.w}×${it.h}` : ''}` })}
+                    className="max-h-full max-w-full object-contain cursor-zoom-in"
+                  />
                 ) : (
                   <div className="h-5 w-5 border-2 border-gray-300 border-t-purple-500 rounded-full animate-spin" />
                 )}
@@ -540,6 +555,7 @@ const ImageCompress = ({ presetFormat, presetKB } = {}) => {
           ))}
         </ul>
       )}
+      {preview && <Lightbox src={preview.src} caption={preview.caption} onClose={() => setPreview(null)} />}
     </ToolWorkspace>
   );
 };

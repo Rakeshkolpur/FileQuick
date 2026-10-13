@@ -26,6 +26,7 @@ import {
 import { singleImageToPdf } from '../../../lib/imagesToPdf';
 import { cutoutBackground, loadCutout, compositeOnColor } from '../../../lib/backgroundRemoval';
 import CropModal from '../../tool/CropModal';
+import Lightbox from '../../tool/Lightbox';
 import MatteBrush from '../../tool/MatteBrush';
 
 const BG_SWATCHES = ['transparent', '#ffffff', '#000000', '#f43f5e', '#3b82f6', '#22c55e', '#f59e0b'];
@@ -100,7 +101,7 @@ const IconBtn = ({ active, title, onClick, children }) => (
   </button>
 );
 
-const BatchCard = ({ item, result, onRemove, onDownload, onCrop }) => {
+const BatchCard = ({ item, result, onRemove, onDownload, onCrop, onPreview }) => {
   const url = useObjectUrl(item.file);
   const [dl, setDl] = useState('idle');
 
@@ -134,7 +135,17 @@ const BatchCard = ({ item, result, onRemove, onDownload, onCrop }) => {
     <div className="rounded-xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-800 p-2">
       <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
         {(croppedUrl || url) && (
-          <img src={croppedUrl || url} alt={item.file.name} className={`w-full h-full ${croppedUrl ? 'object-contain' : 'object-cover'}`} />
+          // the whole photo, letterboxed — click to see it large
+          <img
+            src={croppedUrl || url}
+            alt={item.file.name}
+            role="button"
+            tabIndex={0}
+            title="Click to view larger"
+            onClick={() => onPreview?.(croppedUrl || url, `${item.file.name} · ${shownDims}`)}
+            onKeyDown={(e) => { if (e.key === 'Enter') onPreview?.(croppedUrl || url, `${item.file.name} · ${shownDims}`); }}
+            className="w-full h-full object-contain cursor-zoom-in"
+          />
         )}
         {item.cropRect && (
           <span className="absolute bottom-1 left-1 rounded bg-purple-600 text-white text-[10px] px-1 py-0.5">Cropped</span>
@@ -237,6 +248,7 @@ const ImageResize = () => {
 
   // batch per-image crop
   const [cropModalId, setCropModalId] = useState(null);
+  const [preview, setPreview] = useState(null); // { src, caption } — click-to-enlarge popup
 
   // background removal (single)
   const [bgRemove, setBgRemove] = useState(false);
@@ -1117,9 +1129,23 @@ const ImageResize = () => {
                 />
               </ReactCrop>
             ) : croppedPreviewUrl ? (
-              <img src={croppedPreviewUrl} alt="Cropped" className={PREVIEW_IMG} />
+              <img
+                src={croppedPreviewUrl}
+                alt="Cropped"
+                title="Click to view larger"
+                onClick={() => setPreview({ src: croppedPreviewUrl, caption: `${single.file.name} · cropped` })}
+                className={`${PREVIEW_IMG} cursor-zoom-in`}
+              />
             ) : (
-              workUrl && <img src={workUrl} alt="Original" className={PREVIEW_IMG} />
+              workUrl && (
+                <img
+                  src={workUrl}
+                  alt="Original"
+                  title="Click to view larger"
+                  onClick={() => setPreview({ src: workUrl, caption: `${single.file.name} · ${natW} × ${natH}` })}
+                  className={`${PREVIEW_IMG} cursor-zoom-in`}
+                />
+              )
             )}
           </div>
 
@@ -1347,6 +1373,8 @@ const ImageResize = () => {
           </div>
         </aside>
 
+        {preview && <Lightbox src={preview.src} caption={preview.caption} onClose={() => setPreview(null)} />}
+
         {showBrush && cutoutImg && single?.img && (
           <MatteBrush
             original={single.img}
@@ -1391,13 +1419,14 @@ const ImageResize = () => {
                   onRemove={() => removeItem(it.id)}
                   onDownload={() => downloadOne(i)}
                   onCrop={() => setCropModalId(it.id)}
+                  onPreview={(src, caption) => setPreview({ src, caption })}
                 />
               ))}
             </div>
           </div>
 
           <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
-            The settings on the right apply to every image. Use the crop button on an image to crop just that one.
+            The settings on the right apply to every image. Click an image to see it large, or use its crop button to crop just that one.
           </p>
         </div>
 
@@ -1501,6 +1530,8 @@ const ImageResize = () => {
             </button>
           </div>
         </aside>
+
+        {preview && <Lightbox src={preview.src} caption={preview.caption} onClose={() => setPreview(null)} />}
 
         {cropModalId != null && (() => {
           const it = items.find((x) => x.id === cropModalId);
