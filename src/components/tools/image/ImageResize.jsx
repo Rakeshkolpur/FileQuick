@@ -992,10 +992,10 @@ const ImageResize = () => {
   const registerBack = useContext(ToolBackContext);
   useEffect(() => {
     const back = (busy || anyResult) ? backFromResult : reset;
-    registerBack(single ? back : null);
+    registerBack(items.length ? back : null);
     return () => registerBack(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [single, busy, anyResult, registerBack]);
+  }, [items.length, busy, anyResult, registerBack]);
 
   const tabBtn = (id, label) => (
     <button
@@ -1355,6 +1355,167 @@ const ImageResize = () => {
             onClose={() => setShowBrush(false)}
           />
         )}
+      </div>
+    );
+  }
+
+  // Batch editing layout — the same look as the single-image screen above:
+  // the images on the left (each can still be cropped, removed or saved on
+  // its own) and one settings panel on the right that applies to all of them.
+  if (isBatch && !busy && !anyResult) {
+    const totalIn = items.reduce((sum, it) => sum + it.file.size, 0);
+    return (
+      <div className="grid lg:grid-cols-[minmax(0,1fr)_340px] gap-6 items-start">
+        <input ref={addInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }} />
+
+        <div className="min-w-0 rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-800 p-4 md:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div className="min-w-0 flex items-center gap-2 text-sm">
+              <span className="font-medium text-gray-900 dark:text-white">{items.length} images</span>
+              <span className="text-gray-400">·</span>
+              <span className="rounded-md bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 text-gray-600 dark:text-gray-300">{formatBytes(totalIn)}</span>
+            </div>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => addInputRef.current?.click()} className="text-sm px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600">Add images</button>
+              <button type="button" onClick={reset} className="text-sm px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600">Start over</button>
+            </div>
+          </div>
+
+          <div className="rounded-xl bg-gray-100 dark:bg-gray-900/50 p-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+              {items.map((it, i) => (
+                <BatchCard
+                  key={it.id}
+                  item={it}
+                  result={results[i]}
+                  onRemove={() => removeItem(it.id)}
+                  onDownload={() => downloadOne(i)}
+                  onCrop={() => setCropModalId(it.id)}
+                />
+              ))}
+            </div>
+          </div>
+
+          <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+            The settings on the right apply to every image. Use the crop button on an image to crop just that one.
+          </p>
+        </div>
+
+        <aside className="lg:sticky lg:top-24 rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-800 flex flex-col overflow-hidden lg:max-h-[calc(100vh-7rem)]">
+          <div className="flex border-b border-gray-200 dark:border-gray-700 px-2">
+            <span className="px-4 py-2.5 text-sm font-semibold border-b-2 border-blue-600 text-blue-600 dark:text-blue-400">
+              Resize all · {items.length}
+            </span>
+          </div>
+
+          <div className="flex-1 lg:overflow-y-auto p-4 space-y-4">
+            <section className="space-y-3">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Resize</h3>
+              <Segmented
+                options={[
+                  { value: 'filesize', label: 'File size' },
+                  { value: 'percent', label: 'Percentage' },
+                  { value: 'fit', label: 'Max size' },
+                ]}
+                value={batchMode}
+                onChange={(v) => { setBatchMode(v); markDirty(); }}
+                accent="blue"
+              />
+
+              {batchMode === 'fit' && (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="text-xs">
+                      <span className="block mb-1 font-medium text-gray-600 dark:text-gray-300">Max width (px)</span>
+                      <input type="number" min="1" value={fitW} onChange={(e) => { setFitW(Number(e.target.value) || 0); markDirty(); }} className={numField} />
+                    </label>
+                    <label className="text-xs">
+                      <span className="block mb-1 font-medium text-gray-600 dark:text-gray-300">Max height (px)</span>
+                      <input type="number" min="1" value={fitH} onChange={(e) => { setFitH(Number(e.target.value) || 0); markDirty(); }} className={numField} />
+                    </label>
+                  </div>
+                  <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                    <input type="checkbox" checked={allowUpscale} onChange={(e) => { setAllowUpscale(e.target.checked); markDirty(); }} className="h-4 w-4 accent-blue-600" />
+                    Allow upscaling
+                  </label>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">Each image fits inside this box, keeping its aspect ratio.</p>
+                </>
+              )}
+
+              {batchMode === 'percent' && (
+                <RangeSlider label="Scale" value={percent} min={5} max={200} onChange={(v) => { setPercent(v); markDirty(); }} suffix="%" accent="blue" />
+              )}
+
+              {batchMode === 'filesize' && (
+                <div className="space-y-3">
+                  <div>
+                    <span className="block mb-1 text-xs font-medium text-gray-600 dark:text-gray-300">Target size (per image)</span>
+                    <div className="flex gap-2">
+                      <input type="number" min="1" placeholder="e.g. 50" value={targetValue} onChange={(e) => { setTargetValue(e.target.value); markDirty(); }} className={numField} />
+                      <select value={targetUnit} onChange={(e) => { setTargetUnit(e.target.value); markDirty(); }} className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm px-2">
+                        <option>KB</option>
+                        <option>MB</option>
+                      </select>
+                    </div>
+                  </div>
+                  {formatField}
+                  <label className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-300">
+                    <input type="checkbox" checked={allowResize} onChange={(e) => { setAllowResize(e.target.checked); markDirty(); }} className="mt-0.5 h-4 w-4 accent-blue-600" />
+                    <span>
+                      Scale pictures down to hit the target
+                      <span className="block text-gray-400 dark:text-gray-500">
+                        Kicks in only when lowering quality alone can’t reach the size.
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              )}
+            </section>
+
+            {batchMode !== 'filesize' && (
+              <section className="space-y-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Output</h3>
+                {formatField}
+                {showQuality && (
+                  <RangeSlider label="Quality" value={quality} min={10} max={100} onChange={(v) => { setQuality(v); markDirty(); }} suffix="%" accent="blue" />
+                )}
+              </section>
+            )}
+
+            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 pt-2">
+              <input type="checkbox" checked={highQuality} onChange={(e) => { setHighQuality(e.target.checked); markDirty(); }} className="h-4 w-4 accent-blue-600" />
+              High-quality downscaling
+            </label>
+
+            {error && <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{error}</p>}
+          </div>
+
+          <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <button
+              type="button"
+              onClick={run}
+              disabled={!ready}
+              className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-blue-600 to-cyan-500 hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity flex items-center justify-center gap-2"
+            >
+              {buttonLabel}
+            </button>
+          </div>
+        </aside>
+
+        {cropModalId != null && (() => {
+          const it = items.find((x) => x.id === cropModalId);
+          return it ? (
+            <CropModal
+              file={it.file}
+              naturalWidth={it.w}
+              naturalHeight={it.h}
+              initialRect={it.cropRect}
+              title={`Crop · ${it.file.name}`}
+              onApply={(rect) => setItemCrop(it.id, rect)}
+              onClose={() => setCropModalId(null)}
+            />
+          ) : null;
+        })()}
       </div>
     );
   }
