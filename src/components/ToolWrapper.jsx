@@ -7,6 +7,7 @@ import ToolSeoContent from './tool/ToolSeoContent';
 import LandingLinks from './tool/LandingLinks';
 import { getToolSeo } from '../data/toolSeo';
 import { usePageMeta } from '../lib/seo';
+import { isChunkLoadError, withChunkRetry } from '../lib/chunkReload';
 
 const CATEGORY_LABEL = { image: 'Image Tools', pdf: 'PDF Tools' };
 
@@ -27,6 +28,26 @@ class ErrorBoundary extends React.Component {
     console.error('Tool crashed:', error, info);
   }
   render() {
+    if (this.state.error && isChunkLoadError(this.state.error)) {
+      // An old copy of the page asked for files from a previous version of
+      // the site (or the network dropped). A fresh load fixes it.
+      return (
+        <div className="text-center py-16">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+            FileQuick was just updated
+          </h2>
+          <p className="text-gray-500 dark:text-gray-400 mb-6 text-sm">
+            Reload the page to get the latest version of this tool. If it keeps happening, check your internet connection.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+          >
+            Reload page
+          </button>
+        </div>
+      );
+    }
     if (this.state.error) {
       return (
         <div className="text-center py-16">
@@ -135,7 +156,7 @@ const ToolWrapper = ({ toolId: toolIdProp, pageMeta, toolProps, active = true } 
     active,
   );
 
-  const LazyTool = useMemo(() => (tool?.load ? React.lazy(tool.load) : null), [tool]);
+  const LazyTool = useMemo(() => (tool?.load ? React.lazy(withChunkRetry(tool.load)) : null), [tool]);
 
   // A mounted tool may register an in-page "back" action (see ToolBackContext).
   const innerBackRef = useRef(null);

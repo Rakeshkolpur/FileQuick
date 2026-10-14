@@ -7,8 +7,9 @@ import { toolFileName } from '../../../lib/fileNames';
 import { loadImageFromFile, encodeToTargetBytes } from '../../../lib/imageResize';
 import { encodeForForm, prepareInk } from '../../../lib/formPrep';
 import { FORM_SPECS, specLine } from '../../../data/formSpecs';
+import { withChunkRetry } from '../../../lib/chunkReload';
 
-const CropDialog = React.lazy(() => import('../../tool/CropDialog'));
+const CropDialog = React.lazy(withChunkRetry(() => import('../../tool/CropDialog')));
 
 /**
  * Signature (and thumb impression) resizer for online forms: photograph or

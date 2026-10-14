@@ -11,8 +11,9 @@ import { encodeForForm, prepareInk } from '../../../lib/formPrep';
 import { FORM_SPECS, specLine } from '../../../data/formSpecs';
 import { cutoutBackground, compositeOnColor } from '../../../lib/backgroundRemoval';
 import MatteBrush from '../../tool/MatteBrush';
+import { withChunkRetry } from '../../../lib/chunkReload';
 
-const CropDialog = React.lazy(() => import('../../tool/CropDialog'));
+const CropDialog = React.lazy(withChunkRetry(() => import('../../tool/CropDialog')));
 
 // Plain backgrounds accepted by most official photo specs.
 const BG_COLORS = [

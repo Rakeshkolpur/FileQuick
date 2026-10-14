@@ -11,8 +11,9 @@ import { upscaleImage } from '../../../lib/upscale';
 import { consumeHandoff } from '../../../lib/imageHandoff';
 import { OUTPUT_FORMATS, OUTPUT_FORMAT_MAP } from '../../../lib/imageResize';
 import { singleImageToPdf } from '../../../lib/imagesToPdf';
+import { withChunkRetry } from '../../../lib/chunkReload';
 
-const CropDialog = React.lazy(() => import('../../tool/CropDialog'));
+const CropDialog = React.lazy(withChunkRetry(() => import('../../tool/CropDialog')));
 
 const PREVIEW = 360;
 
