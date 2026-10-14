@@ -7,8 +7,10 @@ import RangeSlider from '../../tool/RangeSlider';
 import { downloadBlob } from '../../tool/DownloadButton';
 import ResultScreen from '../../tool/ResultScreen';
 import OpenInTool from '../../tool/OpenInTool';
+import Lightbox from '../../tool/Lightbox';
 import { formatBytes } from '../../../lib/format';
 import { toolFileName } from '../../../lib/fileNames';
+import { zipFiles } from '../../../lib/zip';
 import { consumeHandoff } from '../../../lib/imageHandoff';
 import { encodeImage, OUTPUT_FORMATS, OUTPUT_FORMAT_MAP } from '../../../lib/imageResize';
 import { singleImageToPdf } from '../../../lib/imagesToPdf';
@@ -67,141 +69,177 @@ const IconBtn = ({ active, title, onClick, children }) => (
 const centeredAspect = (aspect, w, h) => centerCrop(makeAspectCrop({ unit: '%', width: 90 }, aspect, w, h), w, h);
 const centeredFree = () => ({ unit: '%', x: 5, y: 5, width: 90, height: 90 });
 
-const ImageCrop = () => {
-  const [file, setFile] = useState(null);
-  const [img, setImg] = useState(null);
-  const loadToken = useRef(0);
-  const registerBack = useContext(ToolBackContext);
+const loadImage = (f) =>
+  new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(f);
+    const im = new Image();
+    im.onload = () => { URL.revokeObjectURL(url); resolve(im); };
+    im.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read this image.')); };
+    im.src = url;
+  });
 
-  const [rotation, setRotation] = useState(0);
-  const [straighten, setStraighten] = useState(0);
-  const [flipH, setFlipH] = useState(false);
-  const [flipV, setFlipV] = useState(false);
+const pctToPx = (c, w, h) => ({
+  x: Math.round((c.x / 100) * w),
+  y: Math.round((c.y / 100) * h),
+  width: Math.max(1, Math.round((c.width / 100) * w)),
+  height: Math.max(1, Math.round((c.height / 100) * h)),
+});
+
+let uid = 0;
+
+/**
+ * Crop one or many images. Each image keeps its own crop box and transform
+ * (rotate / straighten / flip); the shape settings (aspect ratio, circle,
+ * sized-crop preset) and the output format are shared.
+ */
+const ImageCrop = () => {
+  // { id, file, url, img, rotation, straighten, flipH, flipV, crop, completed, seedKey }
+  const [items, setItems] = useState([]);
+  const [selId, setSelId] = useState(null);
+  const registerBack = useContext(ToolBackContext);
 
   const [ratio, setRatio] = useState(0);
   const [presetIdx, setPresetIdx] = useState(0);
   const [circle, setCircle] = useState(false);
   const [grid, setGrid] = useState(true);
 
-  const [crop, setCrop] = useState(null);
-  const [completed, setCompleted] = useState(null);
-
   const [format, setFormat] = useState('jpg');
   const [quality, setQuality] = useState(92);
 
-  const [result, setResult] = useState(null);
+  const [results, setResults] = useState(null); // [{ id, name, blob, width, height, size, format, ext }]
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState(null);
   const [error, setError] = useState(null);
+  const [preview, setPreview] = useState(null); // { src, caption } — click-to-enlarge popup
 
   // Editing screen: which tab of the right-hand panel is open.
   const [activeTab, setActiveTab] = useState('tools');
   const [showBox, setShowBox] = useState(false);
+  const addInputRef = useRef(null);
 
   const preset = PRESETS[presetIdx];
   const hasPreset = preset.w > 0;
+  const cur = items.find((it) => it.id === selId) || null;
+  const isBatch = items.length > 1;
 
-  const loadImage = (f) =>
-    new Promise((resolve, reject) => {
-      const url = URL.createObjectURL(f);
-      const im = new Image();
-      im.onload = () => { URL.revokeObjectURL(url); resolve(im); };
-      im.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read this image.')); };
-      im.src = url;
-    });
+  // object URLs are released when the tool goes away
+  const itemsRef = useRef(items);
+  useEffect(() => { itemsRef.current = items; }, [items]);
+  useEffect(() => () => itemsRef.current.forEach((it) => URL.revokeObjectURL(it.url)), []);
 
-  const handleFile = async (f) => {
-    if (!f || !f.type.startsWith('image/')) {
-      setError('Please choose an image file.');
-      return;
-    }
-    const t = ++loadToken.current;
+  const updateCur = (patch) => setItems((ps) => ps.map((it) => (it.id === selId
+    ? { ...it, ...(typeof patch === 'function' ? patch(it) : patch) } : it)));
+
+  const addFiles = async (list) => {
+    const imgs = [...(list || [])].filter((f) => f && f.type.startsWith('image/'));
+    if (!imgs.length) { setError('Please choose image files.'); return; }
     setError(null);
-    setResult(null);
-    setFile(f);
-    setRotation(0);
-    setStraighten(0);
-    setFlipH(false);
-    setFlipV(false);
+    setResults(null);
+    const fresh = imgs.map((file) => ({
+      id: ++uid, file, url: URL.createObjectURL(file), img: null,
+      rotation: 0, straighten: 0, flipH: false, flipV: false, crop: null, completed: null, seedKey: null,
+    }));
+    setItems((ps) => [...ps, ...fresh]);
+    setSelId((cur0) => cur0 ?? fresh[0].id);
     setActiveTab('tools');
-    try {
-      const im = await loadImage(f);
-      if (t === loadToken.current) setImg(im);
-    } catch (e) {
-      if (t === loadToken.current) setError(e.message);
-    }
+    await Promise.all(fresh.map(async (f) => {
+      try {
+        const img = await loadImage(f.file);
+        setItems((ps) => ps.map((it) => (it.id === f.id ? { ...it, img } : it)));
+      } catch (e) {
+        setError(e.message);
+        setItems((ps) => ps.filter((it) => it.id !== f.id));
+      }
+    }));
   };
 
-  useEffect(() => consumeHandoff((f) => handleFile(f), 'image'), []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => consumeHandoff((f) => addFiles([f]), 'image'), []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const removeItem = (id) => {
+    setResults(null);
+    setItems((ps) => {
+      const gone = ps.find((it) => it.id === id);
+      if (gone) URL.revokeObjectURL(gone.url);
+      const next = ps.filter((it) => it.id !== id);
+      if (id === selId) setSelId(next[0]?.id ?? null);
+      return next;
+    });
+  };
 
   const reset = () => {
-    loadToken.current += 1;
-    setFile(null);
-    setImg(null);
-    setResult(null);
+    items.forEach((it) => URL.revokeObjectURL(it.url));
+    setItems([]);
+    setSelId(null);
+    setResults(null);
     setError(null);
   };
 
-  // Fully transformed source
+  // ---- the selected image, transformed
+  const rotation = cur?.rotation || 0;
+  const straighten = cur?.straighten || 0;
+  const flipH = !!cur?.flipH;
+  const flipV = !!cur?.flipV;
+
   const workCanvas = useMemo(
-    () => (img ? transformToCanvas(img, { rotation, straighten, flipH, flipV }) : null),
-    [img, rotation, straighten, flipH, flipV],
+    () => (cur?.img ? transformToCanvas(cur.img, { rotation, straighten, flipH, flipV }) : null),
+    [cur?.img, rotation, straighten, flipH, flipV],
   );
   const workUrl = useMemo(() => (workCanvas ? workCanvas.toDataURL('image/png') : null), [workCanvas]);
   const natW = workCanvas?.width || 0;
   const natH = workCanvas?.height || 0;
 
-  const effAspect = circle
+  const aspectFor = (w, h) => (circle
     ? 1
     : hasPreset
       ? preset.w / preset.h
       : ratio === -1
-        ? (natW && natH ? natW / natH : undefined)
-        : ratio || undefined;
+        ? (w && h ? w / h : undefined)
+        : ratio || undefined);
+  const effAspect = aspectFor(natW, natH);
+  // what a crop box was made for — a different shape or image size needs a new one
+  const seedKeyFor = (w, h) => `${w}x${h}:${circle}:${hasPreset ? preset.label : ratio}`;
+  const seedKey = seedKeyFor(natW, natH);
+  const defaultCrop = (w, h) => {
+    const a = aspectFor(w, h);
+    return a ? centeredAspect(a, w, h) : centeredFree();
+  };
 
-  // (re)seed crop whenever the transform or the requested aspect changes
-  const aspectKey = `${natW}x${natH}:${circle}:${hasPreset ? preset.label : ratio}`;
+  // (re)seed the crop when this image has none yet, or its shape/size changed
   useEffect(() => {
-    if (!natW || !natH) return;
-    setResult(null);
-    const c = effAspect ? centeredAspect(effAspect, natW, natH) : centeredFree();
-    setCrop(c);
-    setCompleted(c);
+    if (!cur || !natW || !natH) return;
+    if (cur.completed && cur.seedKey === seedKey) return; // keep the user's box
+    setResults(null);
+    const c = defaultCrop(natW, natH);
+    updateCur({ crop: c, completed: c, seedKey });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aspectKey]);
+  }, [selId, seedKey]);
 
-  const cropPx = useMemo(() => {
-    if (!completed || !completed.width || !natW) return null;
-    return {
-      x: Math.round((completed.x / 100) * natW),
-      y: Math.round((completed.y / 100) * natH),
-      width: Math.round((completed.width / 100) * natW),
-      height: Math.round((completed.height / 100) * natH),
-    };
-  }, [completed, natW, natH]);
+  const crop = cur?.crop || null;
+  const completed = cur?.completed || null;
+  const cropPx = useMemo(
+    () => (completed && completed.width && natW ? pctToPx(completed, natW, natH) : null),
+    [completed, natW, natH],
+  );
 
   const setBox = (patch) => {
     if (!cropPx || !natW) return;
-    setResult(null);
+    setResults(null);
     let { x, y, width, height } = { ...cropPx, ...patch };
     width = Math.max(1, Math.min(width, natW));
     height = Math.max(1, Math.min(height, natH));
     x = Math.max(0, Math.min(x, natW - width));
     y = Math.max(0, Math.min(y, natH - height));
     const c = { unit: '%', x: (x / natW) * 100, y: (y / natH) * 100, width: (width / natW) * 100, height: (height / natH) * 100 };
-    setCrop(c);
-    setCompleted(c);
+    updateCur({ crop: c, completed: c, seedKey });
   };
 
   const rotate = (d) => {
-    setResult(null);
-    setRotation((r) => (((r + d) % 360) + 360) % 360);
+    setResults(null);
+    updateCur((it) => ({ rotation: (((it.rotation + d) % 360) + 360) % 360 }));
   };
   const resetTransform = () => {
-    setResult(null);
-    setRotation(0);
-    setStraighten(0);
-    setFlipH(false);
-    setFlipV(false);
+    setResults(null);
+    updateCur({ rotation: 0, straighten: 0, flipH: false, flipV: false });
   };
 
   const outW = hasPreset ? preset.w : cropPx?.width || 0;
@@ -210,76 +248,127 @@ const ImageCrop = () => {
   const fmtInfo = OUTPUT_FORMAT_MAP[effFormat] || OUTPUT_FORMAT_MAP.jpg;
   const isPdf = effFormat === 'pdf';
 
+  // The current crop as an image (for "send to another tool" and Preview)
   const getCurrentImage = () => new Promise((resolve) => {
-    if (!workCanvas || !cropPx) { resolve(file || null); return; }
+    if (!workCanvas || !cropPx) { resolve(cur?.file || null); return; }
     const c = document.createElement('canvas');
     c.width = cropPx.width;
     c.height = cropPx.height;
     c.getContext('2d').drawImage(workCanvas, cropPx.x, cropPx.y, cropPx.width, cropPx.height, 0, 0, cropPx.width, cropPx.height);
-    c.toBlob((b) => resolve(b || file), 'image/png');
+    c.toBlob((b) => resolve(b || cur?.file), 'image/png');
   });
 
+  const showCropPreview = async () => {
+    const b = await getCurrentImage();
+    if (!b) return;
+    setPreview({ src: URL.createObjectURL(b), caption: `${cur.file.name} · crop ${outW} × ${outH}`, revoke: true });
+  };
+  const closePreview = () => {
+    setPreview((p) => { if (p?.revoke) URL.revokeObjectURL(p.src); return null; });
+  };
+
+  // Crop one item with its own box (or the default box for the current shape)
+  const cropOne = async (it) => {
+    const src = transformToCanvas(it.img, {
+      rotation: it.rotation, straighten: it.straighten, flipH: it.flipH, flipV: it.flipV,
+    });
+    const w = src.width;
+    const h = src.height;
+    const box = it.completed && it.seedKey === seedKeyFor(w, h) ? it.completed : defaultCrop(w, h);
+    const px = pctToPx(box, w, h);
+    let canvas = document.createElement('canvas');
+    canvas.width = px.width;
+    canvas.height = px.height;
+    canvas.getContext('2d').drawImage(src, px.x, px.y, px.width, px.height, 0, 0, px.width, px.height);
+    if (circle) {
+      const c2 = document.createElement('canvas');
+      c2.width = px.width;
+      c2.height = px.height;
+      const ctx = c2.getContext('2d');
+      ctx.save();
+      ctx.beginPath();
+      ctx.ellipse(px.width / 2, px.height / 2, px.width / 2, px.height / 2, 0, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.drawImage(canvas, 0, 0);
+      ctx.restore();
+      canvas = c2;
+    }
+    const ow = hasPreset ? preset.w : px.width;
+    const oh = hasPreset ? preset.h : px.height;
+    let blob = await encodeImage(canvas, {
+      width: ow, height: oh, format: fmtInfo.enc, quality: quality / 100, highQuality: true,
+    });
+    if (isPdf) blob = await singleImageToPdf(blob);
+    return {
+      id: it.id,
+      name: toolFileName(it.file, 'crop-image', fmtInfo.ext),
+      blob, width: ow, height: oh, size: blob.size, format: effFormat, ext: fmtInfo.ext,
+    };
+  };
+
+  const ready = items.length > 0 && items.every((it) => it.img) && !!cropPx;
+
   const run = async () => {
-    if (!workCanvas || !cropPx) return;
+    if (!ready) return;
     setBusy(true);
     setError(null);
+    setProgress({ done: 0, total: items.length });
     try {
-      // crop from the transformed canvas
-      const cw = cropPx.width;
-      const ch = cropPx.height;
-      let canvas = document.createElement('canvas');
-      canvas.width = cw;
-      canvas.height = ch;
-      canvas.getContext('2d').drawImage(workCanvas, cropPx.x, cropPx.y, cw, ch, 0, 0, cw, ch);
-
-      if (circle) {
-        const c2 = document.createElement('canvas');
-        c2.width = cw;
-        c2.height = ch;
-        const ctx = c2.getContext('2d');
-        ctx.save();
-        ctx.beginPath();
-        ctx.ellipse(cw / 2, ch / 2, cw / 2, ch / 2, 0, 0, Math.PI * 2);
-        ctx.clip();
-        ctx.drawImage(canvas, 0, 0);
-        ctx.restore();
-        canvas = c2;
+      const out = [];
+      for (let i = 0; i < items.length; i += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        out.push(await cropOne(items[i]));
+        setProgress({ done: i + 1, total: items.length });
       }
-
-      let blob = await encodeImage(canvas, {
-        width: hasPreset ? preset.w : cw,
-        height: hasPreset ? preset.h : ch,
-        format: fmtInfo.enc,
-        quality: quality / 100,
-        highQuality: true,
-      });
-      if (isPdf) blob = await singleImageToPdf(blob);
-      setResult({ blob, width: hasPreset ? preset.w : cw, height: hasPreset ? preset.h : ch, size: blob.size, format: effFormat, ext: fmtInfo.ext });
+      setResults(out);
     } catch (e) {
       setError(e.message || 'Cropping failed.');
     } finally {
       setBusy(false);
+      setProgress(null);
     }
   };
 
-  const downloadName = toolFileName(file, 'crop-image', fmtInfo.ext);
-  const backFromResult = () => setResult(null);
+  const downloadAll = async () => {
+    if (!results) return;
+    if (results.length === 1) { downloadBlob(results[0].blob, results[0].name); return; }
+    const zip = await zipFiles(results.map((r) => ({ name: r.name, blob: r.blob })));
+    downloadBlob(zip, toolFileName(items[0]?.file, 'crop-image', 'zip'));
+  };
+  const backFromResult = () => setResults(null);
+  const total = results ? results.reduce((s, r) => s + r.size, 0) : 0;
+  const r0 = results?.[0];
 
-  const resultView = (busy || result) ? (
+  const resultView = (busy || results) ? (
     <ResultScreen
       working={busy}
-      done={!!result}
-      title="Your image is cropped"
-      workingLabel="Cropping your image…"
-      subtitle={result ? `${result.width} × ${result.height} · ${formatBytes(result.size)}` : undefined}
-      fileName={downloadName}
-      fileSize={result?.size}
-      onDownload={() => downloadBlob(result.blob, downloadName)}
+      done={!!results}
+      progress={progress && progress.total > 1 ? Math.round((progress.done / progress.total) * 100) : null}
+      title={results && results.length > 1 ? 'Your images are cropped' : 'Your image is cropped'}
+      workingLabel={items.length > 1 ? 'Cropping your images…' : 'Cropping your image…'}
+      subtitle={results
+        ? (results.length > 1 ? `${results.length} files · ${formatBytes(total)}` : `${r0.width} × ${r0.height} · ${formatBytes(r0.size)}`)
+        : undefined}
+      fileName={results && results.length === 1 ? r0.name : undefined}
+      fileSize={results && results.length === 1 ? r0.size : undefined}
+      downloadLabel={results && results.length > 1 ? 'Download all (ZIP)' : undefined}
+      onDownload={downloadAll}
       onBack={backFromResult}
       backLabel="Back to cropping"
-      extra={result && result.format !== 'pdf' ? (
-        <OpenInTool getImage={() => result.blob} exclude={['crop-image']} />
-      ) : null}
+      extra={results && results.length > 1 ? (
+        <div className="max-h-52 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700/60">
+          {results.map((r) => (
+            <div key={r.id} className="flex items-center justify-between gap-2 px-3 py-1.5 text-xs">
+              <span className="truncate text-gray-600 dark:text-gray-300">{r.name}</span>
+              <button type="button" onClick={() => downloadBlob(r.blob, r.name)} className="shrink-0 text-blue-600 dark:text-blue-400 hover:underline">
+                {r.width}×{r.height} · {formatBytes(r.size)} · save
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (r0 && r0.format !== 'pdf' ? (
+        <OpenInTool getImage={() => r0.blob} exclude={['crop-image']} />
+      ) : null)}
     />
   ) : null;
 
@@ -290,10 +379,10 @@ const ImageCrop = () => {
   // "Back returns to the upload screen" behaviour here too.
   useEffect(() => {
     if (!registerBack) return undefined;
-    registerBack(file ? ((busy || result) ? backFromResult : reset) : null);
+    registerBack(items.length ? ((busy || results) ? backFromResult : reset) : null);
     return () => registerBack(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [file, busy, result, registerBack]);
+  }, [items.length, busy, results, registerBack]);
 
   const tabBtn = (id, label) => (
     <button
@@ -313,23 +402,25 @@ const ImageCrop = () => {
     <button
       type="button"
       onClick={run}
-      disabled={!cropPx || busy}
+      disabled={!ready || busy}
       className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-blue-600 to-cyan-500 hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity flex items-center justify-center gap-2"
     >
-      {busy ? 'Cropping…' : 'Crop & download'}
+      {busy ? 'Cropping…' : isBatch ? `Crop & download all ${items.length}` : 'Crop & download'}
     </button>
   );
 
   // Dedicated editing layout: canvas card + a tabbed panel (Tools / Download)
   // on the right, matching Resize Image's editing screen. The empty dropzone
   // and the result/download screen still go through <ToolWorkspace> below.
-  if (file && !busy && !result) {
+  if (items.length && !busy && !results) {
     return (
       <div className="grid lg:grid-cols-[minmax(0,1fr)_340px] gap-6 items-start">
+        <input ref={addInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }} />
+
         <div className="min-w-0 rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white dark:bg-gray-800 p-4 md:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div className="min-w-0 flex items-center gap-2 text-sm">
-              <span className="font-medium text-gray-900 dark:text-white truncate max-w-[12rem]">{file.name}</span>
+              <span className="font-medium text-gray-900 dark:text-white truncate max-w-[12rem]">{cur?.file.name}</span>
               {cropPx && (
                 <>
                   <span className="text-gray-400">·</span>
@@ -339,14 +430,79 @@ const ImageCrop = () => {
                 </>
               )}
             </div>
-            <button
-              type="button"
-              onClick={reset}
-              className="text-sm px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
-            >
-              Choose another
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => addInputRef.current?.click()}
+                className="text-sm px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+              >
+                Add images
+              </button>
+              <button
+                type="button"
+                onClick={reset}
+                className="text-sm px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+              >
+                Start over
+              </button>
+            </div>
           </div>
+
+          {/* every uploaded image — click to edit its crop; click again (or ⤢) to see it large */}
+          {items.length > 0 && (
+            <div className="mb-3">
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {items.map((it, i) => {
+                  const on = it.id === selId;
+                  const caption = `${it.file.name}${it.img ? ` · ${it.img.naturalWidth}×${it.img.naturalHeight}` : ''}`;
+                  return (
+                    <div
+                      key={it.id}
+                      className={`group relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border-2 bg-gray-100 dark:bg-gray-900 ${on ? 'border-blue-600' : 'border-transparent hover:border-blue-300 dark:hover:border-blue-700'}`}
+                    >
+                      <button
+                        type="button"
+                        title={on ? 'Click to view larger' : 'Edit this image'}
+                        onClick={() => (on ? setPreview({ src: it.url, caption }) : setSelId(it.id))}
+                        className={`block h-full w-full ${on ? 'cursor-zoom-in' : ''}`}
+                      >
+                        <img src={it.url} alt={it.file.name} draggable={false} className="h-full w-full object-contain" />
+                      </button>
+                      <span className="pointer-events-none absolute left-1 top-1 rounded bg-black/55 px-1 text-[10px] font-semibold text-white">{i + 1}</span>
+                      <button
+                        type="button"
+                        onClick={() => setPreview({ src: it.url, caption })}
+                        aria-label="View larger"
+                        className="absolute bottom-0.5 left-0.5 rounded bg-black/60 p-0.5 text-white"
+                      >
+                        <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" /></svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeItem(it.id)}
+                        aria-label="Remove image"
+                        className="absolute bottom-0.5 right-0.5 rounded bg-black/60 p-0.5 text-white"
+                      >
+                        <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" /></svg>
+                      </button>
+                    </div>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => addInputRef.current?.click()}
+                  className="grid h-20 w-20 shrink-0 place-items-center rounded-lg border-2 border-dashed border-gray-300 text-xs font-medium text-gray-500 hover:border-blue-400 dark:border-gray-600 dark:text-gray-400"
+                >
+                  + Add
+                </button>
+              </div>
+              <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">
+                {isBatch
+                  ? 'Each image keeps its own crop. Click an image to edit it — click it again to see it large.'
+                  : 'Click the photo to see it large, or add more images to crop them together.'}
+              </p>
+            </div>
+          )}
 
           <div className="flex items-center gap-1.5 mb-2 flex-wrap">
             <IconBtn title="Rotate left" onClick={() => rotate(-90)}>
@@ -359,16 +515,28 @@ const ImageCrop = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 7v6h-6M21 13a9 9 0 11-3-6.7L21 9" />
               </svg>
             </IconBtn>
-            <IconBtn active={flipH} title="Flip horizontal" onClick={() => { setFlipH((v) => !v); setResult(null); }}>
+            <IconBtn active={flipH} title="Flip horizontal" onClick={() => { updateCur((it) => ({ flipH: !it.flipH })); setResults(null); }}>
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16M7 8l-3 4 3 4M17 8l3 4-3 4" />
               </svg>
             </IconBtn>
-            <IconBtn active={flipV} title="Flip vertical" onClick={() => { setFlipV((v) => !v); setResult(null); }}>
+            <IconBtn active={flipV} title="Flip vertical" onClick={() => { updateCur((it) => ({ flipV: !it.flipV })); setResults(null); }}>
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 12h16M8 7l4-3 4 3M8 17l4 3 4-3" />
               </svg>
             </IconBtn>
+            <button
+              type="button"
+              title="See the crop large"
+              onClick={showCropPreview}
+              disabled={!cropPx}
+              className="h-8 px-2.5 flex items-center gap-1.5 rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-40"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+              </svg>
+              Preview
+            </button>
             {(rotation || straighten || flipH || flipV) ? (
               <button type="button" onClick={resetTransform} className="text-xs px-2 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
                 Reset
@@ -377,16 +545,14 @@ const ImageCrop = () => {
           </div>
 
           <div className="rounded-xl bg-checkered flex items-center justify-center p-3 min-h-[200px] relative overflow-hidden">
-            {busy && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 dark:bg-gray-900/60 rounded-xl">
-                <div className="w-10 h-10 border-4 border-t-blue-600 border-gray-300 dark:border-gray-600 rounded-full animate-spin" />
-              </div>
+            {!workUrl && (
+              <div className="w-10 h-10 border-4 border-t-blue-600 border-gray-300 dark:border-gray-600 rounded-full animate-spin" />
             )}
             {workUrl && (
               <ReactCrop
                 crop={crop}
-                onChange={(_, p) => { setCrop(p); setResult(null); }}
-                onComplete={(_, p) => setCompleted(p)}
+                onChange={(_, p) => { updateCur({ crop: p }); setResults(null); }}
+                onComplete={(_, p) => updateCur({ completed: p, seedKey })}
                 aspect={effAspect}
                 circularCrop={circle}
                 ruleOfThirds={grid}
@@ -398,8 +564,8 @@ const ImageCrop = () => {
                 <img
                   src={workUrl}
                   alt="To crop"
-                  className="max-w-full w-auto object-contain select-none"
-                  style={{ maxHeight: 260 }}
+                  className="w-auto object-contain select-none"
+                  style={{ maxHeight: 'min(60vh, 520px)', maxWidth: '100%' }}
                 />
               </ReactCrop>
             )}
@@ -420,7 +586,9 @@ const ImageCrop = () => {
             {activeTab === 'tools' ? (
               <>
                 <section className="space-y-2">
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Aspect ratio</h3>
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                    Aspect ratio{isBatch && <span className="font-normal text-gray-400"> · all images</span>}
+                  </h3>
                   <div className="flex flex-wrap gap-1.5">
                     {RATIOS.map((r) => (
                       <button
@@ -461,7 +629,7 @@ const ImageCrop = () => {
                 </section>
 
                 <section className="pt-2.5 border-t border-gray-200 dark:border-gray-700">
-                  <RangeSlider label="Straighten" value={straighten} min={-15} max={15} onChange={(v) => { setStraighten(v); setResult(null); }} suffix="°" accent="blue" />
+                  <RangeSlider label="Straighten" value={straighten} min={-15} max={15} onChange={(v) => { updateCur({ straighten: v }); setResults(null); }} suffix="°" accent="blue" />
                 </section>
 
                 {cropPx && (
@@ -505,7 +673,7 @@ const ImageCrop = () => {
                   <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Output</h3>
                   <select
                     value={effFormat}
-                    onChange={(e) => { setFormat(e.target.value); setResult(null); }}
+                    onChange={(e) => { setFormat(e.target.value); setResults(null); }}
                     className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm p-2"
                   >
                     {OUTPUT_FORMATS.filter((f) => !(circle && NO_ALPHA_FORMATS.includes(f.value))).map((o) => (
@@ -518,7 +686,7 @@ const ImageCrop = () => {
                     </p>
                   )}
                   {showQuality && (
-                    <RangeSlider label="Quality" value={quality} min={40} max={100} onChange={(v) => { setQuality(v); setResult(null); }} suffix="%" accent="blue" />
+                    <RangeSlider label="Quality" value={quality} min={40} max={100} onChange={(v) => { setQuality(v); setResults(null); }} suffix="%" accent="blue" />
                   )}
                 </section>
 
@@ -526,29 +694,32 @@ const ImageCrop = () => {
                   <input type="checkbox" checked={grid} onChange={(e) => setGrid(e.target.checked)} className="h-4 w-4 accent-blue-600" />
                   Show grid
                 </label>
-
-                {error && <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{error}</p>}
               </>
             )}
+
+            {error && <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{error}</p>}
           </div>
 
           <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
             {footer}
           </div>
         </aside>
+
+        {preview && <Lightbox src={preview.src} caption={preview.caption} onClose={closePreview} />}
       </div>
     );
   }
 
   return (
     <ToolWorkspace
-      file={file}
+      file={items[0]?.file || null}
       accept="image/*"
-      formats="JPG · PNG · WebP · GIF · SVG"
-      dropTitle="Drop an image to crop"
-      dropHint="or click to browse"
-      onFiles={(fs) => handleFile(fs[0])}
-      onBack={(busy || result) ? backFromResult : reset}
+      multiple
+      formats="JPG · PNG · WebP · GIF · SVG — one or many"
+      dropTitle="Drop images to crop"
+      dropHint="one or many · or click to browse"
+      onFiles={(fs) => addFiles(fs)}
+      onBack={(busy || results) ? backFromResult : reset}
       result={resultView}
     />
   );
