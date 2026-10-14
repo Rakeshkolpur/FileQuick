@@ -9,10 +9,18 @@ import { cutoutBackground, preloadBackgroundModel } from '../../../lib/backgroun
 import MatteBrush from '../../tool/MatteBrush';
 import { upscaleImage } from '../../../lib/upscale';
 import { consumeHandoff } from '../../../lib/imageHandoff';
+import { OUTPUT_FORMATS, OUTPUT_FORMAT_MAP } from '../../../lib/imageResize';
+import { singleImageToPdf } from '../../../lib/imagesToPdf';
 
 const CropDialog = React.lazy(() => import('../../tool/CropDialog'));
 
 const PREVIEW = 360;
+
+// PNG first — it keeps the round shape's see-through corners.
+const FORMAT_ORDER = ['png', 'jpg', 'jpeg', 'webp', 'pdf'];
+const PP_FORMATS = FORMAT_ORDER.map((v) => OUTPUT_FORMATS.find((f) => f.value === v)).filter(Boolean);
+// these can't hold transparency, so the corners are filled white
+const FLAT_FORMATS = ['jpg', 'jpeg', 'pdf'];
 
 const OUTPUT_SIZES = [
   { label: 'Standard · 1000px', px: 1000 },
@@ -270,7 +278,7 @@ const ProfilePictureMaker = () => {
   const [offset, setOffset] = useState({ x: 0, y: 0 });
 
   const [sizeIdx, setSizeIdx] = useState(0);
-  const [fmt, setFmt] = useState('jpg');
+  const [fmt, setFmt] = useState('png');
 
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -527,9 +535,10 @@ const ProfilePictureMaker = () => {
         ctx.restore();
       }
 
-      const type = fmt === 'png' ? 'image/png' : 'image/jpeg';
+      const fmtInfo = OUTPUT_FORMAT_MAP[fmt] || OUTPUT_FORMAT_MAP.png;
+      const type = `image/${fmtInfo.enc}`;
       let out = canvas;
-      if (type === 'image/jpeg') {
+      if (FLAT_FORMATS.includes(fmt)) {
         const flat = document.createElement('canvas');
         flat.width = S; flat.height = S;
         const fc = flat.getContext('2d');
@@ -537,14 +546,16 @@ const ProfilePictureMaker = () => {
         fc.drawImage(canvas, 0, 0);
         out = flat;
       }
-      const blob = await new Promise((res) => out.toBlob(res, type, 0.95));
-      setResult({ blob, size: blob.size, px: S, type });
+      const imgBlob = await new Promise((res) => out.toBlob(res, type, 0.95));
+      let blob = imgBlob;
+      if (fmt === 'pdf') blob = await singleImageToPdf(blob);
+      setResult({ blob, imgBlob, size: blob.size, px: S, ext: fmtInfo.ext, fmt });
     } catch (e) {
       setError(e.message || 'Could not create the image.');
     } finally { setBusy(false); }
   };
 
-  const ext = result?.type === 'image/jpeg' ? 'jpg' : 'png';
+  const ext = result?.ext || 'png';
   const outName = toolFileName(file || 'profile-picture', 'profile-picture', ext);
   const transparentOut = !squareBg && shape !== 'square';
 
@@ -569,10 +580,10 @@ const ProfilePictureMaker = () => {
           onBack={() => setResult(null)} backLabel="Back to editing"
           extra={result ? (
             <div className={`mx-auto mt-1 grid place-items-center rounded-xl p-3 ${transparentOut ? 'bg-checkered' : ''}`} style={{ maxWidth: 220 }}>
-              <img src={URL.createObjectURL(result.blob)} alt="Result" className="max-h-40 w-auto rounded-lg" />
+              <img src={URL.createObjectURL(result.imgBlob)} alt="Result" className="max-h-40 w-auto rounded-lg" />
             </div>
           ) : null}
-          note={transparentOut && ext === 'png'
+          note={transparentOut && (ext === 'png' || ext === 'webp')
             ? 'The see-through corners (checkered) show as a clean circle on WhatsApp, Instagram, etc. A plain photo viewer may paint them white — that is normal for a round PNG.'
             : 'The image stays on your device — nothing is uploaded.'}
         />
@@ -904,14 +915,21 @@ const ProfilePictureMaker = () => {
         </div>
 
         <div className="p-3.5 border-t border-gray-200 dark:border-gray-700 space-y-2.5">
-          <div className="flex items-center gap-2">
-            <select value={sizeIdx} onChange={(e) => { setSizeIdx(+e.target.value); setResult(null); }} className="flex-1 min-w-0 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-[13px] p-2">
-              {OUTPUT_SIZES.map((s, i) => <option key={s.label} value={i}>{s.label}</option>)}
-            </select>
-            <div className="flex rounded-lg bg-gray-100 dark:bg-gray-700 p-0.5 text-[12px] font-medium shrink-0">
-              {['png', 'jpg'].map((f) => <button key={f} type="button" onClick={() => { setFmt(f); setResult(null); }} className={`px-2.5 py-1 rounded-md ${fmt === f ? 'bg-white dark:bg-gray-800 text-purple-600 dark:text-purple-300' : 'text-gray-500'}`}>{f.toUpperCase()}</button>)}
-            </div>
+          <select value={sizeIdx} onChange={(e) => { setSizeIdx(+e.target.value); setResult(null); }} className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-[13px] p-2">
+            {OUTPUT_SIZES.map((s, i) => <option key={s.label} value={i}>{s.label}</option>)}
+          </select>
+          <div className="flex rounded-lg bg-gray-100 dark:bg-gray-700 p-0.5 text-[12px] font-medium" role="group" aria-label="Download format">
+            {PP_FORMATS.map((f) => (
+              <button key={f.value} type="button" onClick={() => { setFmt(f.value); setResult(null); }} className={`flex-1 px-1.5 py-1 rounded-md ${fmt === f.value ? 'bg-white dark:bg-gray-800 text-purple-600 dark:text-purple-300 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>
+                {f.label}
+              </button>
+            ))}
           </div>
+          {transparentOut && FLAT_FORMATS.includes(fmt) && (
+            <p className="text-[11px] text-gray-400 dark:text-gray-500">
+              {fmt.toUpperCase()} can't keep see-through corners — they'll be white. Pick PNG or WebP for a clean round picture.
+            </p>
+          )}
           <button type="button" onClick={build} disabled={!src || bgBusy} className="w-full py-2.5 rounded-xl font-semibold text-white bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:opacity-95 disabled:opacity-50 transition-opacity">
             Download
           </button>
