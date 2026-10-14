@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { getToolById } from '../../data/tools';
 import { stashPdf } from '../../lib/pdfHandoff';
 
@@ -44,6 +44,7 @@ const SHORT = {
  */
 const OpenInPdfTool = ({ getPdf, exclude = [], heading = 'Keep going — send this PDF to' }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [busy, setBusy] = useState(null);
 
   const items = ORDER.filter((id) => !exclude.includes(id))
@@ -60,7 +61,11 @@ const OpenInPdfTool = ({ getPdf, exclude = [], heading = 'Keep going — send th
     } catch {
       /* navigate anyway — the tool just opens empty */
     }
-    navigate(`/${id}`);
+    // `fromTool` lets the next tool's Back button return here (see ToolWrapper).
+    navigate(`/${id}`, { state: { fromTool: location.pathname } });
+    // This tool stays mounted in the background so Back can return to it —
+    // clear the spinner, or every "send to" button would stay disabled.
+    setBusy(null);
   };
 
   return (

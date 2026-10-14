@@ -1,5 +1,6 @@
 import React, { Suspense, useCallback, useMemo, useRef } from 'react';
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { flushSync } from 'react-dom';
+import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { getToolById } from '../data/tools';
 import RelatedTools from './tool/RelatedTools';
 import TrustStrip from './home/TrustStrip';
@@ -142,6 +143,9 @@ const ToolWrapper = ({ toolId: toolIdProp, pageMeta, toolProps, active = true } 
   const params = useParams();
   const toolId = toolIdProp || params.toolId;
   const navigate = useNavigate();
+  const location = useLocation();
+  // Opened from another tool's "send to …" buttons (OpenInTool / OpenInPdfTool)
+  const cameFromTool = !!location.state?.fromTool;
   const tool = getToolById(toolId);
   const toolSeo = tool ? getToolSeo(tool.id) : null;
 
@@ -166,13 +170,21 @@ const ToolWrapper = ({ toolId: toolIdProp, pageMeta, toolProps, active = true } 
 
   const handleBack = useCallback(() => {
     if (innerBackRef.current) {
-      innerBackRef.current();
+      // Run the tool's own step back (result → editing → upload screen). The
+      // update is flushed right away so we can see where the tool landed.
+      const step = innerBackRef.current;
+      flushSync(() => step());
+      // Reached this tool from another tool's "send to …"? Then stepping back
+      // past the handed-over file means "take me back to where I was" — return
+      // to that tool (still showing its result) instead of an empty upload box.
+      if (!(cameFromTool && !innerBackRef.current)) return;
+      navigate(-1);
       return;
     }
     if (window.history.length > 1) navigate(-1);
     else if (tool) navigate(`/${tool.category}`);
     else navigate('/');
-  }, [navigate, tool]);
+  }, [navigate, tool, cameFromTool]);
 
   // Unknown tool slug — the router normally catches this, but stay safe.
   if (!tool) return <Navigate to="/" replace />;
