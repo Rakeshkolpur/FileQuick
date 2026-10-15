@@ -1,5 +1,23 @@
 [
   {
+    "version": "1.0.21",
+    "date": "2026-10-15",
+    "notes": [
+      "New PDF Editor: change a PDF's own text in place, plus tables, a Select tool and a Changes panel",
+      "Word, PowerPoint and Excel to PDF rebuilt — your real fonts and a preview of the actual pages",
+      "PDF to Word rebuilt — delete pages first, scanned PDFs become editable text with real tables",
+      "Document Scanner: you set the frame, then scan — sharper, cleaner white pages, bent-page fix and instant rotate",
+      "Crop Image: crop many images at once",
+      "Resize Image: resize in cm, mm or inches, and a cleaner layout for several images",
+      "Compress Image and Profile Picture Maker: choose the download format (JPG, JPEG, PNG, WebP or PDF) — Profile Picture now starts on PNG",
+      "Click any uploaded image to see it large",
+      "Remove Pages now accepts Word files too",
+      "New Signature Resizer, and exam photo presets (SSC, UPSC, IBPS, RRB, NEET)",
+      "Downloads are named after your file with a short tool code, e.g. report-rp.pdf",
+      "Back after \"send to another tool\" returns to your result instead of getting stuck"
+    ]
+  },
+  {
     "version": "1.0.20",
     "date": "2026-09-20",
     "notes": [
