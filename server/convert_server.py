@@ -3,7 +3,7 @@ Document conversion service.
 
 Runs the same class of engine the big online converters use on their servers:
   - Word / PowerPoint / Excel -> PDF   via LibreOffice headless
-  - PDF -> Word (.docx)                via pdf2docx (layout-aware reconstruction)
+  - PDF -> Word (.docx)                via fq_pdf2word (our engine), pdf2docx as fallback
   - PDF -> PowerPoint (.pptx)          via PyMuPDF page render + python-pptx (one slide per page)
   - PDF -> Excel (.xlsx)               via PyMuPDF table detection + openpyxl
 
@@ -94,6 +94,16 @@ try:
 except Exception:  # noqa: BLE001
     _Pdf2DocxConverter = None
     HAS_PDF2DOCX = False
+
+try:
+    # Our own PDF -> Word engine (rebuilds flowing paragraphs, lists, tables,
+    # headers/footers, columns). pdf2docx stays as the fallback.
+    import fq_pdf2word as _fq_pdf2word
+
+    HAS_FQ_P2W = True
+except Exception:  # noqa: BLE001
+    _fq_pdf2word = None
+    HAS_FQ_P2W = False
 
 try:
     import pikepdf
@@ -864,7 +874,8 @@ def health():
             "word_to_pdf": bool(SOFFICE),
             "powerpoint_to_pdf": bool(SOFFICE),
             "excel_to_pdf": bool(SOFFICE),
-            "pdf_to_word": HAS_PDF2DOCX,
+            "pdf_to_word": HAS_FQ_P2W or HAS_PDF2DOCX,
+            "pdf_to_word_engine": "fq" if HAS_FQ_P2W else ("pdf2docx" if HAS_PDF2DOCX else None),
             "pdf_to_powerpoint": HAS_PPTX and HAS_COMPRESS,
             "pdf_to_excel": HAS_XLSX and HAS_COMPRESS,
             "unlock": HAS_PIKEPDF,
@@ -975,8 +986,10 @@ def pdf_to_word():
     name = secure_filename(upload.filename or "document.pdf")
     if os.path.splitext(name)[1].lower() != ".pdf":
         return jsonify({"error": "Please upload a .pdf file."}), 415
-    if not HAS_PDF2DOCX:
-        return jsonify({"error": "The PDF-to-Word engine (pdf2docx) is not installed on the server."}), 503
+    if not (HAS_FQ_P2W or HAS_PDF2DOCX):
+        return jsonify({"error": "The PDF-to-Word engine is not installed on the server."}), 503
+    # engine=classic forces pdf2docx (kept for comparison / as an escape hatch)
+    engine = (request.form.get("engine") or "fq").strip().lower()
 
     try:
         pages = parse_pages(request.form.get("pages"))
@@ -989,11 +1002,24 @@ def pdf_to_word():
         docx_path = os.path.join(work_dir, "output.docx")
         upload.save(pdf_path)
 
-        cv = _Pdf2DocxConverter(pdf_path)
-        try:
-            cv.convert(docx_path, pages=pages)
-        finally:
-            cv.close()
+        done = False
+        if HAS_FQ_P2W and engine != "classic":
+            try:
+                _fq_pdf2word.convert(pdf_path, docx_path, pages=pages)
+                done = os.path.isfile(docx_path) and os.path.getsize(docx_path) > 0
+            except Exception as exc:  # noqa: BLE001
+                if "password" in str(exc).lower():
+                    raise
+                print(f"[pdf-to-word] fq engine failed, falling back to pdf2docx: {exc!r}", flush=True)
+                done = False
+        if not done:
+            if not HAS_PDF2DOCX:
+                raise RuntimeError("Could not convert this PDF.")
+            cv = _Pdf2DocxConverter(pdf_path)
+            try:
+                cv.convert(docx_path, pages=pages)
+            finally:
+                cv.close()
 
         if not os.path.isfile(docx_path) or os.path.getsize(docx_path) == 0:
             raise RuntimeError("The converter produced an empty document.")
@@ -1426,7 +1452,7 @@ def image_upscale_cancel(job_id):
 
 if __name__ == "__main__":
     print(f"LibreOffice : {SOFFICE or 'NOT FOUND'}")
-    print(f"pdf2docx    : {'ok' if HAS_PDF2DOCX else 'NOT INSTALLED'}")
+    print(f"pdf->word   : {'fq engine' if HAS_FQ_P2W else 'fq engine NOT LOADED'} (+ pdf2docx {'ok' if HAS_PDF2DOCX else 'NOT INSTALLED'})")
     print(f"pikepdf     : {'ok' if HAS_PIKEPDF else 'NOT INSTALLED'}")
     print(f"python-pptx : {'ok' if HAS_PPTX else 'NOT INSTALLED'}")
     print(f"openpyxl    : {'ok' if HAS_XLSX else 'NOT INSTALLED'}")
