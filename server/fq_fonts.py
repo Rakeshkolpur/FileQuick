@@ -81,6 +81,8 @@ class FontBook:
     def __init__(self, doc, page_numbers):
         self.by_name = {}      # PDF font name (no subset tag) -> info dict
         self.glyphs = {}       # PDF font name -> {unicode: gid}
+        self._adv = {}         # (font name, size) -> [measured advance, font advance in em]
+        self._em = {}          # font name -> [sum of em advances, count]
         if not HAS_FONTTOOLS:
             return
         seen = set()
@@ -102,11 +104,14 @@ class FontBook:
             # subset font a proper Unicode map
             try:
                 for sp in page.get_texttrace():
-                    m = self.glyphs.setdefault(_clean(sp.get('font', '')), {})
-                    for ch in sp.get('chars', ()):
+                    name = _clean(sp.get('font', ''))
+                    m = self.glyphs.setdefault(name, {})
+                    chars = sp.get('chars', ())
+                    for ch in chars:
                         u, g = ch[0], ch[1]
                         if u > 31 and g >= 0:
                             m.setdefault(u, g)
+                    self._measure(name, sp.get('size', 0), chars)
             except Exception:  # noqa: BLE001
                 pass
 
@@ -144,6 +149,61 @@ class FontBook:
         fam = CLONES.get(fam.lower(), fam)
         return {'family': fam, 'sub': sub or 'Regular', 'bold': bold, 'italic': italic,
                 'fsType': fs, 'buf': buf, 'truetype': truetype, 'metrics': metrics}
+
+    def _hm(self, name):
+        info = self.by_name.get(name)
+        if not info:
+            return None
+        if 'hm' not in info:
+            try:
+                tt = TTFont(io.BytesIO(info['buf']), lazy=True)
+                info['hm'] = (tt['hmtx'].metrics, tt.getGlyphOrder(), tt['head'].unitsPerEm)
+            except Exception:  # noqa: BLE001
+                info['hm'] = None
+        return info['hm']
+
+    def _measure(self, name, size, chars):
+        """How far each letter really moves the pen vs. the font's own width:
+        a PDF printed at a scale (Print to PDF, 'fit to page') shows letters at
+        a size Word cannot set exactly — this finds that true size."""
+        hm = self._hm(name)
+        if not hm or not size or len(chars) < 5:
+            return
+        metrics, order, upem = hm
+        meas = nat = 0.0
+        for k in range(len(chars) - 1):
+            u, g = chars[k][0], chars[k][1]
+            if u == 32 or chars[k + 1][0] == 32 or g < 0 or g >= len(order):
+                continue
+            adv = metrics.get(order[g], (0, 0))[0] / upem
+            if adv <= 0:
+                continue
+            meas += chars[k + 1][2][0] - chars[k][2][0]
+            nat += adv
+        if nat > 0:
+            a = self._adv.setdefault((name, round(size, 1)), [0.0, 0.0])
+            a[0] += meas
+            a[1] += nat
+            e = self._em.setdefault(name, [0.0, 0])
+            e[0] += nat
+            e[1] += sum(1 for k in range(len(chars) - 1) if chars[k][0] != 32 and chars[k + 1][0] != 32)
+
+    def avg_em(self, name):
+        """Average letter width of this font in the document, in em (or None)."""
+        e = self._em.get(_clean(name))
+        return e[0] / e[1] if e and e[1] >= 10 else None
+
+    def true_size(self, name, size):
+        """(effective size, average em advance) or None."""
+        name = _clean(name)
+        a = self._adv.get((name, round(size, 1)))
+        e = self._em.get(name)
+        if not a or a[1] < 10 or not e or not e[1]:
+            return None
+        eff = a[0] / a[1]
+        if abs(eff - size) > 0.08 * size:     # odd text (rotated, Tc tricks …): don't trust it
+            return None
+        return eff, e[0] / e[1]
 
     def metrics(self):
         """{family: (line height, baseline offset)} per em, as Word lays the font out."""

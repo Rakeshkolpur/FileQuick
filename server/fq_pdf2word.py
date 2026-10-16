@@ -163,6 +163,8 @@ class Span:
     link: str | None = None
     chars: list = field(default_factory=list)   # [(c, x0, x1)]
     raw_font: str | None = None    # Symbol / Wingdings when the glyph came from one
+    track: float = 0.0             # extra letter spacing (pt) that makes the line as wide as in the PDF
+    tsize: float = 0.0             # the size in the PDF before rounding to Word's half points
 
 
 @dataclass
@@ -304,15 +306,77 @@ def extract_spans(page, fontbook=None):
                 elif fam == 'OpenSymbol':
                     fam = None     # LibreOffice's bullet font: plain Unicode bullets, body font
                 sb = s['bbox']
-                cl = [(ch['c'], ch['bbox'][0], ch['bbox'][2]) for ch in chars]
-                # horizontal extent of the ink only — a trailing space would make
-                # every line (and so the page's text width) look one space wider
-                ink = [(a, b) for c, a, b in cl if not c.isspace()]
-                out.append(Span(
-                    text=txt, x0=ink[0][0], y0=sb[1], x1=ink[-1][1], y1=sb[3], base=s['origin'][1],
-                    size=round(s['size'] * 2) / 2, font=fam, bold=bold, italic=italic,
-                    color=_hex(s.get('color', 0)), sup=bool(fl & 1), chars=cl, raw_font=raw_font,
-                ))
+                # Word sizes go in half points; a scaled PDF (12.19pt…) gets the
+                # nearest one plus a hair of letter spacing so lines stay as wide
+                size_hp, track = round(s['size'] * 2) / 2, 0.0
+                if abs(s['size'] - size_hp) >= 0.05:
+                    em = (fontbook.avg_em(s['font']) if fontbook else None) or 0.5
+                    if abs(s['size'] - size_hp) * em >= 0.03:
+                        track = (s['size'] - size_hp) * em
+                # Word slants a font that has no italic (Tahoma, Verdana …) and the PDF
+                # keeps slanted and upright words in one span: the slant only shows as
+                # a letter's box running into the next one, so decide letter by letter
+                slant = [italic] * len(chars)
+                over = [None] * len(chars)
+                if not italic:
+                    lim = 0.08 * s['size']
+                    for k in range(len(chars)):
+                        c = chars[k]
+                        if c['c'].isspace():
+                            slant[k] = None
+                            continue
+                        j = k + 1
+                        if j < len(chars) and not chars[j]['c'].isspace():
+                            over[k] = (c['bbox'][2] - c['bbox'][0]) - (chars[j]['origin'][0] - c['origin'][0])
+                            slant[k] = over[k] > lim
+                        else:
+                            slant[k] = None      # decided by its neighbours below
+                    last = None
+                    for k in range(len(chars)):
+                        if slant[k] is None:
+                            slant[k] = last
+                        else:
+                            last = slant[k]
+                    nxt = None
+                    for k in range(len(chars) - 1, -1, -1):
+                        if slant[k] is None:
+                            slant[k] = nxt if nxt is not None else False
+                        else:
+                            nxt = slant[k]
+                    # a word is italic or not as a whole: smooth single-letter flips
+                    for k in range(1, len(chars) - 1):
+                        if slant[k - 1] == slant[k + 1] != slant[k] and not chars[k]['c'].isspace():
+                            slant[k] = slant[k - 1]
+                groups = []
+                for k, c in enumerate(chars):
+                    it = bool(slant[k])
+                    if groups and (groups[-1][0] == it or c['c'].isspace()):
+                        groups[-1][1].append(c)
+                        groups[-1][2].append(over[k])
+                    else:
+                        groups.append([it, [c], [over[k]]])
+                for it, gch, govs in groups:
+                    gtxt = ''.join(c['c'] for c in gch)
+                    if not gtxt.strip():
+                        if out:
+                            out[-1].text += gtxt
+                            out[-1].chars += [(c['c'], c['bbox'][0], c['bbox'][2]) for c in gch]
+                        continue
+                    cl = [(c['c'], c['bbox'][0], c['bbox'][2]) for c in gch]
+                    if it and not italic:
+                        # a slanted letter's box leans past its real width: measure
+                        # from the pen position instead, so line ends stay true
+                        ovs = [v for v in govs if v is not None and v > 0]
+                        ov = statistics.median(ovs) if ovs else 0.0
+                        cl = [(c['c'], c['origin'][0], c['bbox'][2] - ov) for c in gch]
+                    # horizontal extent of the ink only — a trailing space would make
+                    # every line (and so the page's text width) look one space wider
+                    ink = [(a, b) for c, a, b in cl if not c.isspace()]
+                    out.append(Span(
+                        text=gtxt, x0=ink[0][0], y0=sb[1], x1=ink[-1][1], y1=sb[3], base=s['origin'][1],
+                        size=size_hp, font=fam, bold=bold, italic=it, track=track, tsize=s['size'],
+                        color=_hex(s.get('color', 0)), sup=bool(fl & 1), chars=cl, raw_font=raw_font,
+                    ))
     return out
 
 
@@ -960,7 +1024,7 @@ def build_paras(lines, left, right, page_top=None):
                 cur.left = ln.x0 - left
             # single centred / right lines are decided now so the wrap test uses the right edge
             c = (ln.x0 + ln.x1) / 2
-            if not mk and ln.x0 > left + 12 and abs(c - (left + right) / 2) < max(3, width * 0.01):
+            if not mk and ln.x0 > left + 12 and ln.x1 < right - 12 and abs(c - (left + right) / 2) < max(3, width * 0.01):
                 cur.align = 'center'
             elif not mk and ln.x0 > left + width * 0.3 and abs(ln.x1 - right) < 3:
                 cur.align = 'right'
@@ -970,10 +1034,51 @@ def build_paras(lines, left, right, page_top=None):
             cur.lines.append(ln)
     if cur:
         paras.append(cur)
+    paras = _merge_centred(paras)
     for p in paras:
         finish_para(p, left, right)
     return paras
 
+
+def _merge_centred(paras):
+    """A centred block may be centred on its own axis (not the page's):
+    its lines come out as one-line paragraphs with ragged starts. Rejoin
+    runs of them into one centred paragraph."""
+    out = []
+    i = 0
+    while i < len(paras):
+        j = i
+        run = [paras[i]]
+        while j + 1 < len(paras):
+            a, b = run[-1], paras[j + 1]
+            if len(a.lines) != 1 or len(b.lines) != 1 or a.kind == 'list' or b.kind == 'list':
+                break
+            la, lb = a.lines[0], b.lines[0]
+            pitch = lb.base - la.base
+            if abs(la.size - lb.size) > 0.6 or not (0.9 * la.size <= pitch <= 1.7 * la.size):
+                break
+            if all(s.bold for s in la.spans) != all(s.bold for s in lb.spans):
+                break
+            run.append(b)
+            j += 1
+        if len(run) >= 2:
+            ls = [q.lines[0] for q in run]
+            cents = [(l.x0 + l.x1) / 2 for l in ls]
+            mc = statistics.median(cents)
+            box = max(l.x1 - l.x0 for l in ls) + 1.6
+            # each line must be "full": the next line's first word would not have fitted
+            wrapped = all((a.x1 - a.x0) + _space_w(a.spans[-1]) + _first_word_w(b) > box
+                          for a, b in zip(ls, ls[1:]))
+            if wrapped and max(abs(c - mc) for c in cents) <= 10 and max(l.x0 for l in ls) - min(l.x0 for l in ls) > 15:
+                np_ = Para(ls)
+                np_.align = 'center'
+                np_.centre = mc
+                out.append(np_)
+                i = j + 1
+                continue
+        out.append(paras[i])
+        i += 1
+    return out
 
 # a font's own space, in em — to tell a stretched (justified) line from a ragged one
 SPACE_EM = {'Times New Roman': 0.25, 'Arial': 0.278, 'Calibri': 0.226, 'Cambria': 0.22, 'Georgia': 0.241,
@@ -984,22 +1089,24 @@ SPACE_EM = {'Times New Roman': 0.25, 'Arial': 0.278, 'Calibri': 0.226, 'Cambria'
 def space_ratios(line):
     """word gap per space ÷ the font's own space width, for each gap in the
     line. A PDF keeps the space glyph at its normal width; justification
-    shows up only in where the next word starts."""
+    shows up only in where the next word starts — measured pen to pen
+    (from the first space to the next word), which slanted letters can't skew."""
     out = []
-    last_x1 = None
+    sp_x = None
     nsp = 0
     em_size = None
     for s in line.spans:
         em = SPACE_EM.get(s.font)
         for c, a, b in s.chars:
             if c == ' ':
-                if last_x1 is not None:
-                    nsp += 1
+                if sp_x is None:
+                    sp_x = a
                     em_size = em * s.size if em else None
+                nsp += 1
                 continue
-            if last_x1 is not None and nsp and em_size:
-                out.append((a - last_x1) / nsp / em_size)
-            last_x1 = b
+            if sp_x is not None and nsp and em_size:
+                out.append((a - sp_x) / nsp / em_size)
+            sp_x = None
             nsp = 0
     return out
 
@@ -1010,11 +1117,11 @@ def _stretched(line):
 
 
 def _is_justified(body, ends, right):
-    if not body or abs(max(ends) - right) > 4 or max(ends) - min(ends) > 1.2:
+    if not body or max(ends) - min(ends) > 1.2:
         return False
     if len(body) >= 2:
         return True
-    return _stretched(body[0])
+    return abs(max(ends) - right) <= 4 and _stretched(body[0])
 
 
 def finish_para(p: Para, left, right):
@@ -1030,6 +1137,13 @@ def finish_para(p: Para, left, right):
         else:
             p.left = ls[0].x0 - left
             p.first = 0
+    if getattr(p, 'centre', None) is not None:
+        # centred on its own axis: a box around that axis just wide enough
+        half = max(max(p.centre - l.x0, l.x1 - p.centre) for l in ls) + 0.8
+        p.left, p.first = p.centre - half - left, 0
+        p.right = right - (p.centre + half)
+        p.pitch = statistics.median(b.base - a.base for a, b in zip(ls, ls[1:]))
+        return
     if p.align in ('center', 'right') and len(ls) == 1:
         p.left, p.first = 0, 0
     elif len(ls) >= 2:
@@ -1047,8 +1161,10 @@ def finish_para(p: Para, left, right):
             p.left, p.first = 0, 0
         else:
             p.align = 'left'
-        if p.align == 'both' and right - max(ends) > 3:
-            p.right = right - max(ends)
+        if p.align == 'both' and abs(right - max(ends)) > 0.5:
+            p.right = right - max(ends)          # may be negative: wider than the page text
+    if p.align == 'left' and max(l.x1 for l in ls) > right + 0.5:
+        p.right = right - max(l.x1 for l in ls) - 0.5
     # in-line tab stops (wide gaps inside a line), e.g. "Title<tab>Date"
     tabs = []
     for l in ls:
@@ -1231,6 +1347,13 @@ def compute_margins(pages_lines, running, widths, heights):
     # (Word wrapped it, so it did not). Any value in between reproduces every
     # line break; prefer the usual page margins inside that window.
     lo = xs1[-1]
+    ends = Counter(round(x) for x in xs1)
+    edge, n_edge = max(((e, n) for e, n in ends.items() if e >= xs1[-1] - 30), key=lambda t: (t[1], t[0]))
+    beyond = sum(1 for x in xs1 if x > edge + 1.5)
+    if n_edge >= max(8, 0.15 * len(xs1)) and beyond <= 0.08 * len(xs1):
+        # the text edge most (justified) lines stop at; wider paragraphs get a
+        # negative right indent instead of widening the whole page
+        lo = max(x for x in xs1 if round(x) == edge)
     hi = lo + 72
     for pi, lines in enumerate(pages_lines):
         body = sorted((l for l in lines if (pi, id(l)) not in running), key=lambda l: l.base)
@@ -1304,17 +1427,43 @@ class Writer:
             rpr.append('<w:vertAlign w:val="superscript"/>')
         elif s.sub:
             rpr.append('<w:vertAlign w:val="subscript"/>')
+        if s.track:
+            # letters and spaces need different corrections (a space is narrower)
+            sp_em = SPACE_EM.get(s.font or base_font, 0.28)
+            tw_l = round(s.track * TW)
+            tw_s = round((s.tsize - s.size) * sp_em * TW)
+            out = []
+            for piece in re.findall(r' +|\t|[^ \t]+', t):
+                if piece == '\t':
+                    out.append(f'<w:r><w:rPr>{"".join(rpr)}</w:rPr><w:tab/></w:r>')
+                    continue
+                tw = tw_s if piece.startswith(' ') else tw_l
+                r2 = list(rpr)
+                if tw:
+                    # w:spacing comes right after w:color (or before w:sz) in the rPr sequence
+                    at = next((i + 1 for i, x in enumerate(r2) if x.startswith('<w:color')), None)
+                    if at is None:
+                        at = next(i for i, x in enumerate(r2) if x.startswith('<w:sz'))
+                    r2.insert(at, f'<w:spacing w:val="{tw}"/>')
+                out.append(f'<w:r><w:rPr>{"".join(r2)}</w:rPr><w:t xml:space="preserve">{escape(piece)}</w:t></w:r>')
+            return ''.join(out)
         parts = re.split(r'(\t)', t)
         body = ''.join('<w:tab/>' if p == '\t' else f'<w:t xml:space="preserve">{escape(p)}</w:t>' for p in parts if p)
         return f'<w:r><w:rPr>{"".join(rpr)}</w:rPr>{body}</w:r>'
 
-    def line_runs(self, line: Line, left, skip_marker_until=None, base_font='Calibri'):
-        """runs for one line; wide gaps become tabs."""
+    def line_runs(self, line: Line, left, skip_marker_until=None, base_font='Calibri', spaces=False):
+        """runs for one line; wide gaps become tabs (or spaces in centred text)."""
         out = []
         segs = split_segments(line, gap_em=1.6)
         for si, (sx0, sx1, spans) in enumerate(segs):
             if si > 0:
-                out.append('<w:r><w:tab/></w:r>')
+                if spaces:
+                    prev_sp = segs[si - 1][2][-1]
+                    n = max(1, round((sx0 - segs[si - 1][1]) / max(0.5, _space_w(prev_sp))))
+                    out.append(f'<w:r><w:rPr><w:sz w:val="{max(2, round(prev_sp.size * 2))}"/></w:rPr>'
+                               f'<w:t xml:space="preserve">{" " * n}</w:t></w:r>')
+                else:
+                    out.append('<w:r><w:tab/></w:r>')
             # merge consecutive spans with identical style
             merged = []
             for s in spans:
@@ -1326,7 +1475,8 @@ class Writer:
                     txt = keep.lstrip()
                 if si == 0 and not merged:
                     txt = txt.lstrip()
-                key = (s.font, s.bold, s.italic, s.color, s.size, s.sup, s.sub, s.underline, s.strike, s.shade, s.link)
+                key = (s.font, s.bold, s.italic, s.color, s.size, s.sup, s.sub, s.underline, s.strike, s.shade, s.link,
+                       round(s.track * TW))
                 if merged and merged[-1][0] == key:
                     prev_s = merged[-1][2]
                     joiner = '' if (txt.startswith(' ') or merged[-1][1].endswith(' ') or s.x0 - prev_s.x1 < s.size * 0.12) else ' '
@@ -1363,7 +1513,7 @@ class Writer:
             ppr.append(f'<w:spacing w:before="{max(0, round(before * TW))}" w:after="0" w:line="20" w:lineRule="exact"/>')
             ppr.append(f'<w:ind w:left="{round(p.left * TW)}" w:right="{round(p.right * TW)}"/>')
             return f'<w:p><w:pPr>{"".join(ppr)}<w:rPr><w:sz w:val="2"/></w:rPr></w:pPr></w:p>'
-        if p.tabs:
+        if p.tabs and p.align not in ('center', 'right'):
             ppr.append('<w:tabs>' + ''.join(
                 f'<w:tab w:val="{k}" w:pos="{max(0, round(pos * TW))}"/>' for pos, k in p.tabs) + '</w:tabs>')
         before = p.before if before_pt is None else before_pt
@@ -1373,13 +1523,13 @@ class Writer:
         spacing = (f'w:line="{round(val * TW)}" w:lineRule="{rule}"' if rule != 'auto'
                    else 'w:line="240" w:lineRule="auto"')
         ppr.append(f'<w:spacing w:before="{max(0, round(before * TW))}" w:after="0" {spacing}/>')
-        ind_left = max(0, round(p.left * TW))
+        ind_left = round(p.left * TW)
         first = round(p.first * TW)
         ind = f'w:left="{ind_left}"'
-        if p.right > 0.5:
+        if abs(p.right) > 0.5:
             ind += f' w:right="{round(p.right * TW)}"'
         if first < 0:
-            ind += f' w:hanging="{min(-first, ind_left) if ind_left else -first}"'
+            ind += f' w:hanging="{-first}"'
         elif first > 0:
             ind += f' w:firstLine="{first}"'
         ppr.append(f'<w:ind {ind}/>')
@@ -1406,7 +1556,7 @@ class Writer:
         else:
             rest = p.lines
         for i, l in enumerate(rest):
-            lr = self.line_runs(l, left, base_font=base_font)
+            lr = self.line_runs(l, left, base_font=base_font, spaces=p.align in ('center', 'right'))
             if runs or (p.kind == 'list'):
                 if runs:
                     prev_txt = (p.lines[0] if i == 0 and p.kind == 'list' else (rest[i - 1] if i > 0 else None))
@@ -1803,6 +1953,13 @@ def convert(pdf_path, docx_path, pages=None):
                 cursor = col_top + 1
                 continue
             before = max(0, _top_y(b, base_font) - cursor)
+            if pending_pb and before > 0.5 and not isinstance(b, Table):
+                # Word ignores space-before at the top of a new page; an exact-height
+                # empty line keeps the page's first block where it was
+                body.append(f'<w:p><w:pPr><w:pageBreakBefore/><w:spacing w:before="0" w:after="0" '
+                            f'w:line="{max(20, round(before * TW))}" w:lineRule="exact"/></w:pPr></w:p>')
+                pending_pb = False
+                before = 0
             if isinstance(b, Para):
                 body.append(w.para(b, left, base_font, None, page_break=pending_pb, before_pt=before))
             elif isinstance(b, Table):
