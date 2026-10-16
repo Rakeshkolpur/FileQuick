@@ -18,3 +18,5 @@ openpyxl>=3.1
 # AI image upscale / enhance (Real-ESRGAN run with OpenCV DNN, CPU only):
 opencv-python-headless>=4.5
 numpy>=1.21
+# PDF -> Word: read real font names / embed non-standard fonts:
+fonttools>=4.40

@@ -22,15 +22,21 @@ Only needs PyMuPDF. `convert(pdf_path, docx_path, pages=None)`.
 """
 from __future__ import annotations
 
+import contextvars
 import math
 import re
 import statistics
 import zipfile
-from collections import Counter
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from xml.sax.saxutils import escape
 
 import pymupdf
+
+try:
+    from fq_fonts import FontBook, obfuscate, OBFUSCATED
+except Exception:  # noqa: BLE001
+    FontBook = None
 
 TW = 20          # twips per point
 EMU = 12700      # EMU per point
@@ -51,6 +57,12 @@ WORD_METRICS = {
     'Century Gothic': (1.2246, 1.007),
 }
 LINE_FACTOR = {k: v[0] for k, v in WORD_METRICS.items()}
+# metrics read from the fonts embedded in the PDF being converted (per request)
+_DOC_METRICS = contextvars.ContextVar('fq_doc_metrics', default={})
+
+
+def _metrics(fam):
+    return _DOC_METRICS.get().get(fam) or WORD_METRICS.get(fam)
 
 PS_FAMILY = {
     'timesnewroman': 'Times New Roman', 'timesnewromanps': 'Times New Roman', 'times': 'Times New Roman',
@@ -260,7 +272,7 @@ def _text_turn(page):
     return 0
 
 
-def extract_spans(page):
+def extract_spans(page, fontbook=None):
     flags = pymupdf.TEXT_PRESERVE_LIGATURES | pymupdf.TEXT_PRESERVE_WHITESPACE | pymupdf.TEXT_MEDIABOX_CLIP
     raw = page.get_text('rawdict', flags=flags)
     out = []
@@ -278,7 +290,9 @@ def extract_spans(page):
                 txt = ''.join(ch['c'] for ch in chars)
                 if not txt.strip():
                     continue
-                fam, b_, i_ = font_info(s['font'])
+                # the embedded font's own family name is what Word calls it
+                look = fontbook.lookup(s['font']) if fontbook else None
+                fam, b_, i_ = look if look else font_info(s['font'])
                 fl = s['flags']
                 bold = b_ or bool(fl & 16)
                 italic = i_ or bool(fl & 2)
@@ -287,6 +301,8 @@ def extract_spans(page):
                 raw_font = None
                 if fam in ('Symbol', 'Wingdings') and all((ch['c'] in PUA_MAP) or ch['c'].isspace() for ch in chars):
                     raw_font, fam = fam, None
+                elif fam == 'OpenSymbol':
+                    fam = None     # LibreOffice's bullet font: plain Unicode bullets, body font
                 sb = s['bbox']
                 cl = [(ch['c'], ch['bbox'][0], ch['bbox'][2]) for ch in chars]
                 # horizontal extent of the ink only — a trailing space would make
@@ -321,6 +337,23 @@ def group_lines(spans, tol_ratio=0.35):
             placed.y1 = max(placed.y1, s.y1)
             if s.size > placed.size:
                 placed.size = s.size
+    # a raised / lowered small piece (superscript "st", subscript "2") lands
+    # in a "line" of its own: put it back into the line it belongs to
+    small = [l for l in lines if len(l.text.strip()) <= 8]
+    for sl in small:
+        host = None
+        for ln in lines:
+            if ln is sl or ln.size < sl.size / 0.8 or not ln.spans:
+                continue
+            if ln.base - ln.size * 0.75 <= sl.base <= ln.base + ln.size * 0.4 and                     ln.x0 - 2 <= sl.x0 <= ln.x1 + ln.size * 1.5:
+                host = ln
+                break
+        if host is not None:
+            host.spans += sl.spans
+            host.x0, host.x1 = min(host.x0, sl.x0), max(host.x1, sl.x1)
+            host.y0, host.y1 = min(host.y0, sl.y0), max(host.y1, sl.y1)
+            sl.spans = []
+    lines = [l for l in lines if l.spans]
     for ln in lines:
         ln.spans.sort(key=lambda s: s.x0)
         # superscript / subscript: smaller span raised / lowered against the line
@@ -328,7 +361,7 @@ def group_lines(spans, tol_ratio=0.35):
             if s.size < ln.size * 0.85 and len(s.text.strip()) <= 6:
                 if s.base < ln.base - ln.size * 0.15:
                     s.sup = True
-                elif s.base > ln.base + ln.size * 0.1:
+                elif s.base > ln.base + ln.size * 0.05:
                     s.sub = True
             else:
                 s.sup = s.sup and s.size < ln.size * 0.9
@@ -639,6 +672,14 @@ def extract_images(doc, page, text_lines):
         # a full-page picture with a text layer on top is a scan + OCR text: keep the text only
         if bb.width * bb.height > 0.8 * pr.width * pr.height and len(text_lines) > 5:
             continue
+        # a line-high picture sitting on real text is that text drawn as an image
+        # (Word does this for some fonts): the text is already there
+        over = [l for l in text_lines
+                if min(l.x1, bb.x1) - max(l.x0, bb.x0) > 0 and min(l.y1, bb.y1) - max(l.y0, bb.y0) > 0.5 * (l.y1 - l.y0)]
+        if over:
+            covered = sum(max(0, min(l.x1, bb.x1) - max(l.x0, bb.x0)) for l in over)
+            if bb.height <= 2.5 * max(l.size for l in over) and covered >= 0.5 * bb.width:
+                continue
         xref = info.get('xref') or 0
         data, ext = None, 'png'
         try:
@@ -847,6 +888,19 @@ def build_paras(lines, left, right, page_top=None):
     paras = []
     cur = None
     width = right - left
+    # the usual baseline step inside a paragraph, per text size: most
+    # neighbouring lines belong to the same paragraph, so it is the most
+    # common step. A clearly bigger one is a paragraph break even after a
+    # full line (1.5 / double spaced text has a bigger usual step itself).
+    steps = defaultdict(Counter)
+    for a, b in zip(lines, lines[1:]):
+        if abs(a.size - b.size) <= 0.5 and 0.9 * a.size <= b.base - a.base <= 3.2 * a.size:
+            steps[round(a.size * 2) / 2][round((b.base - a.base) * 2) / 2] += 1
+    usual = {}
+    for sz, c in steps.items():
+        step, n = c.most_common(1)[0]
+        if n >= 3 and n >= 0.4 * sum(c.values()):
+            usual[sz] = step
     for ln in lines:
         mk = _marker(ln)
         start_new = cur is None
@@ -859,7 +913,17 @@ def build_paras(lines, left, right, page_top=None):
             else:
                 # 2nd line: 1.5 / double spacing looks like a paragraph gap, so a
                 # full first line (Word had to wrap it) may sit further away
-                gap_big = pitch > prev.size * (3.0 if not _room_fits(cur, prev, ln, right) else 1.75)
+                step = usual.get(round(prev.size * 2) / 2)
+                if step:
+                    gap_big = pitch > step * 1.25 + 0.5
+                else:
+                    gap_big = pitch > prev.size * (3.0 if not _room_fits(cur, prev, ln, right) else 1.75)
+                # an ambiguous gap followed by a line that opens with a bold label
+                # in another font ("Tahoma: …") starts a new paragraph
+                if not gap_big and pitch > prev.size * 1.6:
+                    f0 = ln.spans[0]
+                    if f0.bold and f0.font != prev.spans[-1].font:
+                        gap_big = True
             size_change = abs(ln.size - prev.size) > 1.2
             style_change = (all(s.bold for s in ln.spans) != all(s.bold for s in prev.spans)) and len(cur.lines) == 1
             # Word's wrap rule: if the next line's first word would have fitted, the line ended on purpose
@@ -1232,10 +1296,10 @@ class Writer:
         if s.sup or s.sub:
             sz = max(2, round(s.size * 2 / 0.65)) if s.size < 9 else sz
         rpr.append(f'<w:sz w:val="{sz}"/><w:szCs w:val="{sz}"/>')
-        if s.shade:
-            rpr.append(f'<w:shd w:val="clear" w:color="auto" w:fill="{s.shade}"/>')
         if s.underline:
             rpr.append('<w:u w:val="single"/>')
+        if s.shade:
+            rpr.append(f'<w:shd w:val="clear" w:color="auto" w:fill="{s.shade}"/>')
         if s.sup:
             rpr.append('<w:vertAlign w:val="superscript"/>')
         elif s.sub:
@@ -1481,8 +1545,8 @@ def line_model(p: Para, base_font='Calibri'):
     baseline below the paragraph top, last line's part below its baseline)."""
     fam1, size1 = _line_font(p.lines[0], base_font)
     famN, sizeN = _line_font(p.lines[-1], base_font)
-    m1 = WORD_METRICS.get(fam1)
-    mN = WORD_METRICS.get(famN)
+    m1 = _metrics(fam1)
+    mN = _metrics(famN)
     multi = bool(p.pitch) and len(p.lines) >= 2
     if m1 is None or mN is None:
         # a font Word may not have: pin the lines with exact spacing
@@ -1590,9 +1654,10 @@ def styles_xml(font, size):
             '</w:styles>')
 
 
-def settings_xml(mode):
+def settings_xml(mode, embed=False):
+    emb = '<w:embedTrueTypeFonts/><w:saveSubsetFonts/>' if embed else ''
     return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            f'<w:settings {NS}><w:defaultTabStop w:val="720"/><w:characterSpacingControl w:val="doNotCompress"/>'
+            f'<w:settings {NS}>{emb}<w:defaultTabStop w:val="720"/><w:characterSpacingControl w:val="doNotCompress"/>'
             f'<w:compat><w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="{mode}"/></w:compat>'
             '</w:settings>')
 
@@ -1621,6 +1686,11 @@ def convert(pdf_path, docx_path, pages=None):
         raise RuntimeError('No pages to convert.')
 
     pages_lines, widths, heights = [], [], []
+    try:
+        fontbook = FontBook(doc, idx) if FontBook else None
+    except Exception:  # noqa: BLE001
+        fontbook = None
+    _DOC_METRICS.set(fontbook.metrics() if fontbook else {})
     per_page = []
     for pi, pno in enumerate(idx):
         page = doc[pno]
@@ -1629,7 +1699,7 @@ def convert(pdf_path, docx_path, pages=None):
         if turn:
             page.set_rotation(turn)
             page.remove_rotation()
-        spans = extract_spans(page)
+        spans = extract_spans(page, fontbook)
         spans += bullet_dots(page, spans)
         hrules, vrules, fills = collect_rects(page)
         tables = detect_tables(page, hrules, vrules, fills, spans)
@@ -1797,6 +1867,35 @@ def convert(pdf_path, docx_path, pages=None):
     for rid, typ, target, ext in w.rels:
         mode = ' TargetMode="External"' if ext else ''
         rels.append(f'<Relationship Id="{rid}" Type="{typ}" Target="{escape(target, {chr(34): "&quot;"})}"{mode}/>')
+    # fonts the reader's PC may not have travel inside the document
+    font_parts = []      # (part name, bytes)
+    font_table = None
+    try:
+        embeds = fontbook.embeds(w.fonts.keys()) if fontbook else {}
+    except Exception:  # noqa: BLE001
+        embeds = {}
+    if embeds:
+        frels, fxml = [], []
+        n = 0
+        for fam, styles in embeds.items():
+            tags = []
+            for key, tag in (('Regular', 'embedRegular'), ('Bold', 'embedBold'), ('Italic', 'embedItalic'),
+                             ('BoldItalic', 'embedBoldItalic')):
+                if key not in styles:
+                    continue
+                n += 1
+                data, fkey = obfuscate(styles[key])
+                font_parts.append((f'word/fonts/font{n}.odttf', data))
+                frels.append(f'<Relationship Id="rIdF{n}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/font" Target="fonts/font{n}.odttf"/>')
+                tags.append(f'<w:{tag} r:id="rIdF{n}" w:fontKey="{fkey}"/>')
+            fxml.append(f'<w:font w:name="{escape(fam, {chr(34): "&quot;"})}"><w:charset w:val="00"/><w:family w:val="auto"/>'
+                        f'<w:pitch w:val="variable"/>{"".join(tags)}</w:font>')
+        font_table = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                      f'<w:fonts {NS}>' + ''.join(fxml) + '</w:fonts>',
+                      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                      + ''.join(frels) + '</Relationships>')
+        rels.append('<Relationship Id="rIdFontTable" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/fontTable" Target="fontTable.xml"/>')
     rels.append('</Relationships>')
 
     ct = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -1811,6 +1910,9 @@ def convert(pdf_path, docx_path, pages=None):
           '<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>']
     for part, _, typ in extra_parts:
         ct.append(f'<Override PartName="/{part}" ContentType="{typ}"/>')
+    if font_table:
+        ct.append(f'<Default Extension="odttf" ContentType="{OBFUSCATED}"/>')
+        ct.append('<Override PartName="/word/fontTable.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.fontTable+xml"/>')
     ct.append('</Types>')
 
     root_rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -1828,7 +1930,12 @@ def convert(pdf_path, docx_path, pages=None):
         z.writestr('docProps/core.xml', core)
         z.writestr('word/document.xml', document)
         z.writestr('word/styles.xml', styles_xml(base_font, base_size))
-        z.writestr('word/settings.xml', settings_xml(compat))
+        z.writestr('word/settings.xml', settings_xml(compat, embed=bool(font_table)))
+        if font_table:
+            z.writestr('word/fontTable.xml', font_table[0])
+            z.writestr('word/_rels/fontTable.xml.rels', font_table[1])
+            for part, data in font_parts:
+                z.writestr(part, data)
         z.writestr('word/_rels/document.xml.rels', ''.join(rels))
         for part, xml, _ in extra_parts:
             z.writestr(part, xml)
