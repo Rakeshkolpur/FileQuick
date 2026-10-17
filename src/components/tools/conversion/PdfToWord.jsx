@@ -18,7 +18,7 @@ import {
   ocrLines, OCR_LANGUAGES, scriptLanguage, languageName,
 } from '../../../lib/ocr';
 import {
-  selectPages, ocrSpec, buildUploadPdf, cleanDocxFonts, detectRules, gridCells, cropCanvas, maskTables, shiftLines, inkFit, markBold,
+  selectPages, ocrSpec, buildUploadPdf, cleanDocxFonts, deskew, recoverMissed, detectRules, gridCells, cropCanvas, maskTables, shiftLines, inkFit, markBold,
 } from '../../../lib/pdfToWord';
 
 const LANG_KEY = 'fq.p2w.lang';
@@ -204,7 +204,9 @@ const PdfToWord = () => {
           const vp = pg.getViewport({ scale: 1 });
           const scale = Math.min(4, 2400 / vp.width);
           // eslint-disable-next-line no-await-in-loop
-          const canvas = await renderPageToCanvas(pdf, p.index + 1, { scale });
+          const rendered = await renderPageToCanvas(pdf, p.index + 1, { scale });
+          // straighten a tilted scan first: tables and OCR both need level lines
+          const { canvas } = p.scanned ? deskew(rendered) : { canvas: rendered };
           const rules = detectRules(canvas); // table grid lines, if any
           const tables = gridCells(rules);
           const label = `Page ${p.index + 1} · ${done} of ${ocrKept.length}`;
@@ -215,6 +217,15 @@ const PdfToWord = () => {
             (pr) => setJob({ step: 'ocr', detail: `${label} · ${Math.round(pr * 100)}%` }),
             { lang: pageLang },
           );
+          // … plus anything the page read skipped (list numbers, short labels) …
+          setJob({ step: 'ocr', detail: `${label} · checking for missed text` });
+          // eslint-disable-next-line no-await-in-loop
+          lines.push(...await recoverMissed(
+            canvas,
+            lines,
+            (c) => ocrLines(c, null, { psm: '7', minConf: 30, lang: pageLang }),
+            tables.map((t) => t.box),
+          ));
           // … then every table cell on its own, which reads far more reliably.
           const cells = tables.flatMap((t) => t.cells).filter((c) => c.x1 - c.x0 > 14 && c.y1 - c.y0 > 14);
           for (let ci = 0; ci < cells.length; ci += 1) {

@@ -30,6 +30,8 @@ import statistics
 INDIC = re.compile('[\u0900-\u0dff\u0600-\u06ff]')     # Devanagari … Malayalam, plus Urdu
 INDIC_FONT = 'Nirmala UI'
 BULLET_LOOKALIKES = set('eoO0*«»°·•●▪■◦-–>»')
+QUOTE_OPEN = "“\"‘'(["
+QUOTE_CLOSE = "”\"’')],;"
 
 # Word fonts -> files with the same letter shapes / widths (Windows, then the
 # Linux look-alikes the server has). A font missing on the machine is skipped.
@@ -174,10 +176,10 @@ def pick_family(spec, only=None):
     return best[0], best[2]
 
 
-def _snap(size, common):
+def _snap(size, common, tol=0.12):
     """Body text is one size: a line close to the page's usual size (an OCR
     slip skews a short line) takes that size."""
-    if common and abs(size - common) <= 0.12 * common:
+    if common and abs(size - common) <= tol * common:
         return common
     return size
 
@@ -203,7 +205,8 @@ def ocr_spans(spec, Span, family=None):
         else:
             sizes = _word_sizes(m, ws)
             size = statistics.median(sizes) if sizes else (common or ink / 0.92)
-            size = _snap(size, common)
+            # a table cell holds a word or two — too few to measure well
+            size = _snap(size, common, 0.5 if ln.get('cell') else (0.15 if len(ws) <= 2 else 0.04))
         exact = min(72.0, max(4.0, size))
         size = round(exact * 2) / 2
         # Word sizes go in half points: make up the difference with letter
@@ -239,15 +242,38 @@ def ocr_spans(spec, Span, family=None):
                     x += a
                 end = max(x, w['x1'])
             if k + 1 < len(ws):
+                # the gap runs to where the next word's pen starts (its ink
+                # minus its first letter's side bearing), as in a digital PDF
                 nx = ws[k + 1]['x0']
+                nt = ws[k + 1]['t'].strip()
+                if wm is not None and nt and not INDIC.search(nt):
+                    gn = wm.glyph(nt[0])
+                    nx -= (gn[1] if gn else 0) * size
                 chars.append((' ', end, max(end + 0.1, nx)))
                 t = t + ' '
             # the word spans from where Word's pen starts to where its last letter
             # ends (like a digital PDF's letter boxes), not just the ink
-            ink_end = chars[len(t) - 1][2] if len(chars) >= len(t) else w['x1']
-            out.append(Span(text=t, x0=chars[0][1], y0=base - size * 0.8, x1=ink_end, y1=base + size * 0.22, base=base,
-                            size=size, font=wfam, bold=wbold, italic=False, color=w.get('c') or '000000', chars=chars,
-                            track=0.0 if indic else track, tsize=exact))
+            # the line's end is where the ink stops: OCR may spell a word a bit
+            # wider than it is ('...' for '…'), the scan is the truth
+            ink_end = min(chars[len(t) - 1][2], w['x1'] + 0.6 * size * 0.1) if len(chars) >= len(t) else w['x1']
+            # quotes and brackets around a bold word are usually typed plain:
+            # “the Act” -> “ + bold the Act + ”
+            pieces = [(0, len(chars), wbold)]
+            if wbold and not indic:
+                core = t.rstrip(' ')
+                a_ = len(core) - len(core.lstrip(QUOTE_OPEN))
+                b_ = len(core.rstrip(QUOTE_CLOSE))
+                if (a_ or b_ < len(core)) and b_ > a_:
+                    pieces = [(0, a_, False), (a_, b_, True), (b_, len(chars), False)]
+            for i0, i1, bb in pieces:
+                if i1 <= i0:
+                    continue
+                cs = chars[i0:i1]
+                txt = ''.join(c[0] for c in cs)
+                x1 = ink_end if i1 >= len(t.rstrip(' ')) else cs[-1][2]
+                out.append(Span(text=txt, x0=cs[0][1], y0=base - size * 0.8, x1=max(cs[0][1] + 0.1, min(x1, cs[-1][2])),
+                                y1=base + size * 0.22, base=base, size=size, font=wfam, bold=bb, italic=False,
+                                color=w.get('c') or '000000', chars=cs, track=0.0 if indic else track, tsize=exact, ocr=True))
     return out
 
 

@@ -18,6 +18,77 @@ import { winAnsiSafe } from './pdfAnnotate';
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 /**
+ * Straighten a slightly tilted scan. A tilt of even half a degree turns a
+ * table's ruling lines into staircases and lines of text into slopes, which
+ * breaks both table detection and OCR. The tilt is found the classic way: on
+ * a small copy, the angle at which the dark pixels pile up into the sharpest
+ * rows (sum of squared row counts) is the page's skew.
+ * Returns the (possibly rotated) canvas and the angle in degrees.
+ */
+export function deskew(canvas) {
+  const W = canvas.width;
+  const H = canvas.height;
+  const k = Math.min(1, 800 / W);
+  const w = Math.max(1, Math.round(W * k));
+  const h = Math.max(1, Math.round(H * k));
+  const small = document.createElement('canvas');
+  small.width = w;
+  small.height = h;
+  const sctx = small.getContext('2d', { willReadFrequently: true });
+  sctx.fillStyle = '#fff';
+  sctx.fillRect(0, 0, w, h);
+  sctx.drawImage(canvas, 0, 0, w, h);
+  const px = sctx.getImageData(0, 0, w, h).data;
+  const xs = [];
+  const ys = [];
+  for (let y = 0; y < h; y += 1) {
+    for (let x = 0; x < w; x += 1) {
+      const i = (y * w + x) * 4;
+      if (px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114 < 128) { xs.push(x - w / 2); ys.push(y - h / 2); }
+    }
+  }
+  if (xs.length < 500) return { canvas, angle: 0 };
+  const rows = new Float64Array(h * 3);
+  const score = (deg) => {
+    const r = (deg * Math.PI) / 180;
+    const sn = Math.sin(r);
+    const cs = Math.cos(r);
+    rows.fill(0);
+    for (let j = 0; j < xs.length; j += 1) {
+      const yy = Math.round(-xs[j] * sn + ys[j] * cs + h * 1.5);
+      if (yy >= 0 && yy < rows.length) rows[yy] += 1;
+    }
+    let s = 0;
+    for (let j = 0; j < rows.length; j += 1) s += rows[j] * rows[j];
+    return s;
+  };
+  let best = 0;
+  let bestS = -1;
+  for (let a = -3; a <= 3.0001; a += 0.1) {
+    const s = score(a);
+    if (s > bestS) { bestS = s; best = a; }
+  }
+  const coarse = best;
+  for (let d = -0.1; d <= 0.1001; d += 0.02) {
+    const s = score(coarse + d);
+    if (s > bestS) { bestS = s; best = coarse + d; }
+  }
+  if (Math.abs(best) < 0.05) return { canvas, angle: 0 };
+  // rotate the full page by the same angle, counter-clockwise, on white
+  const out = document.createElement('canvas');
+  out.width = W;
+  out.height = H;
+  const ctx = out.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, W, H);
+  ctx.translate(W / 2, H / 2);
+  ctx.rotate((-best * Math.PI) / 180);
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(canvas, -W / 2, -H / 2);
+  return { canvas: out, angle: best };
+}
+
+/**
  * Table grid lines in a scanned page image (px): long thin dark runs, joined
  * across neighbouring rows / columns. Only lines that form a grid are kept —
  * a vertical must touch a horizontal at both ends — so letter strokes and
@@ -29,7 +100,8 @@ export function detectRules(canvas) {
   const px = canvas.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, W, H).data;
   const dark = new Uint8Array(W * H);
   for (let i = 0, j = 0; i < px.length; i += 4, j += 1) {
-    dark[j] = px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114 < 140 ? 1 : 0;
+    // 160: a thin ruling line on a soft scan is grey, not black
+    dark[j] = px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114 < 160 ? 1 : 0;
   }
   const maxThick = Math.max(6, Math.round(Math.min(W, H) * 0.004));
 
@@ -224,12 +296,112 @@ export function markBold(canvas, lines) {
     // its own against the same em as its line
     const lineEm = ws[i] != null ? weight(l.bbox) / ws[i] : null;
     const words = (l.words || []).map((wd) => {
-      if (!lineEm || !wd.bbox || (wd.text || '').trim().length < 1) return { ...wd, bold: lineBold };
+      const t = (wd.text || '').trim();
+      if (!lineEm || !wd.bbox || !t) return { ...wd, bold: lineBold };
       const r = weight(wd.bbox);
-      return { ...wd, bold: r != null ? r / lineEm > normal * 1.35 : lineBold };
+      if (r == null) return { ...wd, bold: lineBold };
+      // short words ("1:00", "PM", "2.") give few strokes to measure: they
+      // need a clearer difference before they differ from their line
+      const k = t.replace(/[^\p{L}\p{N}]/gu, '').length >= 4 ? 1.35 : 1.6;
+      return { ...wd, bold: lineBold ? r / lineEm > normal * 1.1 : r / lineEm > normal * k };
     });
     return { ...l, bold: lineBold, words };
   });
+}
+
+/**
+ * Text the page OCR skipped. Tesseract's layout step drops small marks that
+ * stand apart — list numbers ("2.", "(iii)"), a lone page number, short
+ * labels. Find ink not covered by any recognised word, group it into short
+ * runs on one line, and read each run on its own (single-line mode).
+ * Returns OCR'd lines (page pixels) to add.
+ */
+export async function recoverMissed(canvas, lines, readLine, skip = []) {
+  const { width: W, height: H } = canvas;
+  if (!lines.length) return [];
+  const hs = lines.map((l) => l.bbox.y1 - l.bbox.y0).sort((a, b) => a - b);
+  const lineH = hs[Math.floor(hs.length / 2)] || 30;
+  const k = 2; // work on a half-size copy
+  const w = Math.ceil(W / k);
+  const h = Math.ceil(H / k);
+  const px = canvas.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, W, H).data;
+  const ink = new Uint8Array(w * h);
+  for (let y = 0; y < h; y += 1) {
+    for (let x = 0; x < w; x += 1) {
+      const i = ((y * k) * W + x * k) * 4;
+      if (px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114 < 120) ink[y * w + x] = 1;
+    }
+  }
+  // blank out what's already read (words, table areas)
+  const pad = Math.round(lineH * 0.15);
+  const clear = (b) => {
+    for (let y = Math.max(0, Math.floor((b.y0 - pad) / k)); y <= Math.min(h - 1, Math.ceil((b.y1 + pad) / k)); y += 1) {
+      for (let x = Math.max(0, Math.floor((b.x0 - pad) / k)); x <= Math.min(w - 1, Math.ceil((b.x1 + pad) / k)); x += 1) ink[y * w + x] = 0;
+    }
+  };
+  lines.forEach((l) => (l.words && l.words.length ? l.words : [{ bbox: l.bbox }]).forEach((wd) => clear(wd.bbox)));
+  skip.forEach(clear);
+  // connected blobs of what's left
+  const seen = new Uint8Array(w * h);
+  const blobs = [];
+  const dots = [];
+  for (let s = 0; s < w * h; s += 1) {
+    if (!ink[s] || seen[s]) continue;
+    const stack = [s];
+    seen[s] = 1;
+    let x0 = w;
+    let y0 = h;
+    let x1 = 0;
+    let y1 = 0;
+    let n = 0;
+    while (stack.length) {
+      const p = stack.pop();
+      const x = p % w;
+      const y = (p - x) / w;
+      n += 1;
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+      for (let dy = -1; dy <= 1; dy += 1) {
+        for (let dx = -1; dx <= 1; dx += 1) {
+          const q = (y + dy) * w + (x + dx);
+          if (y + dy >= 0 && y + dy < h && x + dx >= 0 && x + dx < w && ink[q] && !seen[q]) { seen[q] = 1; stack.push(q); }
+        }
+      }
+    }
+    const bh = (y1 - y0 + 1) * k;
+    const bw = (x1 - x0 + 1) * k;
+    const box = {
+      x0: x0 * k, y0: y0 * k, x1: (x1 + 1) * k, y1: (y1 + 1) * k,
+    };
+    // letter-sized: not specks, not rules / pictures
+    if (n * k * k >= lineH * lineH * 0.04 && bh >= lineH * 0.3 && bh <= lineH * 1.6 && bw <= lineH * 6) blobs.push(box);
+    // dots, commas, the i's dot: kept only next to a letter-sized blob
+    else if (bh < lineH * 0.3 && bw < lineH * 0.4) dots.push(box);
+  }
+  // blobs on one line, close together -> one region to read
+  blobs.sort((a, b) => a.x0 - b.x0);
+  const regions = [];
+  blobs.forEach((b) => {
+    const cy = (b.y0 + b.y1) / 2;
+    const r = regions.find((g) => cy > g.y0 - lineH * 0.3 && cy < g.y1 + lineH * 0.3 && b.x0 - g.x1 < lineH * 1.2);
+    if (r) {
+      r.x0 = Math.min(r.x0, b.x0); r.x1 = Math.max(r.x1, b.x1); r.y0 = Math.min(r.y0, b.y0); r.y1 = Math.max(r.y1, b.y1);
+    } else regions.push({ ...b });
+  });
+  // a full stop or comma right after a region belongs to it ("2.", "(a),")
+  dots.forEach((d) => {
+    const r = regions.find((g) => d.x0 >= g.x1 - 2 && d.x0 - g.x1 < lineH * 0.5 && d.y1 <= g.y1 + lineH * 0.35 && d.y0 >= g.y0 - lineH * 0.2);
+    if (r) { r.x1 = Math.max(r.x1, d.x1); r.y1 = Math.max(r.y1, d.y1); }
+  });
+  const out = [];
+  for (const r of regions.slice(0, 40)) {
+    const crop = cropCanvas(canvas, {
+      x0: r.x0 - 4, y0: r.y0 - 4, x1: r.x1 + 4, y1: r.y1 + 4,
+    }, 0, 12);
+    // eslint-disable-next-line no-await-in-loop
+    const got = await readLine(crop.canvas);
+    got.filter((l) => /[\p{L}\p{N}]/u.test(l.text)).forEach((l) => out.push(...shiftLines([l], crop.dx, crop.dy)));
+  }
+  return out;
 }
 
 /** Move OCR lines from a crop's coordinates back to the page's. */

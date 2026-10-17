@@ -167,6 +167,7 @@ class Span:
     link: str | None = None
     chars: list = field(default_factory=list)   # [(c, x0, x1)]
     raw_font: str | None = None    # Symbol / Wingdings when the glyph came from one
+    ocr: bool = False              # read from a scan: positions are only good to about a point
     track: float = 0.0             # extra letter spacing (pt) that makes the line as wide as in the PDF
     tsize: float = 0.0             # the size in the PDF before rounding to Word's half points
 
@@ -1030,7 +1031,7 @@ def build_paras(lines, left, right, page_top=None):
             c = (ln.x0 + ln.x1) / 2
             if not mk and ln.x0 > left + 12 and ln.x1 < right - 12 and abs(c - (left + right) / 2) < max(3, width * 0.01):
                 cur.align = 'center'
-            elif not mk and ln.x0 > left + width * 0.3 and abs(ln.x1 - right) < 3:
+            elif not mk and ln.x0 > left + width * 0.3 and abs(ln.x1 - right) < (5 if ln.spans[0].ocr else 3):
                 cur.align = 'right'
         else:
             if len(cur.lines) == 1:
@@ -1073,7 +1074,9 @@ def _merge_centred(paras):
             # each line must be "full": the next line's first word would not have fitted
             wrapped = all((a.x1 - a.x0) + _space_w(a.spans[-1]) + _first_word_w(b) > box
                           for a, b in zip(ls, ls[1:]))
-            if wrapped and max(abs(c - mc) for c in cents) <= 10 and max(l.x0 for l in ls) - min(l.x0 for l in ls) > 15:
+            # centred lines move in by the same amount on both sides
+            symmetric = all(abs((a.x0 - b.x0) + (a.x1 - b.x1)) < 6 for a, b in zip(ls, ls[1:]))
+            if wrapped and symmetric and max(abs(c - mc) for c in cents) <= 10 and max(l.x0 for l in ls) - min(l.x0 for l in ls) > 15:
                 np_ = Para(ls)
                 np_.align = 'center'
                 np_.centre = mc
@@ -1121,7 +1124,8 @@ def _stretched(line):
 
 
 def _is_justified(body, ends, right):
-    if not body or max(ends) - min(ends) > 1.2:
+    tol = 2.5 if any(s.ocr for l in body for s in l.spans) else 1.2
+    if not body or max(ends) - min(ends) > tol:
         return False
     if len(body) >= 2:
         return True
@@ -1343,8 +1347,20 @@ def compute_margins(pages_lines, running, widths, heights):
     xs0.sort()
     xs1.sort()
     # the left edge most lines start at (robust to a few outdented lines)
-    left = Counter(round(x) for x in xs0).most_common(1)[0][0]
-    left = min(left, xs0[max(0, len(xs0) // 50)])
+    # the leftmost edge that a good share of lines start at (edges within 2pt
+    # count as one, so a scan's jitter doesn't split them); lines further
+    # left (outdented headings) get a negative indent instead
+    groups = []
+    for x in xs0:
+        if groups and x - groups[-1][-1] <= 2.0:
+            groups[-1].append(x)
+        else:
+            groups.append([x])
+    big = [g for g in groups if len(g) >= max(3, 0.15 * len(xs0))]
+    if big:
+        left = statistics.median(big[0])
+    else:
+        left = statistics.median(max(groups, key=len))
     left = max(18, min(left, w / 3))
     # The right margin is somewhere between the longest line's end (every line
     # fitted) and the first place a wrapped line's next word would have fitted
@@ -1381,6 +1397,10 @@ def compute_margins(pages_lines, running, widths, heights):
     if right is None:
         right = lo + min(1.5, max(0.2, (hi - lo) / 2))
     right = min(w - 9, max(right, w * 2 / 3))
+    if any(s.ocr for lines in pages_lines for l in lines[:20] for s in l.spans):
+        # a scan's word positions wobble by about a point: leave Word that much
+        # room so a full line doesn't lose its last word
+        right = min(w - 9, right + 2.0)
     return {'left': left, 'right': right, 'top': max(18, min(ys0)), 'bottom': min(h - 18, max(ys1)),
             'bottom_gap': max(14, min(gaps))}
 
