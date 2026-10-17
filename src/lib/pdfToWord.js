@@ -218,7 +218,18 @@ export function markBold(canvas, lines) {
   const known = ws.filter((w) => w != null).sort((a, b) => a - b);
   if (known.length < 2) return lines;
   const normal = known[Math.floor(known.length * 0.4)];
-  return lines.map((l, i) => ({ ...l, bold: ws[i] != null && ws[i] > normal * 1.35 }));
+  return lines.map((l, i) => {
+    const lineBold = ws[i] != null && ws[i] > normal * 1.35;
+    // a bold word inside a normal line ("1. The …", "Note: …"), measured on
+    // its own against the same em as its line
+    const lineEm = ws[i] != null ? weight(l.bbox) / ws[i] : null;
+    const words = (l.words || []).map((wd) => {
+      if (!lineEm || !wd.bbox || (wd.text || '').trim().length < 1) return { ...wd, bold: lineBold };
+      const r = weight(wd.bbox);
+      return { ...wd, bold: r != null ? r / lineEm > normal * 1.35 : lineBold };
+    });
+    return { ...l, bold: lineBold, words };
+  });
 }
 
 /** Move OCR lines from a crop's coordinates back to the page's. */
@@ -317,6 +328,51 @@ export async function buildUploadPdf(bytes, plan) {
     });
   }
   return out.save();
+}
+
+/** The kept pages only, in order (scans included — the server reads them
+ * from the OCR data sent alongside, see ocrSpec). */
+export async function selectPages(bytes, indices) {
+  const src = await PDFDocument.load(bytes, { updateMetadata: false });
+  if (indices.length === src.getPageCount() && indices.every((v, i) => v === i)) return bytes;
+  const out = await PDFDocument.create();
+  const copied = await out.copyPages(src, indices);
+  copied.forEach((p) => out.addPage(p));
+  return out.save();
+}
+
+/**
+ * One OCR'd page -> what the server's engine needs (PDF points, top-left
+ * origin): every word with its box, each line's baseline and boldness, and
+ * the table cells. The server picks the font and size from the words' real
+ * widths and rebuilds paragraphs, alignment and tables from it — any script,
+ * Indian languages included (no Helvetica redraw any more).
+ */
+export function ocrSpec(ocr) {
+  const { lines, pxW, ptW, rules, tables } = ocr;
+  const s = pxW / ptW; // image px per PDF pt
+  const vRules = rules ? rules.v : [];
+  const pt = (v) => Math.round((v / s) * 100) / 100;
+  const outLines = [];
+  lines.forEach((l) => {
+    const hasBase = l.baseline && Number.isFinite(l.baseline.y0) && l.baseline.has_baseline !== false;
+    const basePx = hasBase ? (l.baseline.y0 + l.baseline.y1) / 2 : l.bbox.y1 - (l.bbox.y1 - l.bbox.y0) * 0.22;
+    const crossing = vRules.filter((v) => v.y0 <= l.bbox.y1 && v.y1 >= l.bbox.y0);
+    // words, minus the "|" OCR reads off a table's vertical lines
+    const words = (l.words && l.words.length ? l.words : [{ text: l.text, bbox: l.bbox }])
+      .filter((w) => l.cell || !(/^[|¦!Il1[\]]$/.test((w.text || '').trim()) && crossing.some((v) => w.bbox.x0 <= v.x1 + 6 && w.bbox.x1 >= v.x0 - 6)))
+      .map((w) => ({
+        t: (w.text || '').trim(), x0: pt(w.bbox.x0), y0: pt(w.bbox.y0), x1: pt(w.bbox.x1), y1: pt(w.bbox.y1),
+        ...(w.bold != null ? { b: !!w.bold } : {}),
+      }))
+      .filter((w) => w.t);
+    if (!words.length) return;
+    outLines.push({
+      base: pt(basePx), bold: !!l.bold, cell: !!l.cell, words,
+    });
+  });
+  const cells = (tables || []).flatMap((t) => t.cells.map((c) => [pt(c.x0), pt(c.y0), pt(c.x1), pt(c.y1)]));
+  return { lines: outLines, cells };
 }
 
 // PDF / metric-clone names -> the font Word users have.

@@ -37,6 +37,10 @@ try:
     from fq_fonts import FontBook, obfuscate, OBFUSCATED
 except Exception:  # noqa: BLE001
     FontBook = None
+try:
+    from fq_ocr import ocr_spans, ocr_tables
+except Exception:  # noqa: BLE001
+    ocr_spans = ocr_tables = None
 
 TW = 20          # twips per point
 EMU = 12700      # EMU per point
@@ -1815,19 +1819,24 @@ def settings_xml(mode, embed=False):
 def squeezed_spaces(all_paras):
     """True when justified lines in the PDF have word gaps narrower than the
     font's own space — the PDF came from Word 2013+, which squeezes them."""
-    # a ragged line never has gaps below the font's space, so look at every line
-    hits = 0
+    # a ragged line never has gaps below the font's space, so look at every
+    # line — several of them, so one noisy line (a scan) can't decide it
+    hits = measured = 0
     for p in all_paras:
         if p.empty or not p.lines:
             continue
         for l in p.lines:
             r = space_ratios(l)
-            if len(r) >= 4 and statistics.median(r) < 0.93:
-                hits += 1
-    return hits >= 1
+            if len(r) >= 4:
+                measured += 1
+                if statistics.median(r) < 0.93:
+                    hits += 1
+    return hits >= 3
 
 
-def convert(pdf_path, docx_path, pages=None):
+def convert(pdf_path, docx_path, pages=None, ocr=None):
+    """ocr: {page number: OCR spec} for scanned pages read in the browser
+    (see fq_ocr) — those pages are rebuilt from the OCR text, not the picture."""
     doc = pymupdf.open(pdf_path)
     if doc.needs_pass:
         raise RuntimeError('This PDF is password-protected. Unlock it first.')
@@ -1836,6 +1845,14 @@ def convert(pdf_path, docx_path, pages=None):
         raise RuntimeError('No pages to convert.')
 
     pages_lines, widths, heights = [], [], []
+    # scanned pages: one body font for the whole document, judged on all of them
+    ocr_family = None
+    if ocr and ocr_spans:
+        try:
+            from fq_ocr import pick_family
+            ocr_family = pick_family([v for k, v in ocr.items() if k in idx])[0]
+        except Exception:  # noqa: BLE001
+            ocr_family = None
     try:
         fontbook = FontBook(doc, idx) if FontBook else None
     except Exception:  # noqa: BLE001
@@ -1845,6 +1862,19 @@ def convert(pdf_path, docx_path, pages=None):
     for pi, pno in enumerate(idx):
         page = doc[pno]
         page.remove_rotation() if page.rotation else None
+        spec = (ocr or {}).get(pno) if ocr_spans else None
+        if spec:
+            # a scan read by OCR: the words and table cells come from the browser
+            spans = ocr_spans(spec, Span, ocr_family)
+            tables, hrules, vrules = ocr_tables(spec, spans, Table)
+            fills = []
+            lines = group_lines(spans)
+            mark_decorations(lines, hrules, fills, tables)
+            pages_lines.append(lines)
+            widths.append(page.rect.width)
+            heights.append(page.rect.height)
+            per_page.append((page, tables, [], hrules, fills, set(range(len(hrules)))))
+            continue
         turn = _text_turn(page)
         if turn:
             page.set_rotation(turn)

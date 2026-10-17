@@ -3,7 +3,7 @@ import React, {
 } from 'react';
 import {
   LuTrash2, LuUndo2, LuCheck, LuDownload, LuLoader2, LuScanLine, LuFileText, LuRotateCcw,
-  LuWifiOff, LuType, LuTable, LuShieldCheck, LuArrowRight, LuImage, LuAlertTriangle,
+  LuWifiOff, LuType, LuTable, LuShieldCheck, LuArrowRight, LuImage, LuAlertTriangle, LuLanguages,
 } from 'react-icons/lu';
 import FileDropzone from '../../tool/FileDropzone';
 import { ToolBackContext } from '../../ToolWrapper';
@@ -14,10 +14,18 @@ import { SERVER_UPLOAD_MB, screenFiles, rejectionMessage } from '../../../lib/fi
 import { api } from '../../../lib/api';
 import { openPdf, renderThumbnail, renderPageToCanvas } from '../../../lib/pdfjs';
 import { consumePdfHandoff } from '../../../lib/pdfHandoff';
-import { ocrLines } from '../../../lib/ocr';
 import {
-  buildUploadPdf, cleanDocxFonts, detectRules, gridCells, cropCanvas, maskTables, shiftLines, inkFit, markBold,
+  ocrLines, OCR_LANGUAGES, scriptLanguage, languageName,
+} from '../../../lib/ocr';
+import {
+  selectPages, ocrSpec, buildUploadPdf, cleanDocxFonts, detectRules, gridCells, cropCanvas, maskTables, shiftLines, inkFit, markBold,
 } from '../../../lib/pdfToWord';
+
+const LANG_KEY = 'fq.p2w.lang';
+const savedLang = () => {
+  try { return localStorage.getItem(LANG_KEY) || 'eng'; } catch { return 'eng'; }
+};
+const langLabel = (code) => (OCR_LANGUAGES.find((l) => l.code === code) || { label: code }).label;
 
 const STEPS = ['Choose pages', 'Convert', 'Download'];
 
@@ -61,7 +69,20 @@ const PdfToWord = () => {
   const [pages, setPages] = useState([]); // { index, thumb, scanned, deleted }
   const [loading, setLoading] = useState(false);
   const [server, setServer] = useState('checking'); // checking | ready | offline
+  // a server that takes OCR data for scanned pages (older ones get the scan
+  // rebuilt as a text-only PDF in the browser instead)
+  const ocrData = useRef(false);
   const [ocrMode, setOcrMode] = useState('ocr'); // ocr | image
+  const [lang, setLangState] = useState(savedLang); // OCR language for scanned pages
+  const langTouched = useRef(false);
+  const setLang = (v) => {
+    langTouched.current = true;
+    setLangState(v);
+    try { localStorage.setItem(LANG_KEY, v); } catch { /* private mode */ }
+  };
+  // pages in an Indian script: their built-in text is often scrambled, so by
+  // default they are read from the page image instead
+  const [readIndic, setReadIndic] = useState(true);
   const [job, setJob] = useState(null); // { step, detail, pct }
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -73,7 +94,10 @@ const PdfToWord = () => {
   useEffect(() => {
     let alive = true;
     api.get('/health', { timeout: 5000 })
-      .then((res) => { if (alive) setServer(res.data?.pdf_to_word ? 'ready' : 'offline'); })
+      .then((res) => {
+        ocrData.current = !!res.data?.pdf_to_word_ocr;
+        if (alive) setServer(res.data?.pdf_to_word ? 'ready' : 'offline');
+      })
       .catch(() => { if (alive) setServer('offline'); });
     return () => { alive = false; };
   }, []);
@@ -113,18 +137,26 @@ const PdfToWord = () => {
       if (t !== token.current) return;
       docRef.current = { bytes, pdf };
       setFile(f);
-      setPages(Array.from({ length: pdf.numPages }, (_, i) => ({ index: i, thumb: null, scanned: false, deleted: false })));
+      setPages(Array.from({ length: pdf.numPages }, (_, i) => ({
+        index: i, thumb: null, scanned: false, script: null, deleted: false,
+      })));
       setLoading(false);
       for (let i = 1; i <= pdf.numPages; i += 1) {
         // eslint-disable-next-line no-await-in-loop
         const page = await pdf.getPage(i);
         // eslint-disable-next-line no-await-in-loop
         const tc = await page.getTextContent();
-        const chars = tc.items.reduce((n, it) => n + (it.str || '').replace(/\s/g, '').length, 0);
+        const pageText = tc.items.map((it) => it.str || '').join(' ');
+        const chars = pageText.replace(/\s/g, '').length;
+        const script = chars >= 8 ? scriptLanguage(pageText) : null;
+        // an Indian-language document: suggest that language for any scans too
+        if (script && !langTouched.current && OCR_LANGUAGES.some((l) => l.code === script)) setLangState(script);
         // eslint-disable-next-line no-await-in-loop
         const thumb = await renderThumbnail(pdf, i, 260);
         if (t !== token.current) return;
-        setPages((ps) => ps.map((p) => (p.index === i - 1 ? { ...p, thumb, scanned: chars < 8 } : p)));
+        setPages((ps) => ps.map((p) => (p.index === i - 1 ? {
+          ...p, thumb, scanned: chars < 8, script,
+        } : p)));
       }
     } catch (e) {
       if (t !== token.current) return;
@@ -138,6 +170,9 @@ const PdfToWord = () => {
 
   const kept = pages.filter((p) => !p.deleted);
   const scannedKept = kept.filter((p) => p.scanned);
+  const indicKept = kept.filter((p) => !p.scanned && p.script);
+  // pages read with OCR: scans, plus Indian-script pages when that option is on
+  const ocrKept = kept.filter((p) => p.scanned || (readIndic && p.script));
   const anyScanned = pages.some((p) => p.scanned);
   useEffect(() => {
     if (file && anyScanned && noticeShown.current !== file) {
@@ -150,7 +185,7 @@ const PdfToWord = () => {
   /* ---- convert ---- */
   const convert = async () => {
     const { bytes, pdf } = docRef.current;
-    const doOcr = ocrMode === 'ocr' && scannedKept.length > 0;
+    const doOcr = ocrKept.length > 0 && (ocrMode === 'ocr' || indicKept.length > 0);
     setError(null);
     setResult(null);
     setJob({ step: 'prepare' });
@@ -159,9 +194,11 @@ const PdfToWord = () => {
       const plan = [];
       let done = 0;
       for (const p of kept) {
-        if (doOcr && p.scanned) {
+        const viaOcr = p.scanned ? (doOcr && ocrMode === 'ocr') : (doOcr && readIndic && p.script);
+        if (viaOcr) {
           done += 1;
-          setJob({ step: 'ocr', detail: `Page ${p.index + 1} · ${done} of ${scannedKept.length}` });
+          const pageLang = p.scanned ? lang : p.script;
+          setJob({ step: 'ocr', detail: `Page ${p.index + 1} · ${done} of ${ocrKept.length}` });
           // eslint-disable-next-line no-await-in-loop
           const pg = await pdf.getPage(p.index + 1);
           const vp = pg.getViewport({ scale: 1 });
@@ -170,10 +207,14 @@ const PdfToWord = () => {
           const canvas = await renderPageToCanvas(pdf, p.index + 1, { scale });
           const rules = detectRules(canvas); // table grid lines, if any
           const tables = gridCells(rules);
-          const label = `Page ${p.index + 1} · ${done} of ${scannedKept.length}`;
+          const label = `Page ${p.index + 1} · ${done} of ${ocrKept.length}`;
           // The page text (tables blanked out) …
           // eslint-disable-next-line no-await-in-loop
-          const lines = await ocrLines(tables.length ? maskTables(canvas, tables) : canvas, (pr) => setJob({ step: 'ocr', detail: `${label} · ${Math.round(pr * 100)}%` }));
+          const lines = await ocrLines(
+            tables.length ? maskTables(canvas, tables) : canvas,
+            (pr) => setJob({ step: 'ocr', detail: `${label} · ${Math.round(pr * 100)}%` }),
+            { lang: pageLang },
+          );
           // … then every table cell on its own, which reads far more reliably.
           const cells = tables.flatMap((t) => t.cells).filter((c) => c.x1 - c.x0 > 14 && c.y1 - c.y0 > 14);
           for (let ci = 0; ci < cells.length; ci += 1) {
@@ -181,7 +222,7 @@ const PdfToWord = () => {
             const crop = cropCanvas(canvas, cells[ci]);
             // eslint-disable-next-line no-await-in-loop
             // short cell text (a lone '1') scores low — borders are already cropped away
-            const got = await ocrLines(crop.canvas, null, { psm: '6', minConf: 8 });
+            const got = await ocrLines(crop.canvas, null, { psm: '6', minConf: 8, lang: pageLang });
             lines.push(...shiftLines(inkFit(crop.canvas, got), crop.dx, crop.dy));
           }
           const styled = markBold(canvas, lines); // headings etc. keep their bold
@@ -195,11 +236,20 @@ const PdfToWord = () => {
       }
 
       setJob({ step: 'prepare' });
-      const untouched = kept.length === pages.length && !plan.some((p) => p.ocr);
-      const upload = untouched ? bytes : await buildUploadPdf(bytes, plan);
+      // the kept pages as they are; OCR'd pages travel as data next to them and
+      // the server rebuilds those from the words (font, size, alignment, tables)
+      const ocrPages = {};
+      let upload;
+      if (ocrData.current) {
+        upload = await selectPages(bytes, plan.map((p) => p.index));
+        plan.forEach((p, i) => { if (p.ocr) ocrPages[i] = ocrSpec(p.ocr); });
+      } else {
+        upload = await buildUploadPdf(bytes, plan); // older server: text redrawn into the PDF
+      }
 
       const fd = new FormData();
       fd.append('file', new Blob([upload], { type: 'application/pdf' }), `${stripExt(file.name)}.pdf`);
+      if (Object.keys(ocrPages).length) fd.append('ocr', JSON.stringify({ pages: ocrPages }));
       setJob({ step: 'upload', pct: 0 });
       const res = await api.post('/convert/pdf-to-word', fd, {
         responseType: 'blob',
@@ -219,7 +269,7 @@ const PdfToWord = () => {
       setJob({ step: 'finish' });
       blob = await cleanDocxFonts(blob);
       setResult({
-        blob, size: blob.size, pages: kept.length, ocrPages: doOcr ? scannedKept.length : 0, removed: pages.length - kept.length,
+        blob, size: blob.size, pages: kept.length, ocrPages: plan.filter((p) => p.ocr).length, removed: pages.length - kept.length,
       });
     } catch (e) {
       let msg = e?.message || 'Conversion failed.';
@@ -280,7 +330,7 @@ const PdfToWord = () => {
   /* ---- working ---- */
   if (job) {
     const order = ['prepare', 'ocr', 'upload', 'rebuild', 'finish'];
-    const hasOcr = ocrMode === 'ocr' && scannedKept.length > 0;
+    const hasOcr = (ocrMode === 'ocr' && scannedKept.length > 0) || (readIndic && indicKept.length > 0);
     const steps = [
       ['prepare', 'Preparing your pages', `${kept.length} page${kept.length === 1 ? '' : 's'}`],
       ...(hasOcr ? [['ocr', 'Reading scanned pages (OCR)', job.detail]] : []),
@@ -343,7 +393,7 @@ const PdfToWord = () => {
           </div>
           {(result.ocrPages > 0 || result.removed > 0) && (
             <div className="flex flex-wrap gap-2 border-t border-gray-100 px-6 py-3 text-xs dark:border-gray-700/70">
-              {result.ocrPages > 0 && <span className="rounded-full bg-blue-50 px-2.5 py-1 font-medium text-[#2B579A] dark:bg-blue-500/15 dark:text-blue-300">{`${result.ocrPages} scanned page${result.ocrPages === 1 ? '' : 's'} turned into editable text`}</span>}
+              {result.ocrPages > 0 && <span className="rounded-full bg-blue-50 px-2.5 py-1 font-medium text-[#2B579A] dark:bg-blue-500/15 dark:text-blue-300">{`${result.ocrPages} page${result.ocrPages === 1 ? '' : 's'} read from the page image (OCR) into editable text`}</span>}
               {result.ocrPages > 0 && <span className="rounded-full bg-amber-50 px-2.5 py-1 font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">Please read through those pages — OCR can misread a few words</span>}
               {result.removed > 0 && <span className="rounded-full bg-gray-100 px-2.5 py-1 font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300">{`${result.removed} page${result.removed === 1 ? '' : 's'} left out`}</span>}
             </div>
@@ -379,7 +429,7 @@ const PdfToWord = () => {
           </p>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {[
-              ['ocr', LuType, 'Make the text editable', 'Read the words (OCR, English) and rebuild them as Word text. Recommended.'],
+              ['ocr', LuType, 'Make the text editable', `Read the words (OCR, ${langLabel(lang).split(' · ')[0]}) and rebuild them as Word text. Recommended.`],
               ['image', LuImage, 'Keep as pictures', 'Put each scanned page into Word as an image, exactly as it looks.'],
             ].map(([v, Icon, t, d]) => (
               <button
@@ -396,6 +446,38 @@ const PdfToWord = () => {
               </button>
             ))}
           </div>
+          {ocrMode === 'ocr' && (
+            <label className="mt-3 flex flex-wrap items-center gap-2 text-sm text-amber-900 dark:text-amber-200">
+              <LuLanguages className="h-4 w-4" />
+              <span className="font-semibold">Language of the text</span>
+              <select
+                value={lang}
+                onChange={(e) => setLang(e.target.value)}
+                className="rounded-lg border border-amber-300 bg-white px-2 py-1 text-sm text-gray-800 dark:border-amber-500/40 dark:bg-gray-800 dark:text-gray-100"
+              >
+                {OCR_LANGUAGES.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
+              </select>
+              <span className="text-xs text-amber-800/80 dark:text-amber-200/70">English is always read too.</span>
+            </label>
+          )}
+        </div>
+      )}
+
+      {indicKept.length > 0 && (
+        <div className="mb-4 rounded-2xl border border-blue-200 bg-blue-50/70 p-4 dark:border-blue-500/30 dark:bg-blue-500/10">
+          <label className="flex cursor-pointer items-start gap-3">
+            <input type="checkbox" checked={readIndic} onChange={(e) => setReadIndic(e.target.checked)} className="mt-1 h-4 w-4 accent-[#2B579A]" />
+            <span>
+              <span className="flex items-center gap-2 text-sm font-semibold text-[#1f3f73] dark:text-blue-200">
+                <LuLanguages className="h-4 w-4" />
+                {`${indicKept.length} page${indicKept.length === 1 ? ' is' : 's are'} in ${languageName(indicKept[0].script)} — read ${indicKept.length === 1 ? 'it' : 'them'} from the page image`}
+              </span>
+              <span className="mt-0.5 block text-xs text-gray-600 dark:text-gray-300">
+                PDFs often store Indian-language letters in a scrambled order, so copying their text gives wrong words.
+                Reading the page image (OCR) gets the letters right. Recommended.
+              </span>
+            </span>
+          </label>
         </div>
       )}
 
@@ -406,6 +488,7 @@ const PdfToWord = () => {
               <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">{`Page ${p.index + 1}`}</span>
               <span className="flex items-center gap-1">
                 {p.scanned && !p.deleted && <span className="rounded-full bg-amber-100 px-1.5 py-px text-[10px] font-bold uppercase text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">Scan</span>}
+                {!p.scanned && p.script && !p.deleted && <span className="rounded-full bg-blue-100 px-1.5 py-px text-[10px] font-bold text-[#2B579A] dark:bg-blue-500/20 dark:text-blue-300">{languageName(p.script)}</span>}
                 <button
                   type="button"
                   onClick={() => toggle(p.index)}
@@ -450,7 +533,8 @@ const PdfToWord = () => {
             <ul className="space-y-2.5 px-6 py-5 text-sm text-gray-600 dark:text-gray-300">
               <li className="flex gap-2.5"><LuCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />We&rsquo;ll read the words with OCR and rebuild the text, headings and tables so you can edit them.</li>
               <li className="flex gap-2.5"><LuAlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />Some words may be misread, and the fonts and spacing won&rsquo;t match exactly.</li>
-              <li className="flex gap-2.5"><LuAlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />Handwriting, blurry or tilted scans, stamps and non-English text come out poorly.</li>
+              <li className="flex gap-2.5"><LuLanguages className="mt-0.5 h-4 w-4 shrink-0 text-[#2B579A] dark:text-blue-300" />Not in English? Pick the language (Hindi, Telugu, Kannada, Tamil, Marathi …) above the page list.</li>
+              <li className="flex gap-2.5"><LuAlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />Handwriting, blurry or tilted scans and stamps come out poorly.</li>
               <li className="flex gap-2.5"><LuImage className="mt-0.5 h-4 w-4 shrink-0 text-[#2B579A] dark:text-blue-300" />Need it to look exactly the same? Choose &ldquo;Keep as pictures&rdquo; instead.</li>
             </ul>
             <div className="px-6 pb-6">

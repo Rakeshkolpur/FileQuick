@@ -4,8 +4,9 @@
  * tesseract.js as a module makes Vite inline its worker and OCR then dies with
  * "Cannot read properties of undefined (reading 'TessBaseAPI')".
  *
- * The English language model (~10 MB) is fetched once from the tessdata CDN and
- * cached by the browser. It is public data; no user content is uploaded.
+ * Language models (English ~10 MB; Hindi, Telugu, Kannada, Tamil … a few MB
+ * each) are fetched once from the tessdata CDN and cached by the browser. They
+ * are public data; no user content is uploaded.
  */
 import { requireOnlineForTool } from './desktop';
 
@@ -43,7 +44,59 @@ const loadLib = () => {
   return libPromise;
 };
 
+/**
+ * Languages the OCR can read. Indian documents nearly always mix in English,
+ * so every Indian language is read together with English.
+ */
+export const OCR_LANGUAGES = [
+  { code: 'eng', label: 'English' },
+  { code: 'hin+eng', label: 'Hindi · हिन्दी' },
+  { code: 'mar+eng', label: 'Marathi · मराठी' },
+  { code: 'tel+eng', label: 'Telugu · తెలుగు' },
+  { code: 'kan+eng', label: 'Kannada · ಕನ್ನಡ' },
+  { code: 'tam+eng', label: 'Tamil · தமிழ்' },
+  { code: 'mal+eng', label: 'Malayalam · മലയാളം' },
+  { code: 'ben+eng', label: 'Bengali · বাংলা' },
+  { code: 'guj+eng', label: 'Gujarati · ગુજરાતી' },
+  { code: 'pan+eng', label: 'Punjabi · ਪੰਜਾਬੀ' },
+  { code: 'ori+eng', label: 'Odia · ଓଡ଼ିଆ' },
+  { code: 'urd+eng', label: 'Urdu · اردو' },
+  { code: 'san+eng', label: 'Sanskrit · संस्कृतम्' },
+  { code: 'asm+eng', label: 'Assamese · অসমীয়া' },
+];
+
+/** Unicode script of a page's text -> the OCR language for it (or null). */
+const SCRIPTS = [
+  [/[ऀ-ॿ]/g, 'hin+eng'], [/[ঀ-৿]/g, 'ben+eng'], [/[਀-੿]/g, 'pan+eng'],
+  [/[઀-૿]/g, 'guj+eng'], [/[଀-୿]/g, 'ori+eng'], [/[஀-௿]/g, 'tam+eng'],
+  [/[ఀ-౿]/g, 'tel+eng'], [/[ಀ-೿]/g, 'kan+eng'], [/[ഀ-ൿ]/g, 'mal+eng'],
+  [/[؀-ۿ]/g, 'urd+eng'],
+];
+export function scriptLanguage(text) {
+  const letters = (text || '').replace(/[\s\d\p{P}]/gu, '').length;
+  if (!letters) return null;
+  // every Indian script with a real share of the page (bilingual notices are
+  // common: Hindi + Kannada, Telugu + Hindi …), read together with English
+  const found = SCRIPTS
+    .map(([re, code]) => [code.split('+')[0], (text.match(re) || []).length])
+    .filter(([, n]) => n >= Math.max(5, letters * 0.08))
+    .sort((a, b) => b[1] - a[1])
+    .map(([c]) => c);
+  return found.length ? [...found, 'eng'].join('+') : null;
+}
+
+/** "hin+kan+eng" -> "Hindi + Kannada" */
+export function languageName(code) {
+  const parts = (code || '').split('+').filter((c) => c !== 'eng');
+  if (!parts.length) return 'English';
+  return parts.map((c) => {
+    const l = OCR_LANGUAGES.find((x) => x.code.split('+')[0] === c);
+    return l ? l.label.split(' · ')[0] : c;
+  }).join(' + ');
+}
+
 let workerPromise = null;
+let workerLang = 'eng';
 let progressCb = null;
 
 const getWorker = () => {
@@ -68,10 +121,22 @@ const getWorker = () => {
       await w.load();
       await w.loadLanguage('eng');
       await w.initialize('eng');
+      workerLang = 'eng';
       return w;
     })().catch((e) => { workerPromise = null; throw e; });
   }
   return workerPromise;
+};
+
+/** The worker, switched to `lang` (e.g. 'hin+eng') if it isn't already. */
+const workerFor = async (lang = 'eng') => {
+  const w = await getWorker();
+  if (lang !== workerLang) {
+    await w.loadLanguage(lang);
+    await w.initialize(lang);
+    workerLang = lang;
+  }
+  return w;
 };
 
 /** OCR a canvas / image element / blob → plain text. */
@@ -91,10 +156,10 @@ export async function ocrImage(source, onProgress) {
  * OCR with layout: every recognised line with its box and baseline (in the
  * source image's pixels), so the text can be rebuilt where it was.
  */
-export async function ocrLines(source, onProgress, { psm = '3', minConf = 25 } = {}) {
+export async function ocrLines(source, onProgress, { psm = '3', minConf = 25, lang = 'eng' } = {}) {
   progressCb = onProgress || null;
   try {
-    const w = await getWorker();
+    const w = await workerFor(lang);
     // 3 = find the layout on a full page; 6 = one block (a table cell)
     await w.setParameters({ tessedit_pageseg_mode: psm });
     const { data } = await w.recognize(source);

@@ -876,6 +876,8 @@ def health():
             "excel_to_pdf": bool(SOFFICE),
             "pdf_to_word": HAS_FQ_P2W or HAS_PDF2DOCX,
             "pdf_to_word_engine": "fq" if HAS_FQ_P2W else ("pdf2docx" if HAS_PDF2DOCX else None),
+            # scanned pages can be sent as OCR data (words, lines, table cells)
+            "pdf_to_word_ocr": bool(HAS_FQ_P2W and getattr(_fq_pdf2word, "ocr_spans", None)),
             "pdf_to_powerpoint": HAS_PPTX and HAS_COMPRESS,
             "pdf_to_excel": HAS_XLSX and HAS_COMPRESS,
             "unlock": HAS_PIKEPDF,
@@ -990,6 +992,14 @@ def pdf_to_word():
         return jsonify({"error": "The PDF-to-Word engine is not installed on the server."}), 503
     # engine=classic forces pdf2docx (kept for comparison / as an escape hatch)
     engine = (request.form.get("engine") or "fq").strip().lower()
+    # scanned pages the browser already read with OCR: {page number: words, lines, table cells}
+    ocr_spec = None
+    raw_ocr = request.form.get("ocr")
+    if raw_ocr:
+        try:
+            ocr_spec = {int(k): v for k, v in json.loads(raw_ocr).get("pages", {}).items()}
+        except Exception:  # noqa: BLE001
+            return jsonify({"error": "The OCR data sent with the PDF could not be read."}), 400
 
     try:
         pages = parse_pages(request.form.get("pages"))
@@ -1005,7 +1015,7 @@ def pdf_to_word():
         done = False
         if HAS_FQ_P2W and engine != "classic":
             try:
-                _fq_pdf2word.convert(pdf_path, docx_path, pages=pages)
+                _fq_pdf2word.convert(pdf_path, docx_path, pages=pages, ocr=ocr_spec)
                 done = os.path.isfile(docx_path) and os.path.getsize(docx_path) > 0
             except Exception as exc:  # noqa: BLE001
                 if "password" in str(exc).lower():
