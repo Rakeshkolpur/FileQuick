@@ -9,7 +9,7 @@ import ToolCards from './ToolCards';
 import DownloadWidget from './DownloadWidget';
 import HowItWorks from './HowItWorks';
 import FaqAccordion from '../FaqAccordion';
-import { getHomeSections } from '../../data/tools';
+import { getHomeSections, getMobileToolGroups, getToolTint } from '../../data/tools';
 import { usePageMeta } from '../../lib/seo';
 
 /* colour → [icon tile classes, soft card bg, arrow colour] */
@@ -70,11 +70,33 @@ const HomeV2 = () => {
             </span>
           ))}
         </div>
-        <DownloadWidget className="justify-center" />
+        <DownloadWidget className="hidden justify-center md:flex" />
       </div>
 
+      {/* phones: just the tools most people need — the long sections below are desktop-only */}
+      <section className="md:hidden">
+        <h2 className="mb-3 text-lg font-bold text-gray-900 dark:text-white">Popular tools</h2>
+        {getMobileToolGroups().map((g) => (
+          <div key={g.title} className="mb-4">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">{g.title}</p>
+            <div className="grid grid-cols-2 gap-2">
+              {g.tools.map((t) => (
+                <Link
+                  key={t.id}
+                  to={`/${t.id}`}
+                  className="flex items-center gap-2.5 rounded-xl border border-gray-200 bg-white px-3 py-3 text-[13.5px] font-semibold text-gray-800 active:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                >
+                  <span className={`h-8 w-8 shrink-0 rounded-lg p-1.5 ${getToolTint(t)}`}>{t.icon}</span>
+                  <span className="min-w-0 leading-tight">{t.short || t.title}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        ))}
+      </section>
+
       {/* ---------- categories ---------- */}
-      <section>
+      <section className="hidden md:block">
         <h2 className="mb-4 text-xl font-bold text-gray-900 dark:text-white">Explore Tools by Category</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
           {CATS.map((c) => {
@@ -105,16 +127,16 @@ const HomeV2 = () => {
       </section>
 
       {/* ---------- every tool, grouped (scroll target) ---------- */}
-      <div id="tools" className="scroll-mt-24 space-y-14 pt-2">
+      <div id="tools" className="hidden scroll-mt-24 space-y-14 pt-2 md:block">
         {sections.map((s) => (
           <ToolsGrid key={s.id} id={s.id} title={s.title} tools={s.tools} />
         ))}
       </div>
 
-      <HowItWorks />
+      <div className="hidden md:block"><HowItWorks /></div>
 
       {/* ---------- FAQ ---------- */}
-      <section>
+      <section className="hidden md:block">
         <h2 className="mb-4 flex items-center gap-3 text-xl font-bold text-gray-900 md:text-2xl dark:text-white">
           <span className="h-5 w-1.5 rounded-full bg-gradient-to-b from-purple-500 to-pink-500" />
           Frequently asked questions
@@ -126,7 +148,7 @@ const HomeV2 = () => {
       </section>
 
       {/* ---------- trust bar (last row before the footer) ---------- */}
-      <section className="grid grid-cols-1 gap-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm sm:grid-cols-2 lg:grid-cols-4 lg:divide-x lg:divide-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:lg:divide-gray-700">
+      <section className="hidden grid-cols-1 gap-6 rounded-2xl md:grid border border-gray-200 bg-white p-6 shadow-sm sm:grid-cols-2 lg:grid-cols-4 lg:divide-x lg:divide-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:lg:divide-gray-700">
         {TRUST.map((it) => (
           <div key={it.title} className="flex items-start gap-3 lg:px-5 lg:first:pl-0">
             <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${TINT[it.color][1]}`}><it.Icon className="h-5 w-5" strokeWidth={1.9} /></span>

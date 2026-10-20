@@ -1110,7 +1110,7 @@ const ImageResize = () => {
                   type="button"
                   title="Remove background"
                   onClick={toggleBg}
-                  className={`h-8 px-2.5 flex items-center gap-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  className={`h-8 px-2.5 hidden md:flex items-center gap-1.5 rounded-lg text-xs font-medium transition-colors ${
                     bgRemove
                       ? 'bg-blue-600 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
@@ -1177,7 +1177,8 @@ const ImageResize = () => {
             {formatBytes(single.file.size)} · will export as {singleOutDims.w} × {singleOutDims.h}
           </p>
 
-          <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+          {/* phones: offered after resizing (result screen) — here it pushed the settings down */}
+          <div className="mt-4 hidden border-t border-gray-200 pt-3 md:block dark:border-gray-700">
             <OpenInTool getImage={getCurrentImage} exclude={['resize-image']} heading="Or send this image to" />
           </div>
         </div>
@@ -1241,8 +1242,9 @@ const ImageResize = () => {
                         </div>
                       </div>
                       {formatField}
-                      {dimFields}
-                      <label className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-300">
+                      {/* optional fine-tuning — desktop only, the defaults suit phones */}
+                      <div className="hidden space-y-3 md:block">{dimFields}</div>
+                      <label className="hidden items-start gap-2 text-xs text-gray-600 md:flex dark:text-gray-300">
                         <input type="checkbox" checked={allowResize} onChange={(e) => { setAllowResize(e.target.checked); markDirty(); }} className="mt-0.5 h-4 w-4 accent-blue-600" />
                         <span>
                           Scale the picture down to hit the target
@@ -1265,7 +1267,7 @@ const ImageResize = () => {
                   </section>
                 )}
 
-                <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 pt-2">
+                <label className="hidden items-center gap-2 pt-2 text-sm text-gray-700 md:flex dark:text-gray-300">
                   <input type="checkbox" checked={highQuality} onChange={(e) => { setHighQuality(e.target.checked); markDirty(); }} className="h-4 w-4 accent-blue-600" />
                   High-quality downscaling
                 </label>

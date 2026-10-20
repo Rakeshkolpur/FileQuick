@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { getToolById } from '../../data/tools';
+import { getToolById, isMobileTool } from '../../data/tools';
 import { stashImage } from '../../lib/imageHandoff';
 
 const ORDER = [
@@ -69,8 +69,9 @@ const OpenInTool = ({ getImage, exclude = [], heading = 'Keep going — send thi
     setBusy(null);
   };
 
+  // phones only get the key tools (data/tools.jsx MOBILE_TOOL_GROUPS)
   return (
-    <div>
+    <div className={items.some((t) => isMobileTool(t.id)) ? '' : 'hidden md:block'}>
       <p className="mb-2 text-[12px] font-medium text-gray-500 dark:text-gray-400">{heading}</p>
       <div className="flex flex-wrap gap-2">
         {items.map((t) => (
@@ -79,7 +80,7 @@ const OpenInTool = ({ getImage, exclude = [], heading = 'Keep going — send thi
             type="button"
             onClick={() => go(t.id)}
             disabled={!!busy}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-[13px] font-medium text-gray-700 transition-colors hover:border-purple-300 hover:text-purple-700 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:border-purple-700 dark:hover:text-purple-300"
+            className={`${isMobileTool(t.id) ? 'inline-flex' : 'hidden md:inline-flex'} items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-[13px] font-medium text-gray-700 transition-colors hover:border-purple-300 hover:text-purple-700 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:border-purple-700 dark:hover:text-purple-300`}
           >
             {SHORT[t.id] || t.title}
             {busy === t.id && (

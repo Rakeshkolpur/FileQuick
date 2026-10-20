@@ -1,4 +1,4 @@
-import React, { Suspense, useCallback, useMemo, useRef } from 'react';
+import React, { Suspense, useCallback, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { getToolById } from '../data/tools';
@@ -6,7 +6,7 @@ import RelatedTools from './tool/RelatedTools';
 import TrustStrip from './home/TrustStrip';
 import ToolSeoContent from './tool/ToolSeoContent';
 import LandingLinks from './tool/LandingLinks';
-import { getToolSeo } from '../data/toolSeo';
+import { useToolSeo } from '../lib/toolSeoLoader';
 import { usePageMeta } from '../lib/seo';
 import { isChunkLoadError, withChunkRetry } from '../lib/chunkReload';
 
@@ -147,7 +147,8 @@ const ToolWrapper = ({ toolId: toolIdProp, pageMeta, toolProps, active = true } 
   // Opened from another tool's "send to …" buttons (OpenInTool / OpenInPdfTool)
   const cameFromTool = !!location.state?.fromTool;
   const tool = getToolById(toolId);
-  const toolSeo = tool ? getToolSeo(tool.id) : null;
+  const toolSeo = useToolSeo(tool?.id);
+  const [moreOpen, setMoreOpen] = useState(false); // phones: how-to/FAQ folded away
 
   usePageMeta(
     pageMeta
@@ -236,14 +237,29 @@ const ToolWrapper = ({ toolId: toolIdProp, pageMeta, toolProps, active = true } 
         )}
       </ErrorBoundary>
 
-      {isReady && (minimal ? (pageMeta?.seoContent || getToolSeo(tool.id)) : true) && (
-        <div className="mt-16 space-y-14">
-          <ToolSeoContent tool={tool} seo={pageMeta?.seoContent} />
-          <LandingLinks toolId={tool.id} currentSlug={params.toolId} />
-          {!minimal && !(toolSeo?.related?.length) && (
-            <RelatedTools category={tool.category} currentId={tool.id} />
-          )}
-          {!minimal && <TrustStrip />}
+      {isReady && (minimal ? (pageMeta?.seoContent || toolSeo) : true) && (
+        <div className="mt-10 md:mt-16">
+          {/* Phones keep the tool itself up front; the reading material sits
+              behind one button (still in the page, so search engines see it). */}
+          <button
+            type="button"
+            onClick={() => setMoreOpen((v) => !v)}
+            aria-expanded={moreOpen}
+            className="flex w-full items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 text-left text-sm font-semibold text-gray-700 md:hidden dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+          >
+            How to use &amp; FAQ
+            <svg className={`h-4 w-4 transition-transform ${moreOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          <div className={`${moreOpen ? 'mt-8 block' : 'hidden'} space-y-14 md:mt-0 md:block`}>
+            <ToolSeoContent tool={tool} seo={pageMeta?.seoContent || toolSeo} />
+            <LandingLinks toolId={tool.id} currentSlug={params.toolId} />
+            {!minimal && !(toolSeo?.related?.length) && (
+              <RelatedTools category={tool.category} currentId={tool.id} />
+            )}
+            {!minimal && <TrustStrip />}
+          </div>
         </div>
       )}
     </div>

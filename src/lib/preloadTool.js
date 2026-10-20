@@ -19,12 +19,14 @@ export function preloadTool(...ids) {
 
 /**
  * Preload once the page has finished loading and the browser is idle, so the
- * first paint never competes with it. Skipped on Data Saver connections.
+ * first paint never competes with it. Skipped on Data Saver and 2G.
  * Returns a cleanup fn for useEffect.
  */
 export function preloadWhenIdle(...ids) {
   if (typeof window === 'undefined') return () => {};
-  if (navigator.connection?.saveData) return () => {};
+  // Data Saver / 2G: don't spend the connection on a guess
+  const conn = navigator.connection;
+  if (conn?.saveData || /(^|-)2g$/.test(conn?.effectiveType || '')) return () => {};
   let idleId = null;
   let timer = null;
   const run = () => {

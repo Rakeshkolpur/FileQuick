@@ -1,7 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useJsonLd } from '../../lib/seo';
-import { getToolSeo } from '../../data/toolSeo';
 import { getToolById } from '../../data/tools';
 import { getLandingPage } from '../../data/landingPages';
 
@@ -20,8 +19,7 @@ const CATEGORY_PATH = { image: '/image', pdf: '/pdf' };
  *
  * Renders nothing for tools with no entry in src/data/toolSeo.js.
  */
-const ToolSeoContent = ({ tool, seo: seoOverride }) => {
-  const seo = seoOverride || (tool ? getToolSeo(tool.id) : null);
+const ToolSeoContent = ({ tool, seo }) => {
   // landing pages carry their own path; a plain tool page is /<tool id>
   const path = seo?.path || (tool ? `/${tool.id}` : '');
 

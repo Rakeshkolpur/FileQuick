@@ -314,16 +314,18 @@ const ToolCard = ({ card }) => {
       onPointerEnter={warm}
       onTouchStart={warm}
       onFocus={warm}
-      className={`group relative flex flex-col overflow-hidden rounded-3xl border-2 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl sm:p-6 dark:bg-gray-800/60 ${t.card}`}
+      className={`group relative flex flex-col overflow-hidden rounded-3xl border-2 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl sm:p-6 dark:bg-gray-800/60 ${t.card}`}
     >
       {/* soft colour wash at the top of the card */}
       <div className={`pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b to-transparent ${t.glow}`} />
 
       <div className="relative flex items-center gap-4">
-        <card.Art />
+        <span className="shrink-0 [&>svg]:h-14 [&>svg]:w-20 sm:[&>svg]:h-20 sm:[&>svg]:w-28"><card.Art /></span>
         <div className="min-w-0">
-          <h3 className="text-xl font-bold text-gray-900 dark:text-white">{card.title}</h3>
+          <h3 className="text-lg font-bold sm:text-xl text-gray-900 dark:text-white">{card.title}</h3>
           <p className="mt-1 text-[13.5px] leading-snug text-gray-600 dark:text-gray-300">{card.text}</p>
+          {/* phones can't drag & drop, so they skip the drop area: formats go here */}
+          <p className="mt-1 text-[11.5px] text-gray-500 sm:hidden dark:text-gray-400">{card.formats}</p>
         </div>
       </div>
 
@@ -338,7 +340,7 @@ const ToolCard = ({ card }) => {
       <div
         role="presentation"
         onClick={browse}
-        className={`relative mt-5 flex flex-1 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-4 py-7 text-center transition-colors ${dragging ? t.zoneOn : t.zone}`}
+        className={`relative mt-5 hidden flex-1 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-4 py-7 text-center transition-colors sm:flex ${dragging ? t.zoneOn : t.zone}`}
       >
         <LuUploadCloud className={`h-9 w-9 ${t.icon}`} strokeWidth={1.7} />
         <p className="mt-2 text-[15px] font-semibold text-gray-800 dark:text-gray-100">
@@ -356,7 +358,7 @@ const ToolCard = ({ card }) => {
       <button
         type="button"
         onClick={browse}
-        className={`relative mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-[15px] font-semibold text-white shadow-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900 ${t.btn}`}
+        className={`relative mt-4 inline-flex w-full items-center sm:mt-5 justify-center gap-2 rounded-xl px-5 py-3 text-[15px] font-semibold text-white shadow-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900 ${t.btn}`}
       >
         {card.cta} <LuArrowRight className="h-4 w-4" />
       </button>
@@ -373,13 +375,13 @@ const ToolCards = () => {
   return (
     <section aria-labelledby="start-heading">
       <div className="text-center">
-        <h2 id="start-heading" className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl lg:text-5xl dark:text-white">
+        <h2 id="start-heading" className="text-[28px] font-extrabold leading-tight tracking-tight text-gray-900 sm:text-4xl lg:text-5xl dark:text-white">
           What would you{' '}
           <span className="bg-gradient-to-r from-violet-500 via-indigo-500 to-blue-500 bg-clip-text text-transparent dark:from-violet-400 dark:via-indigo-400 dark:to-blue-400">like to do?</span>
         </h2>
         <p className="mt-3 text-[15px] text-gray-600 sm:text-base dark:text-gray-400">Choose a tool to get started.</p>
       </div>
-      <div className="mt-8 grid grid-cols-1 gap-5 lg:mt-10 lg:grid-cols-3 lg:gap-6">
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:mt-8 sm:gap-5 lg:mt-10 lg:grid-cols-3 lg:gap-6">
         {CARDS.map((c) => <ToolCard key={c.key} card={c} />)}
       </div>
     </section>

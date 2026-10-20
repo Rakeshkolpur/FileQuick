@@ -273,6 +273,22 @@ export const getToolsByCategory = (slug) => {
 };
 export const getPopularTools = () => TOOLS.filter((t) => t.popular);
 
+/**
+ * The short list phones get (home page, menu, "send to" buttons, related
+ * tools): what most people come for, so a small screen on a slow connection
+ * isn't a wall of 40 tools. Every other tool still works at its URL.
+ */
+export const MOBILE_TOOL_GROUPS = [
+  { title: 'Image', ids: ['resize-image', 'compress-image', 'crop-image', 'convert-image', 'profile-picture', 'passport-photo', 'exam-photo-resizer', 'document-scanner'] },
+  { title: 'PDF', ids: ['pdf-compressor', 'pdf-editor', 'pdf-to-word', 'word-to-pdf', 'image-to-pdf', 'pdf-to-jpg'] },
+];
+export const MOBILE_TOOL_IDS = MOBILE_TOOL_GROUPS.flatMap((g) => g.ids);
+export const isMobileTool = (id) => MOBILE_TOOL_IDS.includes(id);
+export const getMobileToolGroups = () => MOBILE_TOOL_GROUPS.map((g) => ({
+  title: g.title,
+  tools: g.ids.map(getToolById).filter((t) => t && t.status !== 'soon'),
+}));
+
 export const getMenuColumns = (slug) => {
   if (!slug || slug === 'all') {
     const pdf = getToolsByCategory('pdf');

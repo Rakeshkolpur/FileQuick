@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { LuMonitorDown } from 'react-icons/lu';
 import styles from './Navigation.module.css';
 import { useTheme } from '../context/ThemeContext';
-import { NAV_CATEGORIES, getMenuColumns, getToolTint } from '../data/tools';
+import { NAV_CATEGORIES, getMenuColumns, getMobileToolGroups, getToolTint } from '../data/tools';
 import { isDesktop } from '../lib/desktop';
 import Logo from './Logo';
 import SupportLink from './tool/SupportQR';
@@ -112,7 +112,6 @@ const Navigation = () => {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
-  const [mobileGroup, setMobileGroup] = useState(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50);
@@ -148,7 +147,6 @@ const Navigation = () => {
   const closeAll = () => {
     setOpenDropdown(null);
     setMenuOpen(false);
-    setMobileGroup(null);
   };
 
   return (
@@ -258,87 +256,32 @@ const Navigation = () => {
         </div>
 
         {menuOpen && (
+          // Phones/tablets: one simple grid of the tools most people need
+          // (data/tools.jsx MOBILE_TOOL_GROUPS) instead of 40 links in accordions.
           <div
-            className={`${styles.scaleIn} lg:hidden pb-3 border-t border-gray-200 dark:border-gray-700 overflow-y-auto overscroll-contain`}
+            className={`${styles.scaleIn} lg:hidden pb-4 pt-1 border-t border-gray-200 dark:border-gray-700 overflow-y-auto overscroll-contain`}
             style={{ maxHeight: 'calc(100vh - 4rem)', WebkitOverflowScrolling: 'touch' }}
           >
-            <Link
-              to="/"
-              onClick={closeAll}
-              className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              Home
-            </Link>
-            <Link
-              to="/pdf-editor"
-              onClick={closeAll}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              PDF Editor
-              <span className="rounded bg-purple-600 px-1 py-px text-[9px] font-bold uppercase text-white">New</span>
-            </Link>
-            {NAV_CATEGORIES.map((cat) => {
-              const expanded = mobileGroup === cat.slug;
-              return (
-                <div key={cat.slug}>
-                  <button
-                    onClick={() => setMobileGroup(expanded ? null : cat.slug)}
-                    className="w-full flex items-center justify-between px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >
-                    <span className="flex items-center gap-1.5">
-                      {cat.label}
-                      {cat.badge && (
-                        <span className="rounded bg-purple-600 px-1 py-px text-[9px] font-bold uppercase text-white">{cat.badge}</span>
-                      )}
-                    </span>
-                    <Chevron open={expanded} />
-                  </button>
-                  {expanded && (
-                    <div className="pb-2">
-                      {getMenuColumns(cat.slug).map((col) => (
-                        <div key={col.title} className="mt-1">
-                          <div className="px-5 py-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
-                            {col.title}
-                          </div>
-                          {col.tools.map((t) => (
-                            <Link
-                              key={t.id}
-                              to={`/${t.id}`}
-                              onClick={closeAll}
-                              className="flex items-center gap-3 px-5 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                            >
-                              <IconChip tint={getToolTint(t)}>{t.icon}</IconChip>
-                              <span className="leading-tight">{t.short || t.title}</span>
-                              {t.status === 'soon' && (
-                                <span className="ml-auto shrink-0 text-[9px] font-semibold uppercase bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-300 px-1 rounded">
-                                  soon
-                                </span>
-                              )}
-                            </Link>
-                          ))}
-                        </div>
-                      ))}
-                    </div>
-                  )}
+            {getMobileToolGroups().map((g) => (
+              <div key={g.title} className="mt-3">
+                <div className="px-1 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                  {g.title}
                 </div>
-              );
-            })}
-            <div className="mt-3 flex gap-2 px-3">
-              <Link
-                to="/login"
-                onClick={closeAll}
-                className="flex-1 rounded-lg border border-gray-200 py-2 text-center text-sm font-semibold text-gray-700 dark:border-gray-600 dark:text-gray-200"
-              >
-                Login
-              </Link>
-              <Link
-                to="/signup"
-                onClick={closeAll}
-                className="flex-1 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 py-2 text-center text-sm font-semibold text-white"
-              >
-                Sign Up Free
-              </Link>
-            </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {g.tools.map((t) => (
+                    <Link
+                      key={t.id}
+                      to={`/${t.id}`}
+                      onClick={closeAll}
+                      className="flex items-center gap-2.5 rounded-xl border border-gray-200 bg-white px-2.5 py-2.5 text-[13.5px] font-medium text-gray-800 active:bg-gray-100 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-100 dark:active:bg-gray-700"
+                    >
+                      <IconChip tint={getToolTint(t)}>{t.icon}</IconChip>
+                      <span className="min-w-0 leading-tight">{t.short || t.title}</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import HomeV2 from './home/HomeV2';
-import HomeClassic from './home/HomeClassic';
-import DesktopHome from './desktop/DesktopHome';
-import DesktopCategory from './desktop/DesktopCategory';
 import { isDesktop } from '../lib/desktop';
+import { withChunkRetry } from '../lib/chunkReload';
+
+// only the web home page (HomeV2) is in the main bundle; the rest load when used
+const HomeClassic = React.lazy(withChunkRetry(() => import('./home/HomeClassic')));
+const DesktopHome = React.lazy(withChunkRetry(() => import('./desktop/DesktopHome')));
+const DesktopCategory = React.lazy(withChunkRetry(() => import('./desktop/DesktopCategory')));
 
 const VIRTUAL = ['image', 'pdf', 'convert', 'ai'];
 
@@ -14,9 +17,14 @@ const HomePage = () => {
   const seg = pathname.replace(/^\/+/, '').split('/')[0];
   const category = categoryId || (VIRTUAL.includes(seg) ? seg : 'all');
 
-  if (category === 'all') return isDesktop() ? <DesktopHome /> : <HomeV2 />;
-  if (isDesktop()) return <DesktopCategory category={category} />;
-  return <HomeClassic category={category} />;
+  if (category === 'all' && !isDesktop()) return <HomeV2 />;
+  return (
+    <Suspense fallback={<div className="min-h-[60vh]" />}>
+      {category === 'all' ? <DesktopHome />
+        : isDesktop() ? <DesktopCategory category={category} />
+          : <HomeClassic category={category} />}
+    </Suspense>
+  );
 };
 
 export default HomePage;

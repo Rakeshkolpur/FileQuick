@@ -50,6 +50,7 @@ await vite.close();
 
 const TOOLS = toolsMod.getAllTools().filter((t) => t.status !== 'soon');
 const { getToolSeo } = seoMod;
+const MOBILE_GROUPS = toolsMod.MOBILE_TOOL_GROUPS;
 const LANDING = landingMod.LANDING_PAGES.filter((p) => p.indexed && TOOLS.some((t) => t.id === p.toolId));
 const byId = new Map(TOOLS.map((t) => [t.id, t]));
 const landingBySlug = new Map(LANDING.map((p) => [p.slug, p]));
@@ -62,13 +63,64 @@ const esc = (s) => String(s ?? '')
 const jsonLd = (obj) => `<script type="application/ld+json" data-prerendered="">${JSON.stringify(obj).replace(/</g, '\\u003c')}</script>`;
 const CATEGORY_LABEL = { image: 'Image Tools', pdf: 'PDF Tools' };
 
-// Readable styling for the pre-rendered markup (Tailwind's reset flattens
-// headings and lists); it only shows until the app has loaded.
-const PRERENDER_CSS = '<style>[data-prerendered] h1{font-size:2rem;font-weight:800;line-height:1.2;margin:24px 0 8px}'
-  + '[data-prerendered] h2{font-size:1.3rem;font-weight:700;margin:28px 0 8px}'
-  + '[data-prerendered] h3{font-size:1rem;font-weight:600;margin:14px 0 4px}'
-  + '[data-prerendered] p{margin:0 0 10px;opacity:.85}[data-prerendered] ol{list-style:decimal;padding-left:24px}'
-  + '[data-prerendered] main a,[data-prerendered] footer a{color:#2563eb}</style>';
+// What a visitor sees until the app's JavaScript has arrived — on a slow phone
+// connection that can be several seconds, so this is a small, app-styled page
+// (header, the three start cards / a "loading the tool" card, key tools as
+// plain links that work without JS), not a wall of text. The full how-to/FAQ
+// copy and the all-tools link lists are still in the HTML for crawlers, folded
+// into <details>. Self-contained CSS (fq-*) so it renders right after the HTML.
+const SHELL_CSS = `<style>
+html{background:#f9fafb}html.dark{background:#111827}
+.fq{max-width:1100px;margin:0 auto;padding:0 16px 40px;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.5;color:#111827}
+html.dark .fq{color:#f3f4f6}
+.fq a{text-decoration:none}
+.fq-top{display:flex;align-items:center;justify-content:space-between;height:64px;margin:0 -16px;padding:0 16px;background:#fff;border-bottom:1px solid #e5e7eb}
+html.dark .fq-top{background:#1f2937;border-color:#374151}
+.fq-logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:20px;color:inherit}
+.fq-mark{display:grid;place-items:center;width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:20px}
+.fq-logo b{color:#6366f1}
+.fq-nav{display:none;gap:20px}.fq-nav a{color:#4b5563;font-size:14px;font-weight:500}html.dark .fq-nav a{color:#d1d5db}
+@media(min-width:1024px){.fq-nav{display:flex}}
+.fq-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.fq-hero{font-size:28px;font-weight:800;line-height:1.15;letter-spacing:-.02em;text-align:center;margin:28px 0 6px}
+.fq-hero span{background:linear-gradient(90deg,#8b5cf6,#6366f1,#3b82f6);-webkit-background-clip:text;background-clip:text;color:transparent}
+.fq-sub{text-align:center;color:#6b7280;margin:0 0 20px}html.dark .fq-sub{color:#9ca3af}
+@media(min-width:640px){.fq-hero{font-size:44px}}
+.fq-cards{display:grid;gap:14px}@media(min-width:1024px){.fq-cards{grid-template-columns:repeat(3,1fr);gap:22px}}
+.fq-card{display:block;border:2px solid;border-radius:22px;padding:16px;background:#fff;color:inherit}
+html.dark .fq-card{background:rgba(31,41,55,.6)}
+.fq-card h3{margin:0;font-size:18px;font-weight:700}
+.fq-card p{margin:4px 0 0;font-size:13.5px;color:#4b5563}html.dark .fq-card p{color:#d1d5db}
+.fq-card small{display:block;margin-top:4px;font-size:11.5px;color:#6b7280}
+.fq-btn{display:block;margin-top:14px;border-radius:12px;padding:11px;text-align:center;color:#fff;font-weight:600;font-size:15px}
+.fq-teal{border-color:rgba(45,212,191,.7)}.fq-teal .fq-btn{background:#0d9488}
+.fq-blue{border-color:rgba(96,165,250,.7)}.fq-blue .fq-btn{background:#2563eb}
+.fq-violet{border-color:rgba(167,139,250,.7)}.fq-violet .fq-btn{background:#7c3aed}
+.fq-h2{font-size:18px;font-weight:700;margin:28px 0 10px}
+.fq-label{margin:14px 0 8px;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#9ca3af}
+.fq-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}@media(min-width:768px){.fq-grid{grid-template-columns:repeat(4,1fr)}}
+.fq-grid a{display:block;border:1px solid #e5e7eb;border-radius:12px;padding:12px;background:#fff;color:#1f2937;font-weight:600;font-size:13.5px}
+html.dark .fq-grid a{background:#1f2937;border-color:#374151;color:#f3f4f6}
+.fq-page h1{font-size:22px;font-weight:800;line-height:1.2;margin:22px 0 4px}
+.fq-page>h1+p{margin:0;color:#6b7280;font-size:14px}html.dark .fq-page>h1+p{color:#9ca3af}
+.fq-load{display:flex;align-items:center;gap:14px;margin:18px 0;padding:26px 18px;border:1px solid #e5e7eb;border-radius:18px;background:#fff;font-weight:600}
+html.dark .fq-load{background:#1f2937;border-color:#374151}
+.fq-spin{flex:none;width:22px;height:22px;border-radius:50%;border:3px solid #c7d2fe;border-top-color:#6366f1;animation:fqspin .8s linear infinite}
+.fq-slow{display:block;margin-top:2px;font-size:12.5px;font-weight:400;color:#6b7280;opacity:0;animation:fqshow .3s 8s forwards}
+.fq-slow a{color:#6366f1;font-weight:600}
+@keyframes fqspin{to{transform:rotate(360deg)}}@keyframes fqshow{to{opacity:1}}
+.fq details{margin-top:16px;border:1px solid #e5e7eb;border-radius:14px;background:#fff;padding:0 16px}
+html.dark .fq details{background:#1f2937;border-color:#374151}
+.fq summary{padding:12px 0;font-weight:600;font-size:14px;cursor:pointer}
+.fq details h2{font-size:1.15rem;font-weight:700;margin:20px 0 8px}.fq details h3{font-size:1rem;font-weight:600;margin:12px 0 4px}
+.fq details p{margin:0 0 10px;opacity:.85}.fq details ol{list-style:decimal;padding-left:24px}
+.fq details ul{padding:0;list-style:none}.fq details a{color:#4f46e5}html.dark .fq details a{color:#a5b4fc}
+.fq-foot{margin-top:24px;font-size:13px;color:#6b7280}.fq-foot a{color:#6b7280}
+</style>`;
+
+// Same rule as ThemeContext, run before first paint so the page (and the app
+// after it) doesn't flash the wrong theme.
+const THEME_SCRIPT = `<script>try{var d=localStorage.getItem('darkMode');if(d===null?matchMedia('(prefers-color-scheme: dark)').matches:d==='true')document.documentElement.classList.add('dark')}catch(e){}</script>`;
 
 const template = readFileSync(resolve(dist, 'index.html'), 'utf8');
 const sitemap = []; // { path, priority }
@@ -92,7 +144,8 @@ function page({ path, title, description, robots = 'index, follow', ld = [], bod
     `<meta name="twitter:title" content="${esc(fullTitle)}" />`,
     `<meta name="twitter:description" content="${esc(description)}" />`,
     ...ld.map(jsonLd),
-    PRERENDER_CSS,
+    THEME_SCRIPT,
+    SHELL_CSS,
   ].join('\n    ');
   html = html.replace('</head>', `    ${extra}\n  </head>`);
   swap(/<div id="root"><\/div>/, `<div id="root">${body}</div>`, 'root div');
@@ -105,9 +158,9 @@ function page({ path, title, description, robots = 'index, follow', ld = [], bod
 
 /* ---- shared body parts: site header, all-tools footer (internal links) */
 
-const header = `<header style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;padding:16px 0">
-<a href="/" style="font-weight:800;font-size:20px">${BRAND}</a>
-<nav style="display:flex;flex-wrap:wrap;gap:12px"><a href="/">Home</a><a href="/image">Image Tools</a><a href="/pdf">PDF Tools</a><a href="/pdf-editor">PDF Editor</a><a href="/resize-image">Resize Image</a><a href="/exam-photo-resizer">Exam Photo</a><a href="/download">Download</a></nav>
+const header = `<header class="fq-top">
+<a href="/" class="fq-logo"><span class="fq-mark">F</span><span>File<b>Quick</b></span></a>
+<nav class="fq-nav"><a href="/image">Image Tools</a><a href="/pdf">PDF Tools</a><a href="/pdf-editor">PDF Editor</a><a href="/exam-photo-resizer">Exam Photo</a><a href="/download">Download</a></nav>
 </header>`;
 
 const linkList = (items) => `<ul style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px 16px;padding:0;list-style:none">
@@ -116,21 +169,31 @@ ${items.map(([href, title, text]) => `<li><a href="${href}">${esc(title)}</a>${t
 const toolList = (tools) => linkList(tools.map((t) => [`/${t.id}`, t.title, t.description]));
 const landingList = (group) => linkList(LANDING.filter((p) => p.group === group).map((p) => [`/${p.slug}`, p.h1]));
 
-const footer = `<footer style="margin-top:48px">
+// every tool and landing page, as plain links — folded away for people,
+// fully there for crawlers
+const footer = `<details>
+<summary>All tools</summary>
 <h2>Image tools</h2>${toolList(TOOLS.filter((t) => t.category === 'image'))}
 <h2>Exam &amp; form photos</h2>${landingList('exam')}
 <h2>Compress an image to a size</h2>${landingList('image-size')}
 <h2>PDF tools</h2>${toolList(TOOLS.filter((t) => t.category === 'pdf'))}
 <h2>Compress a PDF to a size</h2>${landingList('pdf-size')}
-<p>${BRAND} (File Quick) — free online tools to prepare photos, signatures and PDFs for online forms, plus a PDF editor, image resizer, compressor and converters.</p>
-<p><a href="/about">About ${BRAND}</a> · <a href="/faq">FAQ</a> · <a href="/contact">Contact</a> · <a href="/privacy-policy">Privacy Policy</a> · <a href="/terms-of-service">Terms of Service</a></p>
-</footer>`;
+</details>
+<p class="fq-foot">${BRAND} (File Quick) — free online tools to prepare photos, signatures and PDFs for online forms, plus a PDF editor, image resizer, compressor and converters.<br>
+<a href="/about">About</a> · <a href="/faq">FAQ</a> · <a href="/contact">Contact</a> · <a href="/privacy-policy">Privacy</a> · <a href="/terms-of-service">Terms</a></p>`;
 
-const wrap = (main) => `<div data-prerendered="" style="max-width:1100px;margin:0 auto;padding:0 16px 48px;font-family:system-ui,sans-serif;line-height:1.6">
+const wrap = (main) => `<div data-prerendered="" class="fq">
 ${header}
-<main>${main}</main>
+<main class="fq-page">${main}</main>
 ${footer}
 </div>`;
+
+// the key tools (data/tools.jsx MOBILE_TOOL_GROUPS), as a tap-friendly grid
+const keyTools = () => MOBILE_GROUPS.map((g) => `<p class="fq-label">${esc(g.title)}</p><div class="fq-grid">${
+  g.ids.filter((id) => byId.has(id)).map((id) => `<a href="/${id}">${esc(byId.get(id).short || byId.get(id).title)}</a>`).join('')}</div>`).join('');
+
+// shown on a tool page until the tool's code has loaded
+const loading = (name, path) => `<div class="fq-load"><span class="fq-spin"></span><span>Loading ${esc(name)}…<span class="fq-slow">Slow connection — almost there. <a href="${esc(path)}">Tap to retry</a></span></span></div>`;
 
 /** How-to / FAQ content + structured data for a tool page (same as ToolSeoContent.jsx). */
 function toolParts(tool, seo, path, h1, lead) {
@@ -140,6 +203,8 @@ function toolParts(tool, seo, path, h1, lead) {
     .filter((r) => titleOf(r.id));
   const main = `<h1>${esc(h1)}</h1>
 <p>${esc(lead)}</p>
+${loading(tool.short || tool.title, path)}
+<details><summary>How to use &amp; FAQ</summary>
 <section>
 <h2>${esc(seo.h1 || `How to use ${tool.title}`)}</h2>
 ${seo.intro ? `<p>${esc(seo.intro)}</p>` : ''}
@@ -148,7 +213,8 @@ ${seo.compare ? `${seo.compare.title ? `<h3>${esc(seo.compare.title)}</h3>` : ''
 ${seo.steps?.length ? `<h3>Steps</h3><ol>${seo.steps.map((s) => `<li>${esc(s)}</li>`).join('')}</ol>` : ''}
 ${seo.faqs?.length ? `<h2>Frequently asked questions</h2>${seo.faqs.map(({ q, a }) => `<h3>${esc(q)}</h3><p>${esc(a)}</p>`).join('\n')}` : ''}
 ${related.length ? `<h2>Related tools</h2><ul>${related.map((r) => `<li><a href="/${r.id}">${esc(titleOf(r.id))}</a>${r.text ? ` — ${esc(r.text)}` : ''}</li>`).join('')}</ul>` : ''}
-</section>`;
+</section>
+</details>`;
 
   const graph = [{
     '@type': 'BreadcrumbList',
@@ -195,7 +261,7 @@ for (const tool of TOOLS) {
     const { main, ld } = toolParts(tool, seo, path, tool.title, tool.description);
     page({ path, title: seo.seoTitle || tool.title, description: seo.seoDescription || tool.description, ld, body: wrap(main), priority: '0.8' });
   } else {
-    page({ path, title: tool.title, description: tool.description, body: wrap(`<h1>${esc(tool.title)}</h1><p>${esc(tool.description)}</p>`), priority: '0.8' });
+    page({ path, title: tool.title, description: tool.description, body: wrap(`<h1>${esc(tool.title)}</h1><p>${esc(tool.description)}</p>${loading(tool.short || tool.title, path)}`), priority: '0.8' });
   }
 }
 
@@ -258,9 +324,17 @@ page({
   path: '/',
   title: null,
   description: 'Compress, convert, merge, resize and edit PDFs and images — 100% free, no sign-up, no watermark. Most tools run right in your browser, nothing uploaded.',
-  body: wrap(`<h1>${BRAND} — free PDF & image tools</h1>
-<p>Resize, compress, convert, merge, sign and edit images and PDFs — free, fast, no sign-up and no watermark. Get photos, signatures and PDFs to the exact size an online form asks for.</p>
-<p>Popular: <a href="/resize-image">Resize Image</a> · <a href="/pdf-editor">PDF Editor</a> · <a href="/compress-image">Compress Image</a> · <a href="/exam-photo-resizer">Exam Photo &amp; Signature Resizer</a> · <a href="/signature-resizer">Signature Resizer</a> · <a href="/pdf-compressor">Compress PDF</a> · <a href="/merge-pdf">Merge PDF</a> · <a href="/pdf-to-word">PDF to Word</a> · <a href="/passport-photo">Passport Photo</a></p>`),
+  body: wrap(`<h1 class="fq-sr">${BRAND} — free PDF &amp; image tools: resize, compress, convert, merge, sign and edit images and PDFs</h1>
+<div class="fq-hero">What would you <span>like to do?</span></div>
+<div class="fq-sub">Choose a tool to get started.</div>
+<div class="fq-cards">
+<a class="fq-card fq-teal" href="/resize-image"><h3>Image Resizer</h3><p>Resize images by dimensions or target file size.</p><small>JPG, PNG, WEBP, BMP</small><span class="fq-btn">Choose Image →</span></a>
+<a class="fq-card fq-blue" href="/file-converter"><h3>PDF Converter</h3><p>Convert PDF, Word, and other supported document formats.</p><small>PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT, RTF, ODT</small><span class="fq-btn">Choose PDF →</span></a>
+<a class="fq-card fq-violet" href="/pdf-editor"><h3>PDF Editor</h3><p>Open PDFs and use available editing tools.</p><small>PDF</small><span class="fq-btn">Open PDF Editor →</span></a>
+</div>
+<h2 class="fq-h2">Popular tools</h2>
+${keyTools()}
+<p class="fq-foot">Resize, compress, convert, merge, sign and edit images and PDFs — free, fast, no sign-up and no watermark. Get photos, signatures and PDFs to the exact size an online form asks for.</p>`),
   priority: '1.0',
 });
 

@@ -1,19 +1,8 @@
-import React, { useRef } from 'react';
+import React, { Suspense, useRef } from 'react';
 import { Routes, Route, Navigate, useParams, useLocation, useNavigationType } from 'react-router-dom';
 import HomePage from './components/HomePage';
 import ToolWrapper from './components/ToolWrapper';
-import Contact from './components/Contact';
-import TermsOfService from './components/TermsOfService';
-import PrivacyPolicy from './components/PrivacyPolicy';
-import About from './components/About';
-import FaqPage from './components/FaqPage';
-import DownloadApp from './components/DownloadApp';
-import AccountsSoon from './components/AccountsSoon';
-import DocumentToolsPage from './components/desktop/DocumentToolsPage';
-import AllToolsPage from './components/desktop/AllToolsPage';
-import RecentFilesPage from './components/desktop/RecentFilesPage';
-import FavoritesPage from './components/desktop/FavoritesPage';
-import SettingsPage from './components/desktop/SettingsPage';
+import { withChunkRetry } from './lib/chunkReload';
 import { getToolById } from './data/tools';
 import NotFound from './components/NotFound';
 import {
@@ -23,6 +12,30 @@ import {
 } from './lib/targetSizeUrl';
 import { TOOL_ALIASES, sizeRedirect } from './data/redirects';
 import { getLandingPage, landingPageMeta } from './data/landingPages';
+
+// Pages most visitors never open are fetched only when visited, keeping the
+// first download small for phones on slow connections.
+const lazyPage = (load) => {
+  const Page = React.lazy(withChunkRetry(load));
+  const Wrapped = (props) => (
+    <Suspense fallback={<div className="min-h-[50vh]" />}>
+      <Page {...props} />
+    </Suspense>
+  );
+  return Wrapped;
+};
+const Contact = lazyPage(() => import('./components/Contact'));
+const TermsOfService = lazyPage(() => import('./components/TermsOfService'));
+const PrivacyPolicy = lazyPage(() => import('./components/PrivacyPolicy'));
+const About = lazyPage(() => import('./components/About'));
+const FaqPage = lazyPage(() => import('./components/FaqPage'));
+const DownloadApp = lazyPage(() => import('./components/DownloadApp'));
+const AccountsSoon = lazyPage(() => import('./components/AccountsSoon'));
+const DocumentToolsPage = lazyPage(() => import('./components/desktop/DocumentToolsPage'));
+const AllToolsPage = lazyPage(() => import('./components/desktop/AllToolsPage'));
+const RecentFilesPage = lazyPage(() => import('./components/desktop/RecentFilesPage'));
+const FavoritesPage = lazyPage(() => import('./components/desktop/FavoritesPage'));
+const SettingsPage = lazyPage(() => import('./components/desktop/SettingsPage'));
 
 // Canonical tool URL is now the short form: /resize-image  (not /tool/resize-image)
 const toolPath = (id) => `/${id}`;
