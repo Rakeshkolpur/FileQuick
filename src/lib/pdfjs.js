@@ -1,6 +1,8 @@
 // The worker (~290 KB gz) is emitted as a hashed asset, so browsers cache it for
 // good (immutable /assets) instead of re-checking a /public file on every visit.
-import workerUrl from 'pdfjs-dist/build/pdf.worker.min.js?url';
+// by file path (not the package name): with the 'pdfjs-dist' alias, Vite's dev
+// dependency optimizer otherwise grabs this ?url import and the dev server breaks
+import workerUrl from '../../node_modules/pdfjs-dist/build/pdf.worker.min.js?url';
 
 // pdf.js (~95 KB gz) is fetched on first use, not with the tool, so a PDF
 // tool's upload screen appears straight away; warmPdfjs() starts the download

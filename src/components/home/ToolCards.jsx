@@ -187,14 +187,14 @@ const PdfChoice = ({ file, onPick, onClose }) => {
   // portalled: the card's hover lift (a transform) would otherwise trap a fixed overlay inside it
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-end justify-center bg-gray-900/50 backdrop-blur-sm sm:items-center sm:p-4"
+      className="fixed inset-0 z-[100] flex items-start justify-center bg-gray-900/50 px-3 pt-[max(env(safe-area-inset-top),4.5rem)] backdrop-blur-sm sm:items-center sm:p-4"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="pdf-choice-title"
-        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-3xl border border-gray-200 bg-white px-4 pb-[max(env(safe-area-inset-bottom),1rem)] pt-4 shadow-2xl sm:rounded-3xl sm:p-6 dark:border-gray-700 dark:bg-gray-800"
+        className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-3xl border border-gray-200 bg-white p-4 shadow-2xl sm:p-6 dark:border-gray-700 dark:bg-gray-800"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
