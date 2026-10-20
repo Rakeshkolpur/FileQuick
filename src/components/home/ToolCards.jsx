@@ -10,6 +10,7 @@ import { handOffFile } from '../../lib/fileHandoff';
 import { stashPdf } from '../../lib/pdfHandoff';
 import { formatBytes } from '../../lib/format';
 import { preloadTool, preloadWhenIdle } from '../../lib/preloadTool';
+import { warmPdfjs } from '../../lib/pdfjs';
 
 /**
  * The homepage's three start cards. Each one is a real upload area (drop or
@@ -113,11 +114,11 @@ const CONVERT_ROUTES = [
 ];
 
 const PDF_TARGETS = [
-  { id: 'pdf-to-word', label: 'PDF to Word', note: 'Editable Word document (.docx)', Icon: LuFileText, tile: 'bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-300' },
-  { id: 'pdf-to-jpg', label: 'PDF to JPG', note: 'Every page as an image', Icon: LuImage, tile: 'bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-300' },
-  { id: 'pdf-to-excel', label: 'PDF to Excel', note: 'Tables into a spreadsheet (.xlsx)', Icon: LuSheet, tile: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-300' },
-  { id: 'pdf-to-powerpoint', label: 'PDF to PowerPoint', note: 'Pages as slides (.pptx)', Icon: LuPresentation, tile: 'bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-300' },
-  { id: 'pdf-to-text', label: 'PDF to Text', note: 'Plain text, reads scanned pages too', Icon: LuType, tile: 'bg-slate-100 text-slate-600 dark:bg-slate-500/20 dark:text-slate-300' },
+  { id: 'pdf-to-word', label: 'PDF to Word', short: 'Word', note: 'Editable Word document (.docx)', Icon: LuFileText, tile: 'bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-300' },
+  { id: 'pdf-to-jpg', label: 'PDF to JPG', short: 'JPG', note: 'Every page as an image', Icon: LuImage, tile: 'bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-300' },
+  { id: 'pdf-to-excel', label: 'PDF to Excel', short: 'Excel', note: 'Tables into a spreadsheet (.xlsx)', Icon: LuSheet, tile: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-300' },
+  { id: 'pdf-to-powerpoint', label: 'PDF to PowerPoint', short: 'PowerPoint', note: 'Pages as slides (.pptx)', Icon: LuPresentation, tile: 'bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-300' },
+  { id: 'pdf-to-text', label: 'PDF to Text', short: 'Text', note: 'Plain text, reads scanned pages too', Icon: LuType, tile: 'bg-slate-100 text-slate-600 dark:bg-slate-500/20 dark:text-slate-300' },
 ];
 
 const isPdf = (f) => /\.pdf$/i.test(f.name || '') || f.type === 'application/pdf';
@@ -170,6 +171,7 @@ const PdfChoice = ({ file, onPick, onClose }) => {
   const firstRef = useRef(null);
 
   useEffect(() => {
+    warmPdfjs(); // every option opens the PDF with pdf.js — start it now
     preloadTool(...PDF_TARGETS.map((p) => p.id)); // whichever they pick opens at once
     firstRef.current?.focus();
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -192,12 +194,12 @@ const PdfChoice = ({ file, onPick, onClose }) => {
         role="dialog"
         aria-modal="true"
         aria-labelledby="pdf-choice-title"
-        className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-3xl border border-gray-200 bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-6 dark:border-gray-700 dark:bg-gray-800"
+        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-3xl border border-gray-200 bg-white px-4 pb-[max(env(safe-area-inset-bottom),1rem)] pt-4 shadow-2xl sm:rounded-3xl sm:p-6 dark:border-gray-700 dark:bg-gray-800"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h3 id="pdf-choice-title" className="text-lg font-bold text-gray-900 dark:text-white">What do you want to do with this PDF?</h3>
-            <p className="mt-1 flex min-w-0 items-center gap-1.5 text-[13px] text-gray-500 dark:text-gray-400">
+            <h3 id="pdf-choice-title" className="text-base font-bold text-gray-900 sm:text-lg dark:text-white">Convert this PDF to</h3>
+            <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[12.5px] text-gray-500 dark:text-gray-400">
               <span className="shrink-0 rounded bg-rose-500 px-1 py-px text-[9px] font-bold leading-none text-white">PDF</span>
               <span className="truncate" title={file.name}>{file.name}</span>
               <span className="shrink-0">· {formatBytes(file.size)}</span>
@@ -207,27 +209,32 @@ const PdfChoice = ({ file, onPick, onClose }) => {
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+            className="-mr-1 -mt-1 shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"
           >
             <LuX className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="mt-4 space-y-2">
+        {/* phones: compact 2-column tiles (Word, the usual pick, full width);
+            larger screens: a list with a line about each */}
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-4 sm:grid-cols-1">
           {PDF_TARGETS.map((p, i) => (
             <button
               key={p.id}
               ref={i === 0 ? firstRef : undefined}
               type="button"
               onClick={() => onPick(p.id)}
-              className="group/opt flex w-full items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 text-left transition-colors hover:border-blue-400 hover:bg-blue-50/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-gray-700 dark:bg-gray-900/40 dark:hover:border-blue-400/60 dark:hover:bg-blue-500/10"
+              className={`group/opt flex w-full items-center gap-2.5 rounded-xl border border-gray-200 bg-white p-2.5 text-left transition-colors hover:border-blue-400 hover:bg-blue-50/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:gap-3 sm:p-3 dark:border-gray-700 dark:bg-gray-900/40 dark:hover:border-blue-400/60 dark:hover:bg-blue-500/10 ${i === 0 ? 'col-span-2 sm:col-span-1' : ''}`}
             >
-              <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg ${p.tile}`}><p.Icon className="h-5 w-5" strokeWidth={1.9} /></span>
+              <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg sm:h-10 sm:w-10 ${p.tile}`}><p.Icon className="h-5 w-5" strokeWidth={1.9} /></span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[14.5px] font-semibold text-gray-900 dark:text-white">{p.label}</span>
-                <span className="block text-[12.5px] text-gray-500 dark:text-gray-400">{p.note}</span>
+                <span className="block text-[14px] font-semibold text-gray-900 sm:text-[14.5px] dark:text-white">
+                  <span className="sm:hidden">{i === 0 ? p.label : p.short}</span>
+                  <span className="hidden sm:inline">{p.label}</span>
+                </span>
+                <span className={`text-[12px] text-gray-500 sm:block sm:text-[12.5px] dark:text-gray-400 ${i === 0 ? 'block' : 'hidden'}`}>{p.note}</span>
               </span>
-              <LuChevronRight className="h-4 w-4 shrink-0 text-gray-400 transition-transform group-hover/opt:translate-x-0.5 group-hover/opt:text-blue-500" />
+              <LuChevronRight className="hidden h-4 w-4 shrink-0 text-gray-400 transition-transform group-hover/opt:translate-x-0.5 group-hover/opt:text-blue-500 sm:block" />
             </button>
           ))}
         </div>
@@ -235,7 +242,7 @@ const PdfChoice = ({ file, onPick, onClose }) => {
         <button
           type="button"
           onClick={onClose}
-          className="mt-3 w-full rounded-xl py-2.5 text-[13.5px] font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700/60 dark:hover:text-gray-200"
+          className="mt-3 hidden w-full rounded-xl py-2.5 text-[13.5px] font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-700 sm:block dark:text-gray-400 dark:hover:bg-gray-700/60 dark:hover:text-gray-200"
         >
           Cancel
         </button>
@@ -256,7 +263,10 @@ const ToolCard = ({ card }) => {
   const t = TONES[card.tone];
 
   const browse = () => inputRef.current?.click();
-  const warm = () => preloadTool(...card.tools);
+  const warm = () => {
+    preloadTool(...card.tools);
+    if (card.key !== 'image') warmPdfjs(); // the PDF cards will need pdf.js
+  };
 
   const take = async (list) => {
     setError('');

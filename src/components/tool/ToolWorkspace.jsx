@@ -6,6 +6,8 @@ import { ToolBackContext } from '../ToolWrapper';
  * Compact editor layout: settings sidebar + main canvas.
  * No file -> centered dropzone. File -> sticky sidebar (scrolls internally,
  * pinned footer) beside the canvas.
+ * `opening` (text): a file was picked but is still being read — show that
+ * instead of an empty upload box, which looked like nothing had happened.
  */
 const ToolWorkspace = ({
   file,
@@ -22,6 +24,7 @@ const ToolWorkspace = ({
   footer,
   result,
   children,
+  opening,
 }) => {
   const registerBack = useContext(ToolBackContext);
   useEffect(() => {
@@ -31,6 +34,15 @@ const ToolWorkspace = ({
     registerBack(file && onBack ? onBack : null);
     return () => registerBack(null);
   }, [file, onBack, registerBack]);
+
+  if (!file && opening) {
+    return (
+      <div className="mx-auto flex max-w-2xl flex-col items-center py-24 text-gray-500 dark:text-gray-400">
+        <div className="mb-3 h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-purple-600 dark:border-gray-700" />
+        {opening}
+      </div>
+    );
+  }
 
   if (!file) {
     return (

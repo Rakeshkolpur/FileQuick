@@ -5,6 +5,7 @@ import ResultScreen from '../../tool/ResultScreen';
 import { formatBytes } from '../../../lib/format';
 import { toolFileName } from '../../../lib/fileNames';
 import { SERVER_UPLOAD_MB } from '../../../lib/fileValidation';
+import { consumePdfHandoff } from '../../../lib/pdfHandoff';
 import { api } from '../../../lib/api';
 import { openPdf, renderThumbnail } from '../../../lib/pdfjs';
 
@@ -54,6 +55,9 @@ const PdfToExcel = () => {
     setFile(f);
     setPhase('loading');
   };
+
+  // a PDF sent here from another page (home "PDF Converter" card, "send to" buttons)
+  useEffect(() => consumePdfHandoff((f) => onFiles([f]), 'document'), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!file) return;

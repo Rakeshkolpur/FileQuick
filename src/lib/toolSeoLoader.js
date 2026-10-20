@@ -25,8 +25,17 @@ export function useToolSeo(id) {
   useEffect(() => {
     if (mod || !id) return undefined;
     let alive = true;
-    loadToolSeo().then(() => { if (alive) setLoaded(true); }).catch(() => {});
-    return () => { alive = false; };
+    // Not urgent (below the tool, folded away on phones): let the tool's own
+    // code and pdf.js go first on a slow connection.
+    const go = () => loadToolSeo().then(() => { if (alive) setLoaded(true); }).catch(() => {});
+    const idle = window.requestIdleCallback
+      ? window.requestIdleCallback(go, { timeout: 2500 })
+      : setTimeout(go, 1200);
+    return () => {
+      alive = false;
+      if (window.requestIdleCallback) window.cancelIdleCallback(idle);
+      else clearTimeout(idle);
+    };
   }, [id]);
   return id && mod ? mod.getToolSeo(id) : null;
 }

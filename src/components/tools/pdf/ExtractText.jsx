@@ -5,6 +5,7 @@ import { downloadBlob } from '../../tool/DownloadButton';
 import { formatBytes } from '../../../lib/format';
 import { toolFileName } from '../../../lib/fileNames';
 import { PDF_RENDER_MB } from '../../../lib/fileValidation';
+import { consumePdfHandoff } from '../../../lib/pdfHandoff';
 import { openPdf, renderPageToCanvas } from '../../../lib/pdfjs';
 import { parsePageRange } from '../../../lib/pageRange';
 import { ocrImage, preloadOcr, terminateOcr } from '../../../lib/ocr';
@@ -73,6 +74,9 @@ const ExtractText = ({ toolId = 'extract-text' } = {}) => {
       setBusy(false);
     }
   }, []);
+
+  // a PDF sent here from another page (home "PDF Converter" card, "send to" buttons)
+  useEffect(() => consumePdfHandoff((f) => onFiles([f]), 'document'), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const reset = () => {
     cancelRef.current = true;
@@ -224,6 +228,7 @@ const ExtractText = ({ toolId = 'extract-text' } = {}) => {
   return (
     <ToolWorkspace
       file={file}
+      opening={busy && !file ? 'Opening your PDF…' : null}
       accept="application/pdf,.pdf"
       maxMB={PDF_RENDER_MB}
       formats="PDF — text layer + OCR for scanned pages"

@@ -1,3 +1,7 @@
+// The worker (~290 KB gz) is emitted as a hashed asset, so browsers cache it for
+// good (immutable /assets) instead of re-checking a /public file on every visit.
+import workerUrl from 'pdfjs-dist/build/pdf.worker.min.js?url';
+
 // pdf.js (~95 KB gz) is fetched on first use, not with the tool, so a PDF
 // tool's upload screen appears straight away; warmPdfjs() starts the download
 // in the background meanwhile, so it's normally ready by the time a file is picked.
@@ -6,11 +10,8 @@ let pending = null;
 export const loadPdfjs = () => {
   if (!pending) {
     pending = import('pdfjs-dist').then((pdfjsLib) => {
-      // The worker file is shipped in /public (identical to the installed pdfjs-dist
-      // build). Serving it as a static asset avoids CDN dependencies and version drift.
       if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
-        // BASE_URL is '/' on the web and './' in the desktop (file://) build.
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `${import.meta.env.BASE_URL || '/'}pdf.worker.min.js`;
+        pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
       }
       return pdfjsLib;
     }).catch((e) => { pending = null; throw e; });
@@ -18,8 +19,22 @@ export const loadPdfjs = () => {
   return pending;
 };
 
-/** Start fetching pdf.js without waiting for it (call when a PDF tool opens). */
-export const warmPdfjs = () => { loadPdfjs().catch(() => {}); };
+let workerWarmed = false;
+
+/**
+ * Start fetching pdf.js and its worker without waiting (call as soon as a PDF
+ * is likely: a PDF tool opened, a PDF picked on the home page). Opening a PDF
+ * needs both — ~385 KB on a first visit — and the worker otherwise only starts
+ * downloading after pdf.js has arrived, so the two used to load one after the
+ * other while the screen looked empty.
+ */
+export const warmPdfjs = () => {
+  loadPdfjs().catch(() => {});
+  if (!workerWarmed && typeof fetch === 'function') {
+    workerWarmed = true;
+    fetch(workerUrl).catch(() => { workerWarmed = false; }); // lands in the HTTP cache
+  }
+};
 
 /**
  * Load a PDF into pdf.js. Accepts an ArrayBuffer / Uint8Array; the buffer is

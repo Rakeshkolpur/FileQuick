@@ -231,6 +231,7 @@ const PdfToJpg = () => {
   return (
     <ToolWorkspace
       file={file}
+      opening={loading && !file ? 'Opening your PDF…' : null}
       accept="application/pdf,.pdf"
       maxMB={PDF_RENDER_MB}
       formats="PDF — each page becomes a JPG or PNG"
