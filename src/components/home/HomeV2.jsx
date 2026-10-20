@@ -2,20 +2,15 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   LuBadgeCheck, LuShieldCheck, LuUserX, LuSparkles, LuArrowRight,
-  LuFileArchive, LuCombine, LuFileType, LuScaling, LuCrop, LuFileImage,
   LuFileText, LuImage, LuRepeat, LuLock, LuZap, LuMonitorSmartphone, LuHeart,
 } from 'react-icons/lu';
 import ToolsGrid from '../ToolsGrid';
-import UploadZone from './UploadZone';
+import ToolCards from './ToolCards';
 import DownloadWidget from './DownloadWidget';
 import HowItWorks from './HowItWorks';
 import FaqAccordion from '../FaqAccordion';
 import { getHomeSections } from '../../data/tools';
 import { usePageMeta } from '../../lib/seo';
-import pdfIcon from '../../assets/pdf.png';
-import wordIcon from '../../assets/word.png';
-import excelIcon from '../../assets/excel.png';
-import jpgIcon from '../../assets/jpg.png';
 
 /* colour → [icon tile classes, soft card bg, arrow colour] */
 // per colour: [solid icon tile, tinted icon square, soft card bg, accent text]
@@ -37,15 +32,6 @@ const BADGES = [
   { Icon: LuUserX, color: 'violet', label: 'No Sign up' },
 ];
 
-const POPULAR = [
-  { id: 'pdf-compressor', label: 'Compress PDF', color: 'rose', Icon: LuFileArchive },
-  { id: 'merge-pdf', label: 'Merge PDF', color: 'indigo', Icon: LuCombine },
-  { id: 'pdf-to-word', label: 'PDF to Word', color: 'blue', Icon: LuFileType },
-  { id: 'resize-image', label: 'Resize Image', color: 'emerald', Icon: LuScaling },
-  { id: 'crop-image', label: 'Crop Image', color: 'amber', Icon: LuCrop },
-  { id: 'convert-image', label: 'JPG to PNG', color: 'teal', Icon: LuFileImage },
-];
-
 const CATS = [
   { label: 'PDF Tools', to: '/pdf', count: '25+ tools', color: 'rose', Icon: LuFileText },
   { label: 'Image Tools', to: '/image', count: '15+ tools', color: 'emerald', Icon: LuImage },
@@ -62,16 +48,6 @@ const TRUST = [
   { title: 'Made with ❤️', lines: ['Built to make your file', 'work effortless.'], color: 'pink', Icon: LuHeart },
 ];
 
-/* file-type icons arranged in an arc down the right of the upload card */
-const FileFloat = ({ src, className }) => (
-  <img
-    src={src}
-    alt=""
-    aria-hidden
-    className={`pointer-events-none absolute hidden h-12 w-12 drop-shadow-[0_10px_20px_rgba(79,70,229,0.18)] lg:block ${className}`}
-  />
-);
-
 const HomeV2 = () => {
   usePageMeta(null);
   const sections = getHomeSections('all');
@@ -80,92 +56,22 @@ const HomeV2 = () => {
     <div className="relative space-y-14 pb-6">
       <div className="pointer-events-none absolute left-1/2 top-[-2rem] -z-10 hidden h-[560px] w-[100vw] max-w-[calc(100%+8rem)] -translate-x-1/2 bg-gradient-to-b from-indigo-50 via-violet-50/50 to-transparent lg:block dark:from-indigo-500/[0.06] dark:via-transparent" />
 
-      {/* ---------- hero ---------- */}
-      {/* h1 stays in the DOM for SEO even though the hero copy is hidden on phones */}
+      {/* h1 stays in the DOM for SEO; the visible heading is the cards' "What would you like to do?" */}
       <h1 className="sr-only">FileQuick — every file tool in one place: resize, compress, convert, merge, sign and edit images and PDFs</h1>
-      <section className="grid items-center gap-10 pt-0 lg:grid-cols-2 lg:pt-4">
-        <div className="hidden lg:block">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-100 px-3 py-1 text-[13px] font-semibold text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300">
-            <LuSparkles className="h-3.5 w-3.5" /> All-in-One File Toolkit
-          </span>
-          <p className="mt-5 text-[42px] font-extrabold leading-[1.03] tracking-tight text-gray-900 sm:text-6xl dark:text-white">
-            One place.<br />
-            Every <span className="text-indigo-600 dark:text-indigo-400">file tool.</span>
-          </p>
-          <p className="mt-5 max-w-md text-[15px] leading-relaxed text-gray-600 dark:text-gray-300">
-            Resize images, edit PDFs, convert documents and do more — without jumping between different websites.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2.5">
-            {BADGES.map((b) => (
-              <span key={b.label} className="inline-flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
-                <span className={`grid h-6 w-6 place-items-center rounded-full ${TINT[b.color][1]}`}><b.Icon className="h-3.5 w-3.5" strokeWidth={2} /></span>
-                {b.label}
-              </span>
-            ))}
-          </div>
-          <DownloadWidget className="mt-5" />
-        </div>
+      <ToolCards />
 
-        <div className="relative lg:pr-28">
-          {/* soft colour blobs behind the card */}
-          <div className="pointer-events-none absolute -left-10 bottom-0 -z-10 hidden h-44 w-44 rounded-full bg-sky-200/40 blur-3xl lg:block dark:bg-sky-500/10" />
-          <div className="pointer-events-none absolute right-0 top-6 -z-10 hidden h-56 w-56 rounded-full bg-violet-200/40 blur-3xl lg:block dark:bg-violet-500/10" />
-
-          {/* file-type icons on an even ")" arc down the right lane */}
-          <FileFloat src={pdfIcon} className="right-14 top-[2%] -rotate-[10deg]" />
-          <FileFloat src={wordIcon} className="right-0 top-[35%] -rotate-[3deg]" />
-          <FileFloat src={excelIcon} className="right-0 top-[63%] rotate-[3deg]" />
-          <FileFloat src={jpgIcon} className="right-14 top-[93%] rotate-[10deg]" />
-
-          {/* accent bubbles between the icons, on the same arc */}
-          <span className="pointer-events-none absolute right-10 top-[19%] hidden h-3.5 w-3.5 rounded-full border-2 border-teal-400/70 lg:block" />
-          <span className="pointer-events-none absolute -right-2 top-[49%] hidden h-2.5 w-2.5 rounded-full bg-teal-400/80 lg:block" />
-          <span className="pointer-events-none absolute right-8 top-[80%] hidden h-2 w-2 rounded-full bg-indigo-500 lg:block" />
-          <span className="pointer-events-none absolute right-16 -top-1 hidden h-2 w-2 rotate-45 bg-orange-400/80 lg:block" />
-
-          <div className="rounded-3xl border border-indigo-100/80 bg-gradient-to-br from-violet-50 via-indigo-50/50 to-sky-50/40 p-3 shadow-xl shadow-indigo-500/[0.08] dark:border-gray-700 dark:from-gray-800/70 dark:via-gray-800/50 dark:to-gray-800/60">
-            <UploadZone v2 />
-          </div>
-          <p className="mt-3 text-center text-[13px] text-gray-500 dark:text-gray-400">
-            <LuSparkles className="mr-1 inline h-3.5 w-3.5 align-[-2px] text-indigo-500" />
-            We&apos;ll detect your file and show you <span className="font-semibold text-indigo-600 dark:text-indigo-400">smart actions</span>
-          </p>
-
-          {/* compact trust row — mobile only (desktop shows it in the hero copy) */}
-          <div className="mt-4 flex flex-wrap justify-center gap-x-5 gap-y-2 lg:hidden">
-            {BADGES.map((b) => (
-              <span key={b.label} className="inline-flex items-center gap-1.5 text-[13px] font-medium text-gray-600 dark:text-gray-300">
-                <span className={`grid h-5 w-5 place-items-center rounded-full ${TINT[b.color][1]}`}><b.Icon className="h-3 w-3" strokeWidth={2} /></span>
-                {b.label}
-              </span>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ---------- popular ---------- */}
-      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white">
-            <span aria-hidden>🔥</span> Popular Tools
-          </h2>
-          <a href="#tools" className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-[13px] font-medium text-gray-600 hover:border-indigo-300 hover:text-indigo-600 dark:border-gray-700 dark:text-gray-300">
-            View all <LuArrowRight className="h-3.5 w-3.5" />
-          </a>
-        </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {POPULAR.map((t) => (
-            <Link
-              key={t.id}
-              to={`/${t.id}`}
-              className="flex items-center gap-2.5 rounded-xl border border-gray-200 bg-white px-3 py-3 text-[13px] font-semibold text-gray-800 transition-colors hover:border-indigo-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:hover:border-indigo-700"
-            >
-              <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${TINT[t.color][0]}`}><t.Icon className="h-[18px] w-[18px]" strokeWidth={1.9} /></span>
-              <span className="truncate">{t.label}</span>
-            </Link>
+      {/* trust line + desktop app download, kept small under the cards */}
+      <div className="-mt-6 flex flex-col items-center gap-4">
+        <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
+          {BADGES.map((b) => (
+            <span key={b.label} className="inline-flex items-center gap-1.5 text-[13px] font-medium text-gray-600 dark:text-gray-300">
+              <span className={`grid h-5 w-5 place-items-center rounded-full ${TINT[b.color][1]}`}><b.Icon className="h-3 w-3" strokeWidth={2} /></span>
+              {b.label}
+            </span>
           ))}
         </div>
-      </section>
+        <DownloadWidget className="justify-center" />
+      </div>
 
       {/* ---------- categories ---------- */}
       <section>
