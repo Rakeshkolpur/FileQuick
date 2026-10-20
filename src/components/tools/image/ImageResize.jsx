@@ -13,7 +13,6 @@ import { formatBytes } from '../../../lib/format';
 import { toolFileName } from '../../../lib/fileNames';
 import { setJpegDpi } from '../../../lib/jpegDpi';
 import { consumeHandoff } from '../../../lib/imageHandoff';
-import { zipFiles } from '../../../lib/zip';
 import {
   loadImageFromFile,
   rotateToCanvas,
@@ -23,7 +22,6 @@ import {
   OUTPUT_FORMATS,
   OUTPUT_FORMAT_MAP,
 } from '../../../lib/imageResize';
-import { singleImageToPdf } from '../../../lib/imagesToPdf';
 import { cutoutBackground, loadCutout, compositeOnColor } from '../../../lib/backgroundRemoval';
 import CropModal from '../../tool/CropModal';
 import Lightbox from '../../tool/Lightbox';
@@ -380,7 +378,30 @@ const ImageResize = () => {
     () => (baseSource ? rotateToCanvas(baseSource, rotation) : null),
     [baseSource, rotation],
   );
-  const workUrl = useMemo(() => (workSource ? workSource.toDataURL('image/png') : null), [workSource]);
+  // Preview URL. Untouched photo → show the file itself (no re-encode: a
+  // synchronous toDataURL of a 12 MP photo froze the page ~200ms on upload).
+  // Rotated / background-removed → encode off the main thread with toBlob.
+  const [workUrl, setWorkUrl] = useState(null);
+  const untouched = !!single?.img && baseSource === single.img && rotation === 0;
+  useEffect(() => {
+    if (!workSource) { setWorkUrl(null); return undefined; }
+    let url = null;
+    let cancelled = false;
+    if (untouched) {
+      url = URL.createObjectURL(single.file);
+      setWorkUrl(url);
+    } else {
+      workSource.toBlob((b) => {
+        if (cancelled || !b) return;
+        url = URL.createObjectURL(b);
+        setWorkUrl(url);
+      }, 'image/png');
+    }
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [workSource, untouched, single?.file]);
   const natW = workSource?.width || single?.w || 0;
   const natH = workSource?.height || single?.h || 0;
 
@@ -637,6 +658,8 @@ const ImageResize = () => {
       r = { ...r, blob: await setJpegDpi(r.blob, safeDpi) };
     }
     if (isPdf) {
+      // pdf-lib is big — fetch it only when someone actually exports a PDF
+      const { singleImageToPdf } = await import('../../../lib/imagesToPdf');
       const pdf = await singleImageToPdf(r.blob);
       r = { ...r, blob: pdf, format: 'pdf' };
     }
@@ -685,6 +708,7 @@ const ImageResize = () => {
       .map((r, i) => (r ? { name: nameFor(items[i].file, r), blob: r.blob } : null))
       .filter(Boolean);
     if (!z.length) return;
+    const { zipFiles } = await import('../../../lib/zip');
     downloadBlob(await zipFiles(z), toolFileName(items[0]?.file, 'resize-image', 'zip'));
   };
 

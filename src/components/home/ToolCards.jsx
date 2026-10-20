@@ -1,18 +1,25 @@
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { LuArrowRight, LuUploadCloud, LuX } from 'react-icons/lu';
+import {
+  LuArrowRight, LuUploadCloud, LuX, LuChevronRight,
+  LuFileText, LuImage, LuSheet, LuPresentation, LuType,
+} from 'react-icons/lu';
 import { screenFiles, rejectionMessage } from '../../lib/fileValidation';
 import { handOffFile } from '../../lib/fileHandoff';
 import { stashPdf } from '../../lib/pdfHandoff';
+import { formatBytes } from '../../lib/format';
+import { preloadTool, preloadWhenIdle } from '../../lib/preloadTool';
 
 /**
  * The homepage's three start cards. Each one is a real upload area (drop or
  * browse) that screens the file and hands it, name intact, to the tool that
  * does the work:
  *  - Image Resizer → /resize-image (fileHandoff → its FileDropzone)
- *  - PDF Converter → a PDF picks its target (pdfHandoff); Office / text files
- *    go to their "… to PDF" converter (fileHandoff), same as the File Converter hub
+ *  - PDF Converter → a PDF asks what to become in a popup (pdfHandoff); Office /
+ *    text files go to their "… to PDF" converter (fileHandoff), as the File Converter hub does
  *  - PDF Editor    → /pdf-editor (pdfHandoff)
+ * Each tool's code is fetched ahead (idle / hover / touch), so it opens at once.
  */
 
 /* ---------- illustrations (original, theme-aware) ---------- */
@@ -71,7 +78,6 @@ const TONES = {
     icon: 'text-teal-500 dark:text-teal-300',
     link: 'text-teal-600 dark:text-teal-300',
     btn: 'bg-teal-600 hover:bg-teal-700 focus-visible:ring-teal-500 shadow-teal-600/25',
-    chip: 'border-teal-200 hover:border-teal-400 hover:bg-teal-50 dark:border-teal-400/30 dark:hover:bg-teal-400/10',
   },
   blue: {
     card: 'border-blue-400/70 dark:border-blue-400/45 hover:shadow-blue-500/15',
@@ -81,7 +87,6 @@ const TONES = {
     icon: 'text-blue-500 dark:text-blue-300',
     link: 'text-blue-600 dark:text-blue-300',
     btn: 'bg-blue-600 hover:bg-blue-700 focus-visible:ring-blue-500 shadow-blue-600/25',
-    chip: 'border-blue-200 hover:border-blue-400 hover:bg-blue-50 dark:border-blue-400/30 dark:hover:bg-blue-400/10',
   },
   violet: {
     card: 'border-violet-400/70 dark:border-violet-400/45 hover:shadow-violet-500/15',
@@ -91,7 +96,6 @@ const TONES = {
     icon: 'text-violet-500 dark:text-violet-300',
     link: 'text-violet-600 dark:text-violet-300',
     btn: 'bg-violet-600 hover:bg-violet-700 focus-visible:ring-violet-500 shadow-violet-600/25',
-    chip: 'border-violet-200 hover:border-violet-400 hover:bg-violet-50 dark:border-violet-400/30 dark:hover:bg-violet-400/10',
   },
 };
 
@@ -109,11 +113,11 @@ const CONVERT_ROUTES = [
 ];
 
 const PDF_TARGETS = [
-  { id: 'pdf-to-word', label: 'Word' },
-  { id: 'pdf-to-jpg', label: 'JPG' },
-  { id: 'pdf-to-excel', label: 'Excel' },
-  { id: 'pdf-to-powerpoint', label: 'PowerPoint' },
-  { id: 'pdf-to-text', label: 'Text' },
+  { id: 'pdf-to-word', label: 'PDF to Word', note: 'Editable Word document (.docx)', Icon: LuFileText, tile: 'bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-300' },
+  { id: 'pdf-to-jpg', label: 'PDF to JPG', note: 'Every page as an image', Icon: LuImage, tile: 'bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-300' },
+  { id: 'pdf-to-excel', label: 'PDF to Excel', note: 'Tables into a spreadsheet (.xlsx)', Icon: LuSheet, tile: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-300' },
+  { id: 'pdf-to-powerpoint', label: 'PDF to PowerPoint', note: 'Pages as slides (.pptx)', Icon: LuPresentation, tile: 'bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-300' },
+  { id: 'pdf-to-text', label: 'PDF to Text', note: 'Plain text, reads scanned pages too', Icon: LuType, tile: 'bg-slate-100 text-slate-600 dark:bg-slate-500/20 dark:text-slate-300' },
 ];
 
 const isPdf = (f) => /\.pdf$/i.test(f.name || '') || f.type === 'application/pdf';
@@ -128,6 +132,7 @@ const CARDS = [
     accept: '.jpg,.jpeg,.png,.webp,.bmp,image/jpeg,image/png,image/webp,image/bmp',
     cta: 'Choose Image',
     Art: ImageArt,
+    tools: ['resize-image'],
     fits: (f) => IMAGE_RE.test(f.name || '') || IMAGE_TYPES.includes(f.type),
     wrongType: 'Please choose a JPG, PNG, WEBP or BMP image.',
   },
@@ -140,6 +145,7 @@ const CARDS = [
     accept: '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.rtf,.odt',
     cta: 'Choose PDF',
     Art: ConvertArt,
+    tools: ['pdf-to-word', 'word-to-pdf'],
     fits: (f) => isPdf(f) || CONVERT_ROUTES.some((r) => r.re.test(f.name || '')),
     wrongType: 'Please choose a PDF, Word, Excel, PowerPoint, TXT, RTF or ODT file.',
   },
@@ -152,10 +158,92 @@ const CARDS = [
     accept: '.pdf,application/pdf',
     cta: 'Open PDF Editor',
     Art: EditArt,
+    tools: ['pdf-editor'],
     fits: isPdf,
     wrongType: 'Please choose a PDF file.',
   },
 ];
+
+/* ---------- "what do you want to do with this PDF?" popup ---------- */
+
+const PdfChoice = ({ file, onPick, onClose }) => {
+  const firstRef = useRef(null);
+
+  useEffect(() => {
+    preloadTool(...PDF_TARGETS.map((p) => p.id)); // whichever they pick opens at once
+    firstRef.current?.focus();
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    const { overflow } = document.body.style;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = overflow;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [onClose]);
+
+  // portalled: the card's hover lift (a transform) would otherwise trap a fixed overlay inside it
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100] flex items-end justify-center bg-gray-900/50 backdrop-blur-sm sm:items-center sm:p-4"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pdf-choice-title"
+        className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-3xl border border-gray-200 bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-6 dark:border-gray-700 dark:bg-gray-800"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 id="pdf-choice-title" className="text-lg font-bold text-gray-900 dark:text-white">What do you want to do with this PDF?</h3>
+            <p className="mt-1 flex min-w-0 items-center gap-1.5 text-[13px] text-gray-500 dark:text-gray-400">
+              <span className="shrink-0 rounded bg-rose-500 px-1 py-px text-[9px] font-bold leading-none text-white">PDF</span>
+              <span className="truncate" title={file.name}>{file.name}</span>
+              <span className="shrink-0">· {formatBytes(file.size)}</span>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+          >
+            <LuX className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="mt-4 space-y-2">
+          {PDF_TARGETS.map((p, i) => (
+            <button
+              key={p.id}
+              ref={i === 0 ? firstRef : undefined}
+              type="button"
+              onClick={() => onPick(p.id)}
+              className="group/opt flex w-full items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 text-left transition-colors hover:border-blue-400 hover:bg-blue-50/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-gray-700 dark:bg-gray-900/40 dark:hover:border-blue-400/60 dark:hover:bg-blue-500/10"
+            >
+              <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg ${p.tile}`}><p.Icon className="h-5 w-5" strokeWidth={1.9} /></span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[14.5px] font-semibold text-gray-900 dark:text-white">{p.label}</span>
+                <span className="block text-[12.5px] text-gray-500 dark:text-gray-400">{p.note}</span>
+              </span>
+              <LuChevronRight className="h-4 w-4 shrink-0 text-gray-400 transition-transform group-hover/opt:translate-x-0.5 group-hover/opt:text-blue-500" />
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-3 w-full rounded-xl py-2.5 text-[13.5px] font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700/60 dark:hover:text-gray-200"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>,
+    document.body,
+  );
+};
 
 /* ---------- one card ---------- */
 
@@ -168,6 +256,7 @@ const ToolCard = ({ card }) => {
   const t = TONES[card.tone];
 
   const browse = () => inputRef.current?.click();
+  const warm = () => preloadTool(...card.tools);
 
   const take = async (list) => {
     setError('');
@@ -184,17 +273,23 @@ const ToolCard = ({ card }) => {
       if (await stashPdf(file, file.name)) navigate('/pdf-editor');
       else setError('Could not read that PDF. Please try again.');
     } else if (isPdf(file)) {
-      setPdf(file); // ask what to convert it to
+      setPdf(file); // popup: what to convert it to
     } else {
+      const to = CONVERT_ROUTES.find((r) => r.re.test(file.name)).to;
+      preloadTool(to);
       handOffFile(file);
-      navigate(`/${CONVERT_ROUTES.find((r) => r.re.test(file.name)).to}`);
+      navigate(`/${to}`);
     }
   };
 
   const convertPdf = async (toolId) => {
-    if (await stashPdf(pdf, pdf.name)) navigate(`/${toolId}`);
+    const file = pdf;
+    setPdf(null);
+    if (await stashPdf(file, file.name)) navigate(`/${toolId}`);
     else setError('Could not read that PDF. Please try again.');
   };
+
+  const closeChoice = useCallback(() => setPdf(null), []);
 
   const onDragOver = (e) => {
     e.preventDefault();
@@ -215,6 +310,10 @@ const ToolCard = ({ card }) => {
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
+      onDragEnter={warm}
+      onPointerEnter={warm}
+      onTouchStart={warm}
+      onFocus={warm}
       className={`group relative flex flex-col overflow-hidden rounded-3xl border-2 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl sm:p-6 dark:bg-gray-800/60 ${t.card}`}
     >
       {/* soft colour wash at the top of the card */}
@@ -236,48 +335,19 @@ const ToolCard = ({ card }) => {
         onChange={(e) => { take(e.target.files); e.target.value = ''; }}
       />
 
-      {pdf ? (
-        <div className={`relative mt-5 flex flex-1 flex-col rounded-2xl border-2 border-dashed p-4 ${t.zone}`}>
-          <div className="flex items-start justify-between gap-2">
-            <p className="min-w-0 truncate text-sm font-semibold text-gray-900 dark:text-white" title={pdf.name}>{pdf.name}</p>
-            <button
-              type="button"
-              onClick={() => { setPdf(null); setError(''); }}
-              className="shrink-0 rounded-md p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-              aria-label="Choose a different file"
-            >
-              <LuX className="h-4 w-4" />
-            </button>
-          </div>
-          <p className="mt-1 text-[13px] text-gray-600 dark:text-gray-300">Convert this PDF to:</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {PDF_TARGETS.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => convertPdf(p.id)}
-                className={`rounded-lg border bg-white px-3 py-1.5 text-[13px] font-semibold text-gray-800 transition-colors dark:bg-gray-900 dark:text-gray-100 ${t.chip}`}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div
-          role="presentation"
-          onClick={browse}
-          className={`relative mt-5 flex flex-1 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-4 py-7 text-center transition-colors ${dragging ? t.zoneOn : t.zone}`}
-        >
-          <LuUploadCloud className={`h-9 w-9 ${t.icon}`} strokeWidth={1.7} />
-          <p className="mt-2 text-[15px] font-semibold text-gray-800 dark:text-gray-100">
-            {dragging ? 'Drop to open' : <>Drop file here or <span className={`underline-offset-2 group-hover:underline ${t.link}`}>browse</span></>}
-          </p>
-          <p className="mt-1.5 text-[12px] leading-snug text-gray-500 dark:text-gray-400">
-            Supported formats: {card.formats}
-          </p>
-        </div>
-      )}
+      <div
+        role="presentation"
+        onClick={browse}
+        className={`relative mt-5 flex flex-1 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-4 py-7 text-center transition-colors ${dragging ? t.zoneOn : t.zone}`}
+      >
+        <LuUploadCloud className={`h-9 w-9 ${t.icon}`} strokeWidth={1.7} />
+        <p className="mt-2 text-[15px] font-semibold text-gray-800 dark:text-gray-100">
+          {dragging ? 'Drop to open' : <>Drop file here or <span className={`underline-offset-2 group-hover:underline ${t.link}`}>browse</span></>}
+        </p>
+        <p className="mt-1.5 text-[12px] leading-snug text-gray-500 dark:text-gray-400">
+          Supported formats: {card.formats}
+        </p>
+      </div>
 
       {error && (
         <p role="alert" className="relative mt-3 text-[13px] font-medium text-rose-600 dark:text-rose-400">{error}</p>
@@ -288,25 +358,32 @@ const ToolCard = ({ card }) => {
         onClick={browse}
         className={`relative mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-[15px] font-semibold text-white shadow-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900 ${t.btn}`}
       >
-        {pdf ? 'Choose another file' : card.cta} <LuArrowRight className="h-4 w-4" />
+        {card.cta} <LuArrowRight className="h-4 w-4" />
       </button>
+
+      {pdf && <PdfChoice file={pdf} onPick={convertPdf} onClose={closeChoice} />}
     </article>
   );
 };
 
-const ToolCards = () => (
-  <section aria-labelledby="start-heading">
-    <div className="text-center">
-      <h2 id="start-heading" className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl lg:text-5xl dark:text-white">
-        What would you{' '}
-        <span className="bg-gradient-to-r from-violet-500 via-indigo-500 to-blue-500 bg-clip-text text-transparent dark:from-violet-400 dark:via-indigo-400 dark:to-blue-400">like to do?</span>
-      </h2>
-      <p className="mt-3 text-[15px] text-gray-600 sm:text-base dark:text-gray-400">Choose a tool to get started.</p>
-    </div>
-    <div className="mt-8 grid grid-cols-1 gap-5 lg:mt-10 lg:grid-cols-3 lg:gap-6">
-      {CARDS.map((c) => <ToolCard key={c.key} card={c} />)}
-    </div>
-  </section>
-);
+const ToolCards = () => {
+  // the most used tool: have it ready before anyone even touches a card
+  useEffect(() => preloadWhenIdle('resize-image'), []);
+
+  return (
+    <section aria-labelledby="start-heading">
+      <div className="text-center">
+        <h2 id="start-heading" className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl lg:text-5xl dark:text-white">
+          What would you{' '}
+          <span className="bg-gradient-to-r from-violet-500 via-indigo-500 to-blue-500 bg-clip-text text-transparent dark:from-violet-400 dark:via-indigo-400 dark:to-blue-400">like to do?</span>
+        </h2>
+        <p className="mt-3 text-[15px] text-gray-600 sm:text-base dark:text-gray-400">Choose a tool to get started.</p>
+      </div>
+      <div className="mt-8 grid grid-cols-1 gap-5 lg:mt-10 lg:grid-cols-3 lg:gap-6">
+        {CARDS.map((c) => <ToolCard key={c.key} card={c} />)}
+      </div>
+    </section>
+  );
+};
 
 export default ToolCards;
