@@ -556,7 +556,9 @@ const ImageResize = () => {
     setCrop(c);
     setCompletedCrop(c);
     setCropOn(true);
-    setActiveTab('tools');
+    // Stay on whatever settings tab is open: jumping to "Tools" hid the KB /
+    // size settings the user had just entered, and they didn't come back.
+    // Everything cropping needs sits next to the image (toolbar below).
   };
   const applyCrop = () => {
     setCropOn(false);
@@ -1085,6 +1087,13 @@ const ImageResize = () => {
                   Cancel
                 </button>
                 <span className="ml-1 text-xs text-gray-400 dark:text-gray-500">drag to set the area</span>
+                <div className="flex w-full flex-wrap gap-1.5 pt-1">
+                  {ASPECTS.map((a) => (
+                    <button key={a.label} type="button" onClick={() => pickAspect(a.value)} className={cropAspect === a.value ? chipActive : chip}>
+                      {a.label}
+                    </button>
+                  ))}
+                </div>
               </>
             ) : (
               <>
@@ -1177,9 +1186,8 @@ const ImageResize = () => {
             {formatBytes(single.file.size)} · will export as {singleOutDims.w} × {singleOutDims.h}
           </p>
 
-          {/* phones: offered after resizing (result screen) — here it pushed the settings down */}
           <div className="mt-4 hidden border-t border-gray-200 pt-3 md:block dark:border-gray-700">
-            <OpenInTool getImage={getCurrentImage} exclude={['resize-image']} heading="Or send this image to" />
+            <OpenInTool getImage={getCurrentImage} exclude={['resize-image']} heading="Or send this image to" editing />
           </div>
         </div>
 

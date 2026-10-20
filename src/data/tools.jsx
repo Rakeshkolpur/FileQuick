@@ -95,7 +95,7 @@ const TOOLS = [
   // -- View & Edit --
   { id: 'pdf-editor', title: 'PDF Editor', short: 'Edit PDF', category: 'pdf', group: 'Edit', icon: I.text, popular: true, chrome: 'min',
     description: "Edit a PDF's own text in its original font, and add text, tables, images, signatures, links, shapes and form fields — all in your browser.",
-    load: () => import('../components/tools/pdf/PDFTextEditor.jsx') },
+    load: () => import('../components/tools/pdf/PDFEditorEntry.jsx') },
   { id: 'organize-pdf', title: 'Organize PDF', category: 'pdf', group: 'Pages', icon: I.organize,
     description: 'Reorder, rotate and remove pages with drag and drop.',
     load: () => import('../components/tools/pdf/PDFOrganize.jsx') },

@@ -401,8 +401,8 @@ const ImageCompress = ({ presetFormat, presetKB } = {}) => {
             {formatBytes(singleItem.file.size)} · {singleItem.w}×{singleItem.h}px
           </p>
 
-          <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
-            <OpenInTool getImage={() => singleItem.file} exclude={['compress-image']} heading="Or send this image to" />
+          <div className="mt-4 hidden border-t border-gray-200 pt-3 md:block dark:border-gray-700">
+            <OpenInTool getImage={() => singleItem.file} exclude={['compress-image']} heading="Or send this image to" editing />
           </div>
           {preview && <Lightbox src={preview.src} caption={preview.caption} onClose={() => setPreview(null)} />}
         </div>

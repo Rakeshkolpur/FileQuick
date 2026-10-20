@@ -449,8 +449,9 @@ const ImageCrop = () => {
           </div>
 
           {/* every uploaded image — click to edit its crop; click again (or ⤢) to see it large */}
+          {/* phones with a single photo don't need the strip — "Add images" is right above */}
           {items.length > 0 && (
-            <div className="mb-3">
+            <div className={`mb-3 ${items.length === 1 ? 'hidden md:block' : ''}`}>
               <div className="flex gap-2 overflow-x-auto pb-1">
                 {items.map((it, i) => {
                   const on = it.id === selId;
@@ -571,8 +572,8 @@ const ImageCrop = () => {
             )}
           </div>
 
-          <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
-            <OpenInTool getImage={getCurrentImage} exclude={['crop-image']} heading="Or send this image to" />
+          <div className="mt-4 hidden border-t border-gray-200 pt-3 md:block dark:border-gray-700">
+            <OpenInTool getImage={getCurrentImage} exclude={['crop-image']} heading="Or send this image to" editing />
           </div>
         </div>
 
@@ -633,7 +634,8 @@ const ImageCrop = () => {
                 </section>
 
                 {cropPx && (
-                  <section className="space-y-2 pt-2.5 border-t border-gray-200 dark:border-gray-700">
+                  // exact pixel box: a desktop nicety — phones drag the frame
+                  <section className="hidden space-y-2 border-t border-gray-200 pt-2.5 md:block dark:border-gray-700">
                     <button
                       type="button"
                       onClick={() => setShowBox((v) => !v)}

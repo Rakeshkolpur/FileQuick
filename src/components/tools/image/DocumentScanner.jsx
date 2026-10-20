@@ -332,6 +332,10 @@ const DocumentScanner = () => {
       return;
     }
     setError(msg || null);
+    // Pages are in, so a scan is coming: start fetching the scan engine
+    // (~4 MB) now, while they arrange pages — not when they tap Scan (phones
+    // have no hover to warm it up early).
+    preloadCv();
 
     if (imgs.length) {
       const next = imgs.map((f) => makePage(f, f.name));

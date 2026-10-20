@@ -30,6 +30,9 @@ import {
 // /Widths table, e.g. anything pdf-lib itself wrote with StandardFonts.
 import { Font as StdFont, Encodings } from '@pdf-lib/standard-fonts';
 import { FONT_LIST } from './pdfAnnotate';
+import { cleanFontName, realFamilyName } from './fontNames';
+
+export { cleanFontName, realFamilyName };
 
 /* ------------------------------ tokenizer ------------------------------ */
 
@@ -913,24 +916,9 @@ const FAMILY_HINTS = [
   [/consolas/, 'Consolas'],
 ];
 
-/** Strip the 6-letter subset prefix: "ABCDEF+Calibri-Bold" -> "Calibri-Bold". */
-export const cleanFontName = (base) => String(base || '').replace(/^[A-Z]{6}\+/, '');
-
 const squash = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
 // Every editor family, longest first so "Arial Narrow" wins over "Arial".
 const LIST_HINTS = FONT_LIST.map((f) => [squash(f), f]).sort((a, b) => b[0].length - a[0].length);
-
-/**
- * The real family name behind a PDF font name, as installed fonts call it:
- * "ABCDEF+BookmanOldStyle-Bold" -> "Bookman Old Style",
- * "TimesNewRomanPS-BoldMT" -> "Times New Roman", "SegoeUI" -> "Segoe UI".
- */
-export function realFamilyName(base) {
-  let s = cleanFontName(base).split(',')[0].split('-')[0];
-  s = s.replace(/(PSMT|PS|MT)$/, '');
-  for (let i = 0; i < 3; i += 1) s = s.replace(/(Bold|Italic|Oblique|Regular)$/, '');
-  return s.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2').trim();
-}
 
 /**
  * Best editor font family + style for an original PDF font, from its name

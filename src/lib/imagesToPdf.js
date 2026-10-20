@@ -1,4 +1,4 @@
-import { PDFDocument, rgb } from 'pdf-lib';
+import { loadPdfLib } from './pdfLib';
 
 const PT = 2.834645669; // mm -> pt
 const SIZES = {
@@ -54,7 +54,7 @@ function dataUrlToBytes(dataUrl) {
   return bytes;
 }
 
-function hexToRgb(hex) {
+function hexToRgb(rgb, hex) {
   const h = (hex || '#ffffff').replace('#', '');
   const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
   const n = parseInt(full, 16);
@@ -75,6 +75,7 @@ export async function imagesToPdf(pages, opts = {}) {
     bg = '#ffffff',
   } = opts;
 
+  const { PDFDocument, rgb } = await loadPdfLib();
   const doc = await PDFDocument.create();
 
   for (let i = 0; i < pages.length; i += 1) {
@@ -88,7 +89,7 @@ export async function imagesToPdf(pages, opts = {}) {
     });
 
     const page = doc.addPage([pw, ph]);
-    if (bg) page.drawRectangle({ x: 0, y: 0, width: pw, height: ph, color: hexToRgb(bg) });
+    if (bg) page.drawRectangle({ x: 0, y: 0, width: pw, height: ph, color: hexToRgb(rgb, bg) });
 
     page.drawImage(image, { x: (pw - dw) / 2, y: (ph - dh) / 2, width: dw, height: dh });
   }

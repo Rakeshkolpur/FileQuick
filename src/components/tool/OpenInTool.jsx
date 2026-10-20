@@ -42,8 +42,10 @@ const SHORT = {
  * @param {() => (Blob|File|string|Promise<Blob|File|string>)} getImage
  * @param {string[]} [exclude]  tool ids to hide (usually the current tool)
  * @param {string}   [heading]
+ * @param {boolean}  [editing]  shown beside the settings while editing: phones
+ *   skip it there (it pushed the actual settings down) and get it on the result screen
  */
-const OpenInTool = ({ getImage, exclude = [], heading = 'Keep going — send this image to' }) => {
+const OpenInTool = ({ getImage, exclude = [], heading = 'Keep going — send this image to', editing = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [busy, setBusy] = useState(null);
@@ -71,7 +73,7 @@ const OpenInTool = ({ getImage, exclude = [], heading = 'Keep going — send thi
 
   // phones only get the key tools (data/tools.jsx MOBILE_TOOL_GROUPS)
   return (
-    <div className={items.some((t) => isMobileTool(t.id)) ? '' : 'hidden md:block'}>
+    <div className={!editing && items.some((t) => isMobileTool(t.id)) ? '' : 'hidden md:block'}>
       <p className="mb-2 text-[12px] font-medium text-gray-500 dark:text-gray-400">{heading}</p>
       <div className="flex flex-wrap gap-2">
         {items.map((t) => (

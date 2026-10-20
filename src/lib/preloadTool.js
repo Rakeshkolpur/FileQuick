@@ -13,7 +13,9 @@ export function preloadTool(...ids) {
     const tool = getToolById(id);
     if (!tool?.load) continue;
     started.add(id);
-    tool.load().catch(() => started.delete(id)); // a failed fetch can retry later
+    tool.load()
+      .then((m) => m?.warm?.()) // a tool module can warm what it opens next
+      .catch(() => started.delete(id)); // a failed fetch can retry later
   }
 }
 

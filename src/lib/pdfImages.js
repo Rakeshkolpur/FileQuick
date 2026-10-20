@@ -1,4 +1,4 @@
-import { pdfjsLib } from './pdfjs';
+import { loadPdfjs } from './pdfjs';
 
 /**
  * Pull the raster images embedded in a PDF (photos, scans, logos) out as PNG
@@ -114,7 +114,7 @@ async function resolveImage(page, name) {
 }
 
 export async function extractImages(pdf, { onProgress, signal } = {}) {
-  const OPS = pdfjsLib.OPS;
+  const { OPS } = await loadPdfjs();
   const wanted = new Set(
     [OPS.paintImageXObject, OPS.paintImageXObjectRepeat, OPS.paintInlineImageXObject].filter(
       (v) => v != null,

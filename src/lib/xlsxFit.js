@@ -4,7 +4,6 @@
  * Wide sheets (many columns) also switch to landscape. Sheets whose owner
  * already chose a fit-to-page setting are left alone.
  */
-import JSZip from 'jszip';
 
 const colNumber = (letters) => [...letters.toUpperCase()].reduce((n, ch) => n * 26 + (ch.charCodeAt(0) - 64), 0);
 
@@ -48,6 +47,7 @@ function fitSheet(xml) {
 
 export async function fitXlsxToWidth(file) {
   try {
+    const { default: JSZip } = await import('jszip'); // on first use, not with the tool
     const zip = await JSZip.loadAsync(file);
     const sheets = Object.keys(zip.files).filter((n) => /^xl\/worksheets\/sheet\d+\.xml$/.test(n));
     if (!sheets.length) return file;

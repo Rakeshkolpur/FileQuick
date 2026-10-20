@@ -25,6 +25,9 @@ export async function stashPdf(source, name = 'document') {
   }
 }
 
+/** Is a PDF waiting to be picked up by the next tool? */
+export const hasPendingPdf = () => !!(held || inFlight);
+
 /**
  * Wire the handoff into a tool: on mount, if a PDF was handed over, turn it
  * into a File and pass it to `onFile`. Returns a cleanup fn for useEffect.

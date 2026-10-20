@@ -1,7 +1,8 @@
-import JSZip from 'jszip';
 
 /** items: [{ name, blob }] -> single .zip Blob (stored, no re-compression). */
 export async function zipFiles(items) {
+  // fetched on first use (~29 KB gz) — tools load without it
+  const { default: JSZip } = await import('jszip');
   const zip = new JSZip();
   const used = new Map();
   items.forEach(({ name, blob }) => {

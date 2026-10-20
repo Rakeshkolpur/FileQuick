@@ -1,4 +1,4 @@
-import React, { Suspense, useCallback, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { getToolById } from '../data/tools';
@@ -7,6 +7,7 @@ import TrustStrip from './home/TrustStrip';
 import ToolSeoContent from './tool/ToolSeoContent';
 import LandingLinks from './tool/LandingLinks';
 import { useToolSeo } from '../lib/toolSeoLoader';
+import { warmPdfjs } from '../lib/pdfjs';
 import { usePageMeta } from '../lib/seo';
 import { isChunkLoadError, withChunkRetry } from '../lib/chunkReload';
 
@@ -149,6 +150,14 @@ const ToolWrapper = ({ toolId: toolIdProp, pageMeta, toolProps, active = true } 
   const tool = getToolById(toolId);
   const toolSeo = useToolSeo(tool?.id);
   const [moreOpen, setMoreOpen] = useState(false); // phones: how-to/FAQ folded away
+
+  // Tools that open a PDF need pdf.js (~95 KB gz), which no longer ships with
+  // them so their upload screen shows sooner. Fetch it right after the tool's
+  // own code, so it's usually ready by the time a file is picked.
+  useEffect(() => {
+    if (!tool?.load || tool.category !== 'pdf' || /-to-pdf$/.test(tool.id)) return;
+    tool.load().then(warmPdfjs, () => {});
+  }, [tool]);
 
   usePageMeta(
     pageMeta

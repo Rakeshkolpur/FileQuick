@@ -1,5 +1,8 @@
 import { StandardFonts, rgb } from 'pdf-lib';
 import { localFontBytes } from './localFonts';
+import { winAnsiSafe } from './fontNames';
+
+export { winAnsiSafe };
 
 const SANS = [
   StandardFonts.Helvetica, StandardFonts.HelveticaBold,
@@ -110,15 +113,6 @@ export function parseColor(value) {
 }
 
 export const isStandardFamily = (name) => !!(FONTS[name] || FONTS.Arial).std;
-
-/** Standard PDF fonts only cover WinAnsi — map common keyboard/autocorrect punctuation into it. */
-export const winAnsiSafe = (s) => String(s)
-  .replace(/[‘’‚′]/g, "'")
-  .replace(/[“”„″]/g, '"')
-  .replace(/[–—−]/g, '-')
-  .replace(/…/g, '...')
-  .replace(/\u00A0/g, ' ')
-  .replace(/[•●]/g, '·');
 
 // Families whose PDF look-alike is (near-)identical — no need to report them.
 const TRUE_MATCH = new Set(['Arial', 'Helvetica', 'Times New Roman', 'Courier New']);

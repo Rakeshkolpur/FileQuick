@@ -1,4 +1,4 @@
-import { PDFDocument } from 'pdf-lib';
+import { loadPdfLib } from './pdfLib';
 
 // docx-preview lays pages out in CSS pixels (96dpi). PDF works in points (72dpi).
 const PX_TO_PT = 72 / 96;
@@ -55,6 +55,7 @@ const canvasToPngBytes = (canvas) =>
 export async function docxSectionsToPdf(sections, { scale = 2, onProgress } = {}) {
   if (!sections.length) throw new Error('Nothing to convert.');
   const { html2canvas } = await loadDeps();
+  const { PDFDocument } = await loadPdfLib();
   const pdf = await PDFDocument.create();
 
   for (let i = 0; i < sections.length; i += 1) {

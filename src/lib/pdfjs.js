@@ -1,13 +1,25 @@
-import * as pdfjsLib from 'pdfjs-dist';
+// pdf.js (~95 KB gz) is fetched on first use, not with the tool, so a PDF
+// tool's upload screen appears straight away; warmPdfjs() starts the download
+// in the background meanwhile, so it's normally ready by the time a file is picked.
+let pending = null;
 
-// The worker file is shipped in /public (identical to the installed pdfjs-dist
-// build). Serving it as a static asset avoids CDN dependencies and version drift.
-if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
-  // BASE_URL is '/' on the web and './' in the desktop (file://) build.
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `${import.meta.env.BASE_URL || '/'}pdf.worker.min.js`;
-}
+export const loadPdfjs = () => {
+  if (!pending) {
+    pending = import('pdfjs-dist').then((pdfjsLib) => {
+      // The worker file is shipped in /public (identical to the installed pdfjs-dist
+      // build). Serving it as a static asset avoids CDN dependencies and version drift.
+      if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+        // BASE_URL is '/' on the web and './' in the desktop (file://) build.
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `${import.meta.env.BASE_URL || '/'}pdf.worker.min.js`;
+      }
+      return pdfjsLib;
+    }).catch((e) => { pending = null; throw e; });
+  }
+  return pending;
+};
 
-export { pdfjsLib };
+/** Start fetching pdf.js without waiting for it (call when a PDF tool opens). */
+export const warmPdfjs = () => { loadPdfjs().catch(() => {}); };
 
 /**
  * Load a PDF into pdf.js. Accepts an ArrayBuffer / Uint8Array; the buffer is
@@ -18,6 +30,7 @@ export async function openPdf(data) {
   if (data instanceof ArrayBuffer) src = new Uint8Array(data.slice(0));
   else if (ArrayBuffer.isView(data)) src = new Uint8Array(data.slice().buffer);
   else src = data;
+  const pdfjsLib = await loadPdfjs();
   return pdfjsLib.getDocument({ data: src, isEvalSupported: false }).promise;
 }
 

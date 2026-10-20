@@ -132,8 +132,8 @@ const IncreaseImageSize = () => {
             {item.w}×{item.h}px · {formatBytes(item.file.size)}
           </p>
 
-          <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
-            <OpenInTool getImage={() => item.file} exclude={['increase-image-size']} heading="Or send this image to" />
+          <div className="mt-4 hidden border-t border-gray-200 pt-3 md:block dark:border-gray-700">
+            <OpenInTool getImage={() => item.file} exclude={['increase-image-size']} heading="Or send this image to" editing />
           </div>
         </div>
 

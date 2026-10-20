@@ -915,7 +915,9 @@ const ProfilePictureMaker = () => {
           {error && <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{error}</p>}
         </div>
 
-        <div className="p-3.5 border-t border-gray-200 dark:border-gray-700 space-y-2.5">
+        {/* phones: size, format and Download come first, right under the preview —
+            the styling tabs (and their colour palettes) are optional, below */}
+        <div className="order-first space-y-2.5 border-b border-gray-200 p-3.5 lg:order-none lg:border-b-0 lg:border-t dark:border-gray-700">
           <select value={sizeIdx} onChange={(e) => { setSizeIdx(+e.target.value); setResult(null); }} className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-[13px] p-2">
             {OUTPUT_SIZES.map((s, i) => <option key={s.label} value={i}>{s.label}</option>)}
           </select>

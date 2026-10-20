@@ -13,7 +13,7 @@ export function getCv() {
       mod.onRuntimeInitialized = () => resolve();
     });
     return mod;
-  });
+  }).catch((e) => { _cv = null; throw e; }); // a dropped connection can retry
   return _cv;
 }
 

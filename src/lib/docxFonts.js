@@ -10,7 +10,6 @@
  * Access — the browser asks once), and embed them the way Word does. The file
  * is only converted for the user; nothing is kept.
  */
-import JSZip from 'jszip';
 import { requestLocalFonts, localFontBytes, localFontsSupported } from './localFonts';
 
 const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
@@ -94,6 +93,7 @@ export async function embedLocalFonts(file, { onStatus } = {}) {
   const result = { blob: file, embedded: [], missing: [] };
   if (!localFontsSupported() || !/\.docx$/i.test(file.name || '')) return result;
   try {
+    const { default: JSZip } = await import('jszip'); // on first use, not with the tool
     const zip = await JSZip.loadAsync(file);
     if (!zip.file('word/document.xml')) return result;
     const { families, bold, italic } = await docxFontsUsed(zip);

@@ -10,10 +10,8 @@
  *    ("TimesNewRomanPSMT", "BookmanOldStyle", "Helvetica"); Word needs the
  *    family names ("Times New Roman", "Bookman Old Style", "Arial").
  */
-import JSZip from 'jszip';
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
-import { realFamilyName } from './pdfTextEdit';
-import { winAnsiSafe } from './pdfAnnotate';
+import { loadPdfLib } from './pdfLib';
+import { realFamilyName, winAnsiSafe } from './fontNames';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -419,6 +417,7 @@ export function shiftLines(lines, dx, dy) {
  * Returns the bytes of the PDF to upload.
  */
 export async function buildUploadPdf(bytes, plan) {
+  const { PDFDocument, StandardFonts, rgb } = await loadPdfLib();
   const src = await PDFDocument.load(bytes, { updateMetadata: false });
   const out = await PDFDocument.create();
   const keep = plan.filter((p) => !p.ocr).map((p) => p.index);
@@ -505,6 +504,7 @@ export async function buildUploadPdf(bytes, plan) {
 /** The kept pages only, in order (scans included — the server reads them
  * from the OCR data sent alongside, see ocrSpec). */
 export async function selectPages(bytes, indices) {
+  const { PDFDocument } = await loadPdfLib();
   const src = await PDFDocument.load(bytes, { updateMetadata: false });
   if (indices.length === src.getPageCount() && indices.every((v, i) => v === i)) return bytes;
   const out = await PDFDocument.create();
@@ -577,6 +577,7 @@ export function wordFontName(name) {
 
 /** Rewrite the font names inside a .docx to real Word family names. */
 export async function cleanDocxFonts(blob) {
+  const { default: JSZip } = await import('jszip');
   try {
     const zip = await JSZip.loadAsync(blob);
     const parts = Object.keys(zip.files).filter((n) => /^word\/(document|styles|fontTable|numbering|header\d*|footer\d*|footnotes|endnotes)\.xml$/.test(n));
