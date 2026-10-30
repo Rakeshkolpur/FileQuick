@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { PDFDocument } from 'pdf-lib';
+import { loadPdfLib } from '../../../lib/pdfLib';
 import ToolWorkspace from '../../tool/ToolWorkspace';
 import RangeSlider from '../../tool/RangeSlider';
 import { downloadBlob } from '../../tool/DownloadButton';
@@ -143,6 +143,7 @@ const PDFDeletePages = () => {
     setBusy(true);
     setError(null);
     try {
+      const { PDFDocument } = await loadPdfLib(); // only needed to save
       const src = await PDFDocument.load(bytes);
       const out = await PDFDocument.create();
       const keepIdx = allPages.filter((n) => !remove.has(n)).map((n) => n - 1);
@@ -218,7 +219,8 @@ const PDFDeletePages = () => {
           <button type="button" onClick={selectNone} className={btn} disabled={!remove.size}>None</button>
         </div>
         <p className="text-[11px] text-gray-400 dark:text-gray-500">
-          Click a page to mark it for removal · shift-click for a range. The rest stay in their original order.
+          <span className="md:hidden">Tap a page to mark it for removal.</span>
+          <span className="hidden md:inline">Click a page to mark it for removal · shift-click for a range.</span> The rest stay in their original order.
         </p>
       </section>
 
@@ -229,7 +231,8 @@ const PDFDeletePages = () => {
         </p>
       </section>
 
-      <section className="pt-4 border-t border-gray-200 dark:border-gray-700">
+      {/* a desktop nicety — phones keep the default size */}
+      <section className="hidden border-t border-gray-200 pt-4 md:block dark:border-gray-700">
         <RangeSlider label="Thumbnail size" value={thumbW} min={90} max={230} step={10} onChange={setThumbW} suffix="px" />
       </section>
 

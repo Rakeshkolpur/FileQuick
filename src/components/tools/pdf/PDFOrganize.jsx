@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { PDFDocument, degrees } from 'pdf-lib';
+import { loadPdfLib } from '../../../lib/pdfLib';
 import {
   DndContext,
   DragOverlay,
   closestCenter,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   KeyboardSensor,
   useSensor,
   useSensors,
@@ -67,7 +68,7 @@ const PageTile = ({ page, position, letter, multiSource, selected, width, onTogg
       {...attributes}
       {...listeners}
       onClick={(e) => onToggle(e.shiftKey, e.metaKey || e.ctrlKey)}
-      className={`group relative shrink-0 rounded-xl border bg-white dark:bg-gray-800 p-2 cursor-grab active:cursor-grabbing touch-none select-none transition-shadow ${
+      className={`group relative shrink-0 rounded-xl border bg-white dark:bg-gray-800 p-2 cursor-grab active:cursor-grabbing touch-manipulation select-none transition-shadow ${
         selected
           ? 'border-purple-500 ring-2 ring-purple-500/40'
           : isDragging
@@ -124,26 +125,26 @@ const PageTile = ({ page, position, letter, multiSource, selected, width, onTogg
           </span>
         )}
 
-        {/* hover actions */}
+        {/* hover actions — always shown on touch screens, which have no hover */}
         <div
-          className="absolute bottom-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="absolute bottom-1.5 right-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 [@media(hover:none)]:opacity-100"
           onPointerDown={stop}
           onClick={stop}
         >
           {!page.blank && (
             <>
-              <button type="button" title="Rotate left" onClick={() => onRotate(-90)} className="h-6 w-6 flex items-center justify-center rounded bg-black/55 text-white hover:bg-black/75">
+              <button type="button" title="Rotate left" onClick={() => onRotate(-90)} className="h-6 w-6 flex items-center justify-center rounded bg-black/55 text-white hover:bg-black/75 [@media(hover:none)]:h-7 [@media(hover:none)]:w-7">
                 <RotL className="h-3.5 w-3.5" />
               </button>
-              <button type="button" title="Rotate right" onClick={() => onRotate(90)} className="h-6 w-6 flex items-center justify-center rounded bg-black/55 text-white hover:bg-black/75">
+              <button type="button" title="Rotate right" onClick={() => onRotate(90)} className="h-6 w-6 flex items-center justify-center rounded bg-black/55 text-white hover:bg-black/75 [@media(hover:none)]:h-7 [@media(hover:none)]:w-7">
                 <RotR className="h-3.5 w-3.5" />
               </button>
             </>
           )}
-          <button type="button" title="Duplicate" onClick={onDuplicate} className="h-6 w-6 flex items-center justify-center rounded bg-black/55 text-white hover:bg-black/75">
+          <button type="button" title="Duplicate" onClick={onDuplicate} className="h-6 w-6 flex items-center justify-center rounded bg-black/55 text-white hover:bg-black/75 [@media(hover:none)]:h-7 [@media(hover:none)]:w-7">
             <Dup className="h-3.5 w-3.5" />
           </button>
-          <button type="button" title="Delete" onClick={onDelete} className="h-6 w-6 flex items-center justify-center rounded bg-red-600/90 text-white hover:bg-red-600">
+          <button type="button" title="Delete" onClick={onDelete} className="h-6 w-6 flex items-center justify-center rounded bg-red-600/90 text-white hover:bg-red-600 [@media(hover:none)]:h-7 [@media(hover:none)]:w-7">
             <Del className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -372,7 +373,10 @@ const PDFOrganize = () => {
 
   /* ---- drag ---- */
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    // Phones: press and hold a page to pick it up, so a normal swipe still
+    // scrolls the page grid (an instant drag made scrolling impossible).
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
   const onDragEnd = ({ active, over }) => {
@@ -395,6 +399,7 @@ const PDFOrganize = () => {
     setBusy(true);
     setError(null);
     try {
+      const { PDFDocument, degrees } = await loadPdfLib(); // only needed to save
       const out = await PDFDocument.create();
       const cache = {};
       for (const pg of outputPages) {
@@ -513,7 +518,8 @@ const PDFOrganize = () => {
         </div>
       </section>
 
-      <section className="pt-4 border-t border-gray-200 dark:border-gray-700">
+      {/* a desktop nicety — phones keep the default size */}
+      <section className="hidden border-t border-gray-200 pt-4 md:block dark:border-gray-700">
         <RangeSlider label="Thumbnail size" value={thumbW} min={90} max={230} step={10} onChange={setThumbW} suffix="px" />
       </section>
 
@@ -581,7 +587,7 @@ const PDFOrganize = () => {
             {pages.length} page{pages.length === 1 ? '' : 's'}
             {multiSource ? ` from ${sources.length} files` : ''}
           </p>
-          <p className="text-xs text-gray-400 dark:text-gray-500">Drag tiles to reorder · click to select.</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500"><span className="md:hidden">Press and hold a page, then drag to move it · tap to select.</span><span className="hidden md:inline">Drag tiles to reorder · click to select.</span></p>
         </div>
         {selected.size > 0 && (
           <div className="flex items-center gap-1.5 rounded-xl bg-purple-50 dark:bg-purple-900/25 px-2 py-1.5">
