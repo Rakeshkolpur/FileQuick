@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import ToolWorkspace from '../../tool/ToolWorkspace';
 import Segmented from '../../tool/Segmented';
 import { downloadBlob } from '../../tool/DownloadButton';
@@ -42,6 +42,9 @@ const PDFCompressor = ({ presetKB } = {}) => {
   }, [presetKB]);
   const [server, setServer] = useState('checking'); // checking | ready | unavailable
   const [working, setWorking] = useState(false);
+  // real progress for the result ring: { pct, stage }
+  const [prog, setProg] = useState({ pct: 0, stage: '' });
+  const creep = useRef(null);
   const [result, setResult] = useState(null); // { blob, size, original, reduction, note }
   const [error, setError] = useState(null);
 
@@ -81,9 +84,22 @@ const PDFCompressor = ({ presetKB } = {}) => {
 
   const outName = toolFileName(file, 'pdf-compressor', 'pdf');
 
+  // While the server compresses there's nothing to measure, so the ring
+  // creeps towards `to` (slowing down as it gets close) — never a dead stop.
+  const stopCreep = () => { clearInterval(creep.current); creep.current = null; };
+  const startCreep = (from, to) => {
+    stopCreep();
+    creep.current = setInterval(() => {
+      setProg((p) => ({ ...p, pct: Math.max(p.pct, Math.min(to, p.pct + Math.max(0.15, (to - p.pct) / 40))) }));
+    }, 400);
+    setProg((p) => ({ ...p, pct: Math.max(p.pct, from) }));
+  };
+  useEffect(() => stopCreep, []);
+
   const compress = async () => {
     setError(null);
     setWorking(true);
+    setProg({ pct: 2, stage: 'Reading your PDF' });
     try {
       // page count of the source, to sanity-check what comes back
       let srcPages = 0;
@@ -100,7 +116,29 @@ const PDFCompressor = ({ presetKB } = {}) => {
         const kb = sizeUnit === 'MB' ? parseFloat(targetSize) * 1024 : parseFloat(targetSize);
         if (kb > 0) fd.append('targetKb', String(kb));
       }
-      const res = await api.post('/pdf/compress', fd, { responseType: 'blob', timeout: 240000 });
+      setProg({ pct: 5, stage: 'Uploading… 0%' });
+      let uploaded = false;
+      const res = await api.post('/pdf/compress', fd, {
+        responseType: 'blob',
+        timeout: 240000,
+        onUploadProgress: (e) => {
+          const f = e.total ? e.loaded / e.total : 0;
+          if (f < 1) {
+            setProg({ pct: 5 + f * 35, stage: `Uploading… ${Math.round(f * 100)}%` });
+          } else if (!uploaded) {
+            uploaded = true;
+            setProg({ pct: 40, stage: 'Compressing on the server' });
+            startCreep(40, 92);
+          }
+        },
+        onDownloadProgress: (e) => {
+          stopCreep();
+          const f = e.total ? e.loaded / e.total : 0.5;
+          setProg((p) => ({ pct: Math.max(p.pct, 92 + f * 5), stage: 'Downloading the smaller PDF' }));
+        },
+      });
+      stopCreep();
+      setProg((p) => ({ pct: Math.max(p.pct, 97), stage: 'Checking the result' }));
       const data = res.data;
       // The server sometimes 200s with a JSON/text error body — never show that
       // as a "compressed" PDF.
@@ -146,6 +184,7 @@ const PDFCompressor = ({ presetKB } = {}) => {
       }
       setError(msg);
     } finally {
+      stopCreep();
       setWorking(false);
     }
   };
@@ -273,6 +312,8 @@ const PDFCompressor = ({ presetKB } = {}) => {
     <ResultScreen
       working={working}
       done={!!result}
+      progress={working ? prog.pct : null}
+      stage={prog.stage}
       title={gained ? `${result.reduction}% smaller` : 'Already optimised'}
       workingLabel="Compressing your PDF…"
       subtitle={result

@@ -13,6 +13,8 @@ const CIRC = 2 * Math.PI * R;
  *   working       - still processing
  *   done          - the output is ready
  *   progress      - optional real 0..100; when omitted the ring animates itself
+ *   stage         - optional "what's happening now" line while working
+ *                   (e.g. "Uploading… 40%", "Compressing on the server")
  *   fileName/Size - shown in a chip (optional)
  *   subtitle      - free text under the title (e.g. "12 images · 3.4 MB")
  *   downloadLabel - override the primary button text
@@ -24,6 +26,7 @@ const ResultScreen = ({
   progress = null,
   title = 'Your file is ready',
   workingLabel = 'Working…',
+  stage,
   subtitle,
   fileName,
   fileSize,
@@ -36,17 +39,32 @@ const ResultScreen = ({
 }) => {
   const [auto, setAuto] = useState(0);
   const [dl, setDl] = useState('idle'); // idle | working | done
+  const [elapsed, setElapsed] = useState(0); // seconds, while working
 
   useEffect(() => {
     if (progress != null) return undefined;
     if (done) { setAuto(100); return undefined; }
     if (!working) { setAuto(0); return undefined; }
     setAuto(10);
+    // quick to ~92%, then keep creeping (never a dead stop) until the real end
     const id = setInterval(() => {
-      setAuto((v) => (v >= 92 ? v : v + Math.max(1, Math.round((92 - v) / 9))));
+      setAuto((v) => {
+        if (v < 92) return v + Math.max(1, Math.round((92 - v) / 9));
+        return v < 97 && Math.random() < 0.05 ? v + 1 : v;
+      });
     }, 170);
     return () => clearInterval(id);
   }, [working, done, progress]);
+
+  // A visible clock: on a slow job (a big PDF on the server) the percentage can
+  // sit still for a while, and people took that for a freeze.
+  const busy = working && !done;
+  useEffect(() => {
+    if (!busy) { setElapsed(0); return undefined; }
+    const t0 = Date.now();
+    const id = setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [busy]);
 
   const pct = Math.max(0, Math.min(100, Math.round(progress != null ? progress : (done ? 100 : auto))));
   const complete = done && pct >= 100;
@@ -81,6 +99,12 @@ const ResultScreen = ({
             }}
           />
         </svg>
+        {/* a highlight always running round the ring while work is going on */}
+        {!complete && working && (
+          <svg viewBox="0 0 120 120" className="absolute inset-0 h-full w-full animate-spin [animation-duration:1.4s]" aria-hidden>
+            <circle cx="60" cy="60" r={R} fill="none" strokeWidth="9" strokeLinecap="round" className="stroke-purple-300/80 dark:stroke-purple-400/60" style={{ strokeDasharray: `${CIRC * 0.1} ${CIRC}` }} />
+          </svg>
+        )}
         <div className="absolute inset-0 flex items-center justify-center">
           {complete ? (
             <svg className="h-7 w-7 text-green-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -98,6 +122,29 @@ const ResultScreen = ({
       <h3 className="mt-2.5 text-sm font-semibold text-gray-900 dark:text-white">
         {complete ? title : workingLabel}
       </h3>
+
+      {busy && (
+        <div role="status" aria-live="polite" className="mt-1 flex flex-col items-center">
+          <p className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+            <span>{stage || 'Please wait'}</span>
+            <span className="inline-flex gap-0.5" aria-hidden>
+              {[0, 1, 2].map((i) => (
+                <span key={i} className="h-1 w-1 animate-pulse rounded-full bg-purple-500" style={{ animationDelay: `${i * 0.2}s`, animationDuration: '1s' }} />
+              ))}
+            </span>
+            {elapsed >= 2 && (
+              <span className="tabular-nums text-gray-400 dark:text-gray-500">
+                {Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, '0')}
+              </span>
+            )}
+          </p>
+          {elapsed >= 10 && (
+            <p className="mt-1 max-w-xs text-[11px] leading-snug text-gray-400 dark:text-gray-500">
+              Still working — bigger files take longer. Keep this page open.
+            </p>
+          )}
+        </div>
+      )}
 
       {complete && subtitle && (
         <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{subtitle}</p>
