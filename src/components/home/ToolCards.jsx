@@ -5,7 +5,7 @@ import {
   LuArrowRight, LuUploadCloud, LuX, LuChevronRight,
   LuFileText, LuImage, LuSheet, LuPresentation, LuType,
 } from 'react-icons/lu';
-import { screenFiles, rejectionMessage } from '../../lib/fileValidation';
+import { SERVER_UPLOAD_MB, screenFiles, rejectionMessage } from '../../lib/fileValidation';
 import { handOffFile } from '../../lib/fileHandoff';
 import { stashPdf } from '../../lib/pdfHandoff';
 import { formatBytes } from '../../lib/format';
@@ -20,6 +20,7 @@ import { warmPdfjs } from '../../lib/pdfjs';
  *  - PDF Converter → a PDF asks what to become in a popup (pdfHandoff); Office /
  *    text files go to their "… to PDF" converter (fileHandoff), as the File Converter hub does
  *  - PDF Editor    → /pdf-editor (pdfHandoff)
+ * Phones also get Compress PDF, Merge PDF (several files) and Remove Pages.
  * Each tool's code is fetched ahead (idle / hover / touch), so it opens at once.
  */
 
@@ -68,6 +69,38 @@ const EditArt = () => (
   </svg>
 );
 
+const CompressArt = () => (
+  <svg viewBox="0 0 120 84" className="h-20 w-28" aria-hidden>
+    <path d="M38 12a6 6 0 016-6h22l14 14v52a6 6 0 01-6 6H44a6 6 0 01-6-6z" className="fill-white stroke-rose-400 dark:fill-gray-900" strokeWidth="2.5" />
+    <path d="M66 6v10a4 4 0 004 4h10" className="fill-none stroke-rose-400" strokeWidth="2.5" />
+    <rect x="42" y="36" width="34" height="16" rx="4" className="fill-rose-500" />
+    <text x="59" y="48" textAnchor="middle" className="fill-white" fontSize="10" fontWeight="800" fontFamily="system-ui, sans-serif">PDF</text>
+    <path d="M8 44h20m-7-7l7 7-7 7M112 44H92m7-7l-7 7 7 7" className="stroke-rose-500 dark:stroke-rose-400" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+  </svg>
+);
+
+const MergeArt = () => (
+  <svg viewBox="0 0 120 84" className="h-20 w-28" aria-hidden>
+    <rect x="6" y="5" width="32" height="32" rx="5" className="fill-white stroke-orange-400 dark:fill-gray-900" strokeWidth="2.5" />
+    <rect x="6" y="47" width="32" height="32" rx="5" className="fill-white stroke-orange-400 dark:fill-gray-900" strokeWidth="2.5" />
+    <path d="M13 15h18M13 22h12M13 57h18M13 64h12" className="stroke-orange-300 dark:stroke-orange-400/50" strokeWidth="3" strokeLinecap="round" />
+    <path d="M42 22c9 0 11 12 19 16m0 0l-8 1m8-1l-3-8M42 63c9 0 11-12 19-16m0 0l-8-1m8 1l-3 8" className="stroke-orange-500 dark:stroke-orange-400" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    <path d="M68 15a6 6 0 016-6h20l14 14v46a6 6 0 01-6 6H74a6 6 0 01-6-6z" className="fill-white stroke-orange-500 dark:fill-gray-900 dark:stroke-orange-400" strokeWidth="2.5" />
+    <rect x="72" y="37" width="32" height="16" rx="4" className="fill-rose-500" />
+    <text x="88" y="49" textAnchor="middle" className="fill-white" fontSize="10" fontWeight="800" fontFamily="system-ui, sans-serif">PDF</text>
+  </svg>
+);
+
+const RemoveArt = () => (
+  <svg viewBox="0 0 120 84" className="h-20 w-28" aria-hidden>
+    <rect x="34" y="4" width="48" height="64" rx="6" className="fill-sky-100 stroke-sky-300 dark:fill-sky-400/15 dark:stroke-sky-400/40" strokeWidth="2" />
+    <rect x="22" y="12" width="52" height="68" rx="6" className="fill-white stroke-sky-500 dark:fill-gray-900 dark:stroke-sky-400" strokeWidth="2.5" />
+    <path d="M31 28h34M31 39h34M31 50h20" className="stroke-sky-300 dark:stroke-sky-400/50" strokeWidth="3" strokeLinecap="round" />
+    <circle cx="80" cy="60" r="17" className="fill-rose-500" />
+    <path d="M73 53l14 14M87 53L73 67" className="stroke-white" strokeWidth="3.5" strokeLinecap="round" />
+  </svg>
+);
+
 /* ---------- per-card colour (full class strings so Tailwind keeps them) ---------- */
 
 const TONES = {
@@ -97,6 +130,33 @@ const TONES = {
     icon: 'text-violet-500 dark:text-violet-300',
     link: 'text-violet-600 dark:text-violet-300',
     btn: 'bg-violet-600 hover:bg-violet-700 focus-visible:ring-violet-500 shadow-violet-600/25',
+  },
+  rose: {
+    card: 'border-rose-400/70 dark:border-rose-400/45 hover:shadow-rose-500/15',
+    glow: 'from-rose-400/10 dark:from-rose-400/[0.08]',
+    zone: 'border-rose-300 bg-rose-50/60 dark:border-rose-400/35 dark:bg-rose-400/[0.04]',
+    zoneOn: 'border-rose-500 bg-rose-100/70 dark:border-rose-300 dark:bg-rose-400/15',
+    icon: 'text-rose-500 dark:text-rose-300',
+    link: 'text-rose-600 dark:text-rose-300',
+    btn: 'bg-rose-600 hover:bg-rose-700 focus-visible:ring-rose-500 shadow-rose-600/25',
+  },
+  orange: {
+    card: 'border-orange-400/70 dark:border-orange-400/45 hover:shadow-orange-500/15',
+    glow: 'from-orange-400/10 dark:from-orange-400/[0.08]',
+    zone: 'border-orange-300 bg-orange-50/60 dark:border-orange-400/35 dark:bg-orange-400/[0.04]',
+    zoneOn: 'border-orange-500 bg-orange-100/70 dark:border-orange-300 dark:bg-orange-400/15',
+    icon: 'text-orange-500 dark:text-orange-300',
+    link: 'text-orange-600 dark:text-orange-300',
+    btn: 'bg-orange-600 hover:bg-orange-700 focus-visible:ring-orange-500 shadow-orange-600/25',
+  },
+  sky: {
+    card: 'border-sky-400/70 dark:border-sky-400/45 hover:shadow-sky-500/15',
+    glow: 'from-sky-400/10 dark:from-sky-400/[0.08]',
+    zone: 'border-sky-300 bg-sky-50/60 dark:border-sky-400/35 dark:bg-sky-400/[0.04]',
+    zoneOn: 'border-sky-500 bg-sky-100/70 dark:border-sky-300 dark:bg-sky-400/15',
+    icon: 'text-sky-500 dark:text-sky-300',
+    link: 'text-sky-600 dark:text-sky-300',
+    btn: 'bg-sky-600 hover:bg-sky-700 focus-visible:ring-sky-500 shadow-sky-600/25',
   },
 };
 
@@ -134,6 +194,7 @@ const CARDS = [
     cta: 'Choose Image',
     Art: ImageArt,
     tools: ['resize-image'],
+    to: 'resize-image',
     fits: (f) => IMAGE_RE.test(f.name || '') || IMAGE_TYPES.includes(f.type),
     wrongType: 'Please choose a JPG, PNG, WEBP or BMP image.',
   },
@@ -160,8 +221,57 @@ const CARDS = [
     cta: 'Open PDF Editor',
     Art: EditArt,
     tools: ['pdf-editor'],
+    to: 'pdf-editor',
     fits: isPdf,
     wrongType: 'Please choose a PDF file.',
+  },
+  // phones only (desktop has the full tools grid right below)
+  {
+    key: 'compress',
+    mobileOnly: true,
+    tone: 'rose',
+    title: 'Compress PDF',
+    text: 'Make a PDF file smaller, ready to send or upload.',
+    formats: 'PDF',
+    accept: '.pdf,application/pdf',
+    cta: 'Compress PDF',
+    Art: CompressArt,
+    tools: ['pdf-compressor'],
+    to: 'pdf-compressor',
+    maxMB: SERVER_UPLOAD_MB.light,
+    fits: isPdf,
+    wrongType: 'Please choose a PDF file.',
+  },
+  {
+    key: 'merge',
+    mobileOnly: true,
+    multiple: true,
+    tone: 'orange',
+    title: 'Merge PDF',
+    text: 'Combine several PDFs and images into one PDF.',
+    formats: 'PDF, JPG, PNG — pick two or more',
+    accept: '.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png',
+    cta: 'Choose Files',
+    Art: MergeArt,
+    tools: ['merge-pdf'],
+    to: 'merge-pdf',
+    fits: (f) => isPdf(f) || /\.(jpe?g|png)$/i.test(f.name || '') || ['image/jpeg', 'image/png'].includes(f.type),
+    wrongType: 'isn’t a PDF, JPG or PNG.',
+  },
+  {
+    key: 'remove',
+    mobileOnly: true,
+    tone: 'sky',
+    title: 'Remove Pages',
+    text: 'Delete the pages you don’t need and save a new copy.',
+    formats: 'PDF, DOC, DOCX, ODT, RTF',
+    accept: '.pdf,.doc,.docx,.odt,.rtf',
+    cta: 'Choose File',
+    Art: RemoveArt,
+    tools: ['delete-pages'],
+    to: 'delete-pages',
+    fits: (f) => isPdf(f) || /\.(docx?|odt|rtf)$/i.test(f.name || ''),
+    wrongType: 'Please choose a PDF or Word file.',
   },
 ];
 
@@ -270,25 +380,37 @@ const ToolCard = ({ card }) => {
 
   const take = async (list) => {
     setError('');
-    const file = [...(list || [])][0];
+    const picked = [...(list || [])];
+    const [file] = picked;
     if (!file) return;
+
+    if (card.multiple) {
+      // Say which file is the problem rather than quietly merging without it
+      const wrong = picked.find((f) => !card.fits(f));
+      if (wrong) { setError(`"${wrong.name}" ${card.wrongType}`); return; }
+      const { rejected } = screenFiles(picked, { maxMB: card.maxMB });
+      if (rejected.length) { setError(rejectionMessage(rejected)); return; }
+      handOffFile(picked);
+      navigate(`/${card.to}`);
+      return;
+    }
+
     if (!card.fits(file)) { setError(card.wrongType); return; }
-    const { accepted, rejected } = screenFiles([file]);
+    const { accepted, rejected } = screenFiles([file], { maxMB: card.maxMB });
     if (!accepted.length) { setError(rejectionMessage(rejected)); return; }
 
-    if (card.key === 'image') {
-      handOffFile(file);
-      navigate('/resize-image');
-    } else if (card.key === 'edit') {
-      if (await stashPdf(file, file.name)) navigate('/pdf-editor');
-      else setError('Could not read that PDF. Please try again.');
-    } else if (isPdf(file)) {
-      setPdf(file); // popup: what to convert it to
-    } else {
+    if (card.key === 'convert') {
+      if (isPdf(file)) { setPdf(file); return; } // popup: what to convert it to
       const to = CONVERT_ROUTES.find((r) => r.re.test(file.name)).to;
       preloadTool(to);
       handOffFile(file);
       navigate(`/${to}`);
+    } else if (isPdf(file)) {
+      if (await stashPdf(file, file.name)) navigate(`/${card.to}`);
+      else setError('Could not read that PDF. Please try again.');
+    } else {
+      handOffFile(file);
+      navigate(`/${card.to}`);
     }
   };
 
@@ -324,7 +446,7 @@ const ToolCard = ({ card }) => {
       onPointerEnter={warm}
       onTouchStart={warm}
       onFocus={warm}
-      className={`group relative flex flex-col overflow-hidden rounded-3xl border-2 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl sm:p-6 dark:bg-gray-800/60 ${t.card}`}
+      className={`group relative flex-col overflow-hidden rounded-3xl border-2 bg-white p-4 shadow-sm ${card.mobileOnly ? 'flex md:hidden' : 'flex'} transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl sm:p-6 dark:bg-gray-800/60 ${t.card}`}
     >
       {/* soft colour wash at the top of the card */}
       <div className={`pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b to-transparent ${t.glow}`} />
@@ -343,6 +465,7 @@ const ToolCard = ({ card }) => {
         ref={inputRef}
         type="file"
         accept={card.accept}
+        multiple={!!card.multiple}
         className="hidden"
         onChange={(e) => { take(e.target.files); e.target.value = ''; }}
       />

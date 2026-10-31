@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { PDFDocument } from 'pdf-lib';
+import { loadPdfLib } from '../../../lib/pdfLib';
 import {
   DndContext,
   DragOverlay,
   closestCenter,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   KeyboardSensor,
   useSensor,
   useSensors,
@@ -45,7 +46,7 @@ const FileTile = ({ item, index, onRemove, onPreview }) => {
       style={style}
       {...attributes}
       {...listeners}
-      className={`group relative shrink-0 rounded-xl border bg-white dark:bg-gray-800 p-1.5 select-none cursor-grab active:cursor-grabbing touch-none ${
+      className={`group relative shrink-0 rounded-xl border bg-white dark:bg-gray-800 p-1.5 select-none cursor-grab active:cursor-grabbing touch-manipulation ${
         isDragging ? 'border-purple-400 shadow-lg' : 'border-gray-200 dark:border-gray-700'
       }`}
     >
@@ -142,7 +143,9 @@ const PDFMerge = () => {
   useEffect(() => { setResult(null); }, [items]);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    // Phones: press and hold to pick a file up, so a swipe still scrolls
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
@@ -211,6 +214,7 @@ const PDFMerge = () => {
     setBusy(true);
     setError(null);
     try {
+      const { PDFDocument } = await loadPdfLib(); // only needed to save
       const out = await PDFDocument.create();
       for (const it of items) {
         // eslint-disable-next-line no-await-in-loop
@@ -276,7 +280,8 @@ const PDFMerge = () => {
           <button type="button" onClick={clearAll} className={btn} disabled={!items.length}>Clear all</button>
         </div>
         <p className="text-[11px] text-gray-400 dark:text-gray-500">
-          Drag the tiles to set the order. PDFs keep all their pages; each image becomes one A4 page.
+          <span className="md:hidden">Press and hold a file, then drag to set the order.</span>
+          <span className="hidden md:inline">Drag the tiles to set the order.</span> PDFs keep all their pages; each image becomes one A4 page.
         </p>
       </section>
 
@@ -344,7 +349,7 @@ const PDFMerge = () => {
           <p className="text-sm font-medium text-gray-900 dark:text-white">
             {items.length} file{items.length === 1 ? '' : 's'} · {totalPages} page{totalPages === 1 ? '' : 's'}
           </p>
-          <p className="text-xs text-gray-400 dark:text-gray-500">Drag tiles to reorder. Click one to preview.</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500"><span className="md:hidden">Press and hold to reorder · tap to preview.</span><span className="hidden md:inline">Drag tiles to reorder. Click one to preview.</span></p>
         </div>
         <button
           type="button"

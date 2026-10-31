@@ -280,7 +280,7 @@ export const getPopularTools = () => TOOLS.filter((t) => t.popular);
  */
 export const MOBILE_TOOL_GROUPS = [
   { title: 'Image', ids: ['resize-image', 'compress-image', 'crop-image', 'convert-image', 'profile-picture', 'passport-photo', 'exam-photo-resizer', 'document-scanner'] },
-  { title: 'PDF', ids: ['pdf-compressor', 'pdf-editor', 'pdf-to-word', 'word-to-pdf', 'image-to-pdf', 'pdf-to-jpg', 'delete-pages', 'organize-pdf'] },
+  { title: 'PDF', ids: ['pdf-compressor', 'merge-pdf', 'pdf-editor', 'pdf-to-word', 'word-to-pdf', 'image-to-pdf', 'pdf-to-jpg', 'delete-pages', 'organize-pdf'] },
 ];
 export const MOBILE_TOOL_IDS = MOBILE_TOOL_GROUPS.flatMap((g) => g.ids);
 export const isMobileTool = (id) => MOBILE_TOOL_IDS.includes(id);

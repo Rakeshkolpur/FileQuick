@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { screenFiles, rejectionMessage, DESKTOP_LIMIT_MB } from '../../lib/fileValidation';
 import { isDesktop } from '../../lib/desktop';
-import { takeHandedFile } from '../../lib/fileHandoff';
+import { takeHandedFiles } from '../../lib/fileHandoff';
 
 // Same cloud shape as the homepage's UploadZone CloudMark, just a deeper
 // blue fill instead of that one's light indigo gradient.
@@ -53,11 +53,11 @@ const FileDropzone = ({
     [accept, maxMB, multiple, onFiles],
   );
 
-  // A file handed over from another tool (e.g. the File Converter hub) is
-  // taken in as if it had been dropped here.
+  // Files handed over from elsewhere (the File Converter hub, a home card) are
+  // taken in as if they had been dropped here.
   useEffect(() => {
-    const f = takeHandedFile(accept);
-    if (f) emit([f]);
+    const files = takeHandedFiles(accept);
+    if (files.length) emit(files);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const error = rejectionMessage(rejects);

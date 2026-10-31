@@ -96,6 +96,10 @@ html.dark .fq-card{background:rgba(31,41,55,.6)}
 .fq-teal{border-color:rgba(45,212,191,.7)}.fq-teal .fq-btn{background:#0d9488}
 .fq-blue{border-color:rgba(96,165,250,.7)}.fq-blue .fq-btn{background:#2563eb}
 .fq-violet{border-color:rgba(167,139,250,.7)}.fq-violet .fq-btn{background:#7c3aed}
+.fq-rose{border-color:rgba(251,113,133,.7)}.fq-rose .fq-btn{background:#e11d48}
+.fq-orange{border-color:rgba(251,146,60,.7)}.fq-orange .fq-btn{background:#ea580c}
+.fq-sky{border-color:rgba(56,189,248,.7)}.fq-sky .fq-btn{background:#0284c7}
+@media(min-width:768px){.fq-card.fq-m{display:none}}
 .fq-h2{font-size:18px;font-weight:700;margin:28px 0 10px}
 .fq-label{margin:14px 0 8px;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#9ca3af}
 .fq-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}@media(min-width:768px){.fq-grid{grid-template-columns:repeat(4,1fr)}}
@@ -331,6 +335,9 @@ page({
 <a class="fq-card fq-teal" href="/resize-image"><h3>Image Resizer</h3><p>Resize images by dimensions or target file size.</p><small>JPG, PNG, WEBP, BMP</small><span class="fq-btn">Choose Image →</span></a>
 <a class="fq-card fq-blue" href="/file-converter"><h3>PDF Converter</h3><p>Convert PDF, Word, and other supported document formats.</p><small>PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT, RTF, ODT</small><span class="fq-btn">Choose PDF →</span></a>
 <a class="fq-card fq-violet" href="/pdf-editor"><h3>PDF Editor</h3><p>Open PDFs and use available editing tools.</p><small>PDF</small><span class="fq-btn">Open PDF Editor →</span></a>
+<a class="fq-card fq-rose fq-m" href="/pdf-compressor"><h3>Compress PDF</h3><p>Make a PDF file smaller, ready to send or upload.</p><small>PDF</small><span class="fq-btn">Compress PDF →</span></a>
+<a class="fq-card fq-orange fq-m" href="/merge-pdf"><h3>Merge PDF</h3><p>Combine several PDFs and images into one PDF.</p><small>PDF, JPG, PNG — pick two or more</small><span class="fq-btn">Choose Files →</span></a>
+<a class="fq-card fq-sky fq-m" href="/delete-pages"><h3>Remove Pages</h3><p>Delete the pages you don’t need and save a new copy.</p><small>PDF, DOC, DOCX, ODT, RTF</small><span class="fq-btn">Choose File →</span></a>
 </div>
 <h2 class="fq-h2">Popular tools</h2>
 ${keyTools()}
