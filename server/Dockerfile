@@ -55,4 +55,4 @@ EXPOSE 5000
 
 # 2 workers, long timeout (a big document can take a while), 1 request at a time
 # per worker keeps LibreOffice happy.
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT} --workers 2 --timeout 180 convert_server:app"]
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT} --workers 2 --timeout 300 convert_server:app"]

@@ -61,11 +61,24 @@ CORS(
     ],
 )
 
-# Hard ceiling on any upload. The web client caps well below this (20 MB for
-# office/PDF conversions, 50 MB for compress/unlock/protect) — this is the
-# safety net for a small VM. Also set nginx `client_max_body_size 55m;`.
+# Hard ceilings on uploads — the safety net for a small VM. The web client caps
+# below these (20 MB for office/PDF conversions, 50 MB for unlock/protect, 80 MB
+# for compress). Compress is the only route allowed the larger size, because it
+# is cheap per MB compared to a LibreOffice or pdf2docx conversion.
+# Also set nginx `client_max_body_size 85m;` and `proxy_read_timeout 300s;`.
 MAX_CONTENT_LENGTH = int(os.environ.get("MAX_UPLOAD_MB", "55")) * 1024 * 1024
-app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
+COMPRESS_MAX_CONTENT_LENGTH = int(os.environ.get("MAX_COMPRESS_UPLOAD_MB", "85")) * 1024 * 1024
+app.config["MAX_CONTENT_LENGTH"] = max(MAX_CONTENT_LENGTH, COMPRESS_MAX_CONTENT_LENGTH)
+
+
+@app.before_request
+def _limit_upload_size():
+    limit = COMPRESS_MAX_CONTENT_LENGTH if request.endpoint == "pdf_compress" else MAX_CONTENT_LENGTH
+    if (request.content_length or 0) > limit:
+        return jsonify({"error": f"That file is too large (limit {limit // (1024 * 1024)} MB)."}), 413
+    return None
+
+
 CONVERT_TIMEOUT = 180  # seconds (LibreOffice subprocess)
 
 WORD_EXT = {".docx", ".doc", ".odt", ".rtf", ".txt", ".wpd", ".fodt"}
@@ -384,10 +397,21 @@ TARGET_CAPS = [2000, 1600, 1300, 1100, 950, 820, 720]
 TARGET_Q_MIN, TARGET_Q_GOOD, TARGET_Q_MAX = 24, 36, 85
 
 
-def _compress_to_target(raw, attempt, target_bytes):
+# Hitting a target size can take many full compressions. On a big PDF that adds
+# up, so stop trying new settings after this long and return the best so far
+# (one attempt already running may still finish; gunicorn's limit is 300 s).
+TARGET_BUDGET_S = 150
+
+
+def _compress_to_target(raw, attempt, target_bytes, budget=TARGET_BUDGET_S):
     """Smallest change that fits: lossless first; then the largest image cap
     that fits at good quality, with the highest quality that still fits; only
     if no cap manages good quality, the largest cap that fits at all."""
+    deadline = time.monotonic() + budget
+
+    def out_of_time():
+        return time.monotonic() >= deadline
+
     smallest = raw
     out = attempt(None)
     if out is not None:
@@ -399,7 +423,7 @@ def _compress_to_target(raw, attempt, target_bytes):
         best = base
         for _ in range(4):
             mid = (lo + hi + 1) // 2
-            if mid <= lo:
+            if mid <= lo or out_of_time():
                 break
             trial = attempt({"cap": cap, "quality": mid})
             if trial is not None and len(trial) <= target_bytes:
@@ -410,13 +434,15 @@ def _compress_to_target(raw, attempt, target_bytes):
 
     fallback = None
     for cap in TARGET_CAPS:
+        if out_of_time():
+            break
         good = attempt({"cap": cap, "quality": TARGET_Q_GOOD})
         if good is not None:
             smallest = min(smallest, good, key=len)
             if len(good) <= target_bytes:
                 best, q = highest_q(cap, TARGET_Q_GOOD, TARGET_Q_MAX, good)
                 return best, f"reached target ({cap}px, q{q})"
-        if fallback is None:
+        if fallback is None and not out_of_time():
             low = attempt({"cap": cap, "quality": TARGET_Q_MIN})
             if low is not None:
                 smallest = min(smallest, low, key=len)
