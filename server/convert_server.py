@@ -336,9 +336,13 @@ COMPRESS_LEVELS = {
 
 def _recompress_images(doc, cap, quality):
     changed = 0
+    seen = set()  # an image shared by many pages (a logo) must only be redone once
     for page in doc:
         for img in page.get_images(full=True):
             xref = img[0]
+            if xref in seen:
+                continue
+            seen.add(xref)
             try:
                 info = doc.extract_image(xref)
                 if not info or not info.get("image"):

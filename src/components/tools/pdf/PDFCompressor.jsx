@@ -8,6 +8,7 @@ import { toolFileName } from '../../../lib/fileNames';
 import { SERVER_UPLOAD_MB } from '../../../lib/fileValidation';
 import { openPdf } from '../../../lib/pdfjs';
 import { api } from '../../../lib/api';
+import { LOCAL_LEVELS, compressPdfInBrowser } from '../../../lib/pdfCompressLocal';
 import { consumePdfHandoff } from '../../../lib/pdfHandoff';
 
 const isPdf = (f) => f && (f.type === 'application/pdf' || f.name?.toLowerCase().endsWith('.pdf'));
@@ -96,11 +97,57 @@ const PDFCompressor = ({ presetKB } = {}) => {
   };
   useEffect(() => stopCreep, []);
 
+  // Medium / Strong run on the visitor's device: no upload, which was most of
+  // the wait. Light (lossless restructure) and target-size search use the server.
+  const onDevice = !useTarget && !!LOCAL_LEVELS[level];
+
+  /** The on-device result, or null when the server should do it instead. */
+  const compressOnDevice = async () => {
+    try {
+      setProg({ pct: 3, stage: 'Reading your PDF' });
+      const local = await compressPdfInBrowser(file, LOCAL_LEVELS[level], (done, total) => {
+        setProg({ pct: 5 + (total ? (done / total) * 85 : 85), stage: `Compressing images ${done} of ${total}` });
+      });
+      setProg({ pct: 93, stage: 'Checking the result' });
+      const chk = await openPdf(await local.blob.arrayBuffer());
+      const pages = chk.numPages;
+      chk.destroy?.();
+      if (pages !== local.pages) return null;
+      return local;
+    } catch (_) {
+      return null; // encrypted, out of memory, unusual file: the server can try
+    }
+  };
+
   const compress = async () => {
     setError(null);
     setWorking(true);
     setProg({ pct: 2, stage: 'Reading your PDF' });
     try {
+      if (onDevice) {
+        const local = await compressOnDevice();
+        const blob = local?.blob;
+        // Worth the upload only if the server can clearly do better: little
+        // gained here (a text-only PDF), or most of what's left is images the
+        // browser can't redo (CMYK…). Unreachable server: any gain beats an error.
+        const serverBetter = !!local && (blob.size > file.size * 0.9 || local.untouched > blob.size * 0.5);
+        if (blob && blob.size < file.size && (!serverBetter || server !== 'ready')) {
+          setResult({
+            blob,
+            size: blob.size,
+            original: file.size,
+            reduction: Math.round((1 - blob.size / file.size) * 1000) / 10,
+            note: '',
+            onDevice: true,
+          });
+          return;
+        }
+        if (server !== 'ready') {
+          throw new Error(blob
+            ? 'This PDF is already about as small as it gets on your device, and the compression service isn’t reachable for a deeper try.'
+            : 'This PDF couldn’t be compressed on your device, and the compression service isn’t reachable right now. Please try again shortly.');
+        }
+      }
       // page count of the source, to sanity-check what comes back
       let srcPages = 0;
       try {
@@ -192,10 +239,11 @@ const PDFCompressor = ({ presetKB } = {}) => {
   const ServerBadge = () => {
     const map = {
       checking: ['bg-gray-100 dark:bg-gray-700 text-gray-500', 'Checking service…'],
+      device: ['bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300', 'Runs on your device · no upload'],
       ready: ['bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300', 'Compression engine · connected'],
       unavailable: ['bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300', 'Compression service unavailable — try again shortly'],
     };
-    const [cls, text] = map[server] || map.checking;
+    const [cls, text] = map[onDevice ? 'device' : server] || map.checking;
     return (
       <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ${cls}`}>
         <span className="h-1.5 w-1.5 rounded-full bg-current" />{text}
@@ -295,7 +343,7 @@ const PDFCompressor = ({ presetKB } = {}) => {
     <button
       type="button"
       onClick={compress}
-      disabled={!file || server !== 'ready' || working || (useTarget && !targetSize)}
+      disabled={!file || (!onDevice && server !== 'ready') || working || (useTarget && !targetSize)}
       className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity flex items-center justify-center gap-2"
     >
       {working ? (
@@ -328,7 +376,9 @@ const PDFCompressor = ({ presetKB } = {}) => {
       backLabel="Compress another PDF"
       note={result?.note && /target not reached/.test(result.note)
         ? 'Target not reached — this is the smallest it goes without heavy quality loss.'
-        : 'Text stays selectable. The file stays on your device.'}
+        : result?.onDevice
+          ? 'Text stays selectable. Done on your device — nothing was uploaded.'
+          : 'Text stays selectable. Processed on our server and not kept.'}
     />
   ) : null;
 
@@ -360,7 +410,7 @@ const PDFCompressor = ({ presetKB } = {}) => {
         </p>
       </div>
 
-      {server === 'unavailable' && (
+      {server === 'unavailable' && !onDevice && (
         <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-2">
           The compression service isn&apos;t responding right now. Please try again in a little while.
         </p>

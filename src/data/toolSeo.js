@@ -437,17 +437,17 @@ const toolSeo = {
       'This tool uses FileQuick’s conversion engine. Choose it when a PDF is too large to send; if the file is mostly photos you scanned, the Document Scanner produces smaller output to begin with.',
     ],
     steps: [
-      'Open Compress PDF and upload your file.',
+      'Open Compress PDF and choose your file.',
       'Pick a compression level (more compression = smaller file, lower image quality).',
       'Start the compression and wait for it to finish.',
       'Download the smaller PDF and check it opens correctly.',
     ],
     faqs: [
-      { q: 'How do I reduce a PDF to under 1 MB?', a: 'Upload it, choose a stronger compression level, and download. Very image-heavy PDFs may need the highest level; text-only PDFs are already small.' },
+      { q: 'How do I reduce a PDF to under 1 MB?', a: 'Choose your file, pick a stronger compression level, and download. Very image-heavy PDFs may need the highest level; text-only PDFs are already small.' },
       { q: 'Will compressing a PDF lose quality?', a: 'Embedded images are re-sampled, so photos lose some detail. Text, fonts and vector graphics are untouched and stay crisp.' },
       { q: 'How do I compress a PDF for email or WhatsApp?', a: 'Most mail and chat limits are 25 MB or less. Compress at a medium level first, and increase it only if the file is still too big.' },
       { q: 'Does the compressed PDF keep selectable text?', a: 'Yes — the text layer is preserved, so the document stays searchable and copy-able.' },
-      { q: 'Is my PDF safe?', a: 'Files are processed for conversion and not stored long-term. For fully on-device processing, use the browser-only tools like Merge or Split PDF.' },
+      { q: 'Is my PDF safe?', a: 'Medium and Strong run on your own device, so the file is never uploaded. Light and target-size compression use our server, which processes the file and does not keep it.' },
     ],
     related: [
       { id: 'delete-pages', text: 'drop pages you don\'t need — the fastest way to a smaller file' },
