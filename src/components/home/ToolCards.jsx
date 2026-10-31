@@ -238,7 +238,7 @@ const CARDS = [
     Art: CompressArt,
     tools: ['pdf-compressor'],
     to: 'pdf-compressor',
-    maxMB: SERVER_UPLOAD_MB.light,
+    maxMB: SERVER_UPLOAD_MB.compress,
     fits: isPdf,
     wrongType: 'Please choose a PDF file.',
   },

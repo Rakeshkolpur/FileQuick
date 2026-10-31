@@ -120,7 +120,7 @@ const PDFCompressor = ({ presetKB } = {}) => {
       let uploaded = false;
       const res = await api.post('/pdf/compress', fd, {
         responseType: 'blob',
-        timeout: 240000,
+        timeout: 600000, // an 80 MB upload on mobile data alone can take minutes
         onUploadProgress: (e) => {
           const f = e.total ? e.loaded / e.total : 0;
           if (f < 1) {
@@ -174,7 +174,7 @@ const PDFCompressor = ({ presetKB } = {}) => {
     } catch (e) {
       let msg = 'Could not compress this PDF.';
       if (e.response?.status === 413) {
-        msg = `That PDF is too large — the compression service takes files up to ${SERVER_UPLOAD_MB.light} MB.`;
+        msg = `That PDF is too large — the compression service takes files up to ${SERVER_UPLOAD_MB.compress} MB.`;
       } else if (e.response?.data) {
         try { msg = JSON.parse(await e.response.data.text()).error || msg; } catch (_) { /* keep */ }
       } else if (e.code === 'ERR_NETWORK') {
@@ -336,8 +336,8 @@ const PDFCompressor = ({ presetKB } = {}) => {
     <ToolWorkspace
       file={file}
       accept="application/pdf,.pdf"
-      maxMB={SERVER_UPLOAD_MB.light}
-      formats={`PDF up to ${SERVER_UPLOAD_MB.light} MB — text stays selectable`}
+      maxMB={SERVER_UPLOAD_MB.compress}
+      formats={`PDF up to ${SERVER_UPLOAD_MB.compress} MB — text stays selectable`}
       dropTitle="Drop a PDF to compress"
       dropHint="or click to browse"
       paste={false}

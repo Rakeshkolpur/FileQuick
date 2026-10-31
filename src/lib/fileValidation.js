@@ -38,7 +38,8 @@ export const DESKTOP_LIMIT_MB = 100;
 // job, so a few concurrent large files would take the box down.
 export const SERVER_UPLOAD_MB = {
   convert: 20, // word/ppt/excel <-> pdf (LibreOffice, pdf2docx)
-  light: 50, //   compress / unlock / protect (pikepdf, pymupdf — streamed)
+  light: 50, //   unlock / protect (pikepdf, pymupdf — streamed)
+  compress: 80, // Compress PDF (server allows 85 MB for this route only)
 };
 
 const isDesktopApp = () =>
