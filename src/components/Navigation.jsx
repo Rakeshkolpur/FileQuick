@@ -174,7 +174,7 @@ const Navigation = () => {
                   onMouseLeave={() => setOpenDropdown(null)}
                 >
                   <Link
-                    to={`/${cat.slug}`}
+                    to={cat.to || `/${cat.slug}`}
                     className={`flex items-center whitespace-nowrap px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
                       open
                         ? 'bg-black/[0.05] text-purple-600 dark:bg-white/10 dark:text-purple-300'

@@ -8,6 +8,8 @@
 
 // slug -> canonical slug (a tool id or a landing page slug)
 export const TOOL_ALIASES = {
+  // the old "All Tools" menu link
+  all: 'all-tools',
   // PDF editor
   'edit-pdf-text': 'pdf-editor',
   'edit-pdf': 'pdf-editor',

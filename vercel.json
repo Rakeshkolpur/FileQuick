@@ -30,6 +30,11 @@
       "permanent": true
     },
     {
+      "source": "/all",
+      "destination": "/all-tools",
+      "permanent": true
+    },
+    {
       "source": "/edit-pdf-text",
       "destination": "/pdf-editor",
       "permanent": true

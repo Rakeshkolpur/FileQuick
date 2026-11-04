@@ -17,12 +17,39 @@ document.querySelectorAll('script[data-prerendered]').forEach((el) => el.remove(
 // After a deploy, an open tab can ask for old chunk files — reload instead of failing.
 installChunkErrorReload();
 
-createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <Router>
-      <ThemeProvider>
-        <App />
-      </ThemeProvider>
-    </Router>
-  </StrictMode>,
-);
+// The pre-rendered page loads the stylesheet without blocking its first paint
+// (see scripts/prerender.mjs): don't take over the page before it's there.
+function stylesheetReady() {
+  const link = document.querySelector('link[data-fq-css]');
+  if (!link || link.media !== 'print') return Promise.resolve();
+  return new Promise((resolve) => {
+    link.addEventListener('load', resolve, { once: true });
+    link.addEventListener('error', resolve, { once: true });
+    setTimeout(resolve, 10000);
+  });
+}
+
+// A link tapped on the pre-rendered page before the app was ready: open it now.
+function takePendingTap() {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem('fq:goto') || 'null');
+    sessionStorage.removeItem('fq:goto');
+    if (saved && Date.now() - saved.at < 60000 && /^\/[\w\-/]*$/.test(saved.to) && saved.to !== window.location.pathname) {
+      window.history.replaceState(null, '', saved.to);
+    }
+  } catch { /* storage blocked */ }
+}
+
+stylesheetReady().then(() => {
+  takePendingTap();
+  createRoot(document.getElementById('root')).render(
+    <StrictMode>
+      <Router>
+        <ThemeProvider>
+          <App />
+        </ThemeProvider>
+      </Router>
+    </StrictMode>,
+  );
+  window.__fqApp = true;
+});

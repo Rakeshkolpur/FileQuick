@@ -112,6 +112,9 @@ html.dark .fq-load{background:#1f2937;border-color:#374151}
 .fq-spin{flex:none;width:22px;height:22px;border-radius:50%;border:3px solid #c7d2fe;border-top-color:#6366f1;animation:fqspin .8s linear infinite}
 .fq-slow{display:block;margin-top:2px;font-size:12.5px;font-weight:400;color:#6b7280;opacity:0;animation:fqshow .3s 8s forwards}
 .fq-slow a{color:#6366f1;font-weight:600}
+.fq-going-bar{display:none}
+html.fq-going .fq-going-bar{display:flex;align-items:center;gap:10px;position:fixed;left:12px;right:12px;top:72px;z-index:50;padding:12px 16px;border-radius:14px;background:#4f46e5;color:#fff;font-weight:600;font-size:14px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+html.fq-going .fq-going-bar::before{content:"";width:16px;height:16px;flex:none;border-radius:50%;border:2.5px solid rgba(255,255,255,.35);border-top-color:#fff;animation:fqspin .8s linear infinite}
 @keyframes fqspin{to{transform:rotate(360deg)}}@keyframes fqshow{to{opacity:1}}
 .fq details{margin-top:16px;border:1px solid #e5e7eb;border-radius:14px;background:#fff;padding:0 16px}
 html.dark .fq details{background:#1f2937;border-color:#374151}
@@ -125,6 +128,14 @@ html.dark .fq details{background:#1f2937;border-color:#374151}
 // Same rule as ThemeContext, run before first paint so the page (and the app
 // after it) doesn't flash the wrong theme.
 const THEME_SCRIPT = `<script>try{var d=localStorage.getItem('darkMode');if(d===null?matchMedia('(prefers-color-scheme: dark)').matches:d==='true')document.documentElement.classList.add('dark')}catch(e){}</script>`;
+
+// A tap on this page's links before the app has loaded used to start a full
+// page load, which cancels the app download already in progress, so it began
+// again from zero (and again on every impatient tap). Instead: remember where
+// they wanted to go, say so, and let main.jsx open it once the app is ready.
+// If the app hasn't started within 20 s (broken network), fall back to a
+// normal link.
+const TAP_SCRIPT = `<script>document.addEventListener('click',function(e){if(window.__fqApp||e.defaultPrevented||e.ctrlKey||e.metaKey||e.shiftKey||e.button)return;var a=e.target.closest&&e.target.closest('[data-prerendered] a[href^="/"]');if(!a)return;e.preventDefault();var to=a.getAttribute('href');try{sessionStorage.setItem('fq:goto',JSON.stringify({to:to,at:Date.now()}))}catch(x){}var h=a.querySelector('h3'),b=document.getElementById('fq-going');if(b){b.textContent='Opening '+(h?h.textContent:a.textContent).trim()+'\u2026';document.documentElement.classList.add('fq-going')}clearTimeout(window.__fqGoT);window.__fqGoT=setTimeout(function(){if(!window.__fqApp)location.href=to},20000)},true)</script>`;
 
 const template = readFileSync(resolve(dist, 'index.html'), 'utf8');
 const sitemap = []; // { path, priority }
@@ -149,10 +160,16 @@ function page({ path, title, description, robots = 'index, follow', ld = [], bod
     `<meta name="twitter:description" content="${esc(description)}" />`,
     ...ld.map(jsonLd),
     THEME_SCRIPT,
+    TAP_SCRIPT,
     SHELL_CSS,
   ].join('\n    ');
   html = html.replace('</head>', `    ${extra}\n  </head>`);
   swap(/<div id="root"><\/div>/, `<div id="root">${body}</div>`, 'root div');
+  // The app's stylesheet no longer blocks the first paint: this page has its
+  // own inline styles, so on a slow connection it shows at once instead of a
+  // blank screen until the CSS arrives. main.jsx waits for the CSS before the
+  // app takes over the page, so the app never shows unstyled.
+  swap(/<link rel="stylesheet" crossorigin href="([^"]+)">/, '<link rel="stylesheet" crossorigin href="$1" media="print" onload="this.media=\'all\'" data-fq-css><noscript><link rel="stylesheet" href="$1"></noscript>', 'stylesheet link');
 
   const file = path === '/' ? resolve(dist, 'index.html') : resolve(dist, `${path.slice(1)}.html`);
   mkdirSync(dirname(file), { recursive: true });
@@ -187,6 +204,7 @@ const footer = `<details>
 <a href="/about">About</a> · <a href="/faq">FAQ</a> · <a href="/contact">Contact</a> · <a href="/privacy-policy">Privacy</a> · <a href="/terms-of-service">Terms</a></p>`;
 
 const wrap = (main) => `<div data-prerendered="" class="fq">
+<div id="fq-going" class="fq-going-bar" role="status" aria-live="polite"></div>
 ${header}
 <main class="fq-page">${main}</main>
 ${footer}
