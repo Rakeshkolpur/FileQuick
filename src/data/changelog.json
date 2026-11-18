@@ -1,5 +1,18 @@
 [
   {
+    "version": "1.0.22",
+    "date": "2026-11-18",
+    "notes": [
+      "PDF to Word: our own conversion engine — fonts, sizes, alignment, tables and page layout stay much closer to the original",
+      "PDF to Word reads scanned pages too, including Hindi, Kannada and other Indian languages",
+      "Compress PDF: Medium and Strong now run right on your computer — a 45 MB PDF in a few seconds",
+      "Progress screens show what's happening — real steps, a running timer and \"please wait\", so a long job never looks stuck",
+      "Tools open faster: the big PDF libraries load only when a tool actually needs them",
+      "Resize Image: cropping no longer hides your KB / size settings",
+      "PDF to Excel, PowerPoint and Text now open a PDF sent from another tool"
+    ]
+  },
+  {
     "version": "1.0.21",
     "date": "2026-10-15",
     "notes": [
