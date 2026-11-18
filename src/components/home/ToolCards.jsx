@@ -9,7 +9,7 @@ import { SERVER_UPLOAD_MB, screenFiles, rejectionMessage } from '../../lib/fileV
 import { handOffFile } from '../../lib/fileHandoff';
 import { stashPdf } from '../../lib/pdfHandoff';
 import { formatBytes } from '../../lib/format';
-import { preloadTool, preloadWhenIdle } from '../../lib/preloadTool';
+import { preloadTool } from '../../lib/preloadTool';
 import { warmPdfjs } from '../../lib/pdfjs';
 
 /**
@@ -502,9 +502,6 @@ const ToolCard = ({ card }) => {
 };
 
 const ToolCards = () => {
-  // the most used tool: have it ready before anyone even touches a card
-  useEffect(() => preloadWhenIdle('resize-image'), []);
-
   return (
     <section aria-labelledby="start-heading">
       <div className="text-center">
